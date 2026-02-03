@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Groups - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold">Groups</h1>
+            <p class="text-base-content/70 mt-1">Parliamentary groups and committees</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for group in groups %}
+        <a href="{% url 'group_detail' group.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition">
+            <div class="card-body">
+                <h2 class="card-title">{{ group.name }}</h2>
+                <div class="badge badge-outline">{{ group.group_type.name }}</div>
+                {% if group.description %}
+                <p class="text-sm text-base-content/70 mt-2">{{ group.description|truncatewords:20 }}</p>
+                {% endif %}
+                <div class="card-actions justify-end mt-4">
+                    <div class="badge badge-ghost">
+                        <i data-lucide="users" class="w-3 h-3 mr-1"></i>
+                        {{ group.get_active_members.count }} members
+                    </div>
+                </div>
+            </div>
+        </a>
+        {% empty %}
+        <div class="col-span-full text-center py-12 text-base-content/50">
+            <i data-lucide="users-2" class="w-16 h-16 mx-auto mb-4"></i>
+            <p>No groups found</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

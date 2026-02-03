@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block title %}Workflows - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold">Workflows</h1>
+            <p class="text-base-content/70 mt-1">Manage parliamentary workflows</p>
+        </div>
+        <button class="btn btn-primary">
+            <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+            New Workflow
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="card bg-base-100 shadow">
+        <div class="card-body">
+            <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div class="form-control">
+                    <input type="text" name="search" placeholder="Search workflows..." 
+                           value="{{ request.GET.search }}" class="input input-bordered">
+                </div>
+                
+                <div class="form-control">
+                    <select name="type" class="select select-bordered">
+                        <option value="">All Types</option>
+                        {% for wf_type in workflow_types %}
+                        <option value="{{ wf_type.id }}" {% if request.GET.type == wf_type.id|stringformat:"s" %}selected{% endif %}>
+                            {{ wf_type.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-control">
+                    <select name="state" class="select select-bordered">
+                        <option value="">All States</option>
+                        {% for state in states %}
+                        <option value="{{ state.id }}" {% if request.GET.state == state.id|stringformat:"s" %}selected{% endif %}>
+                            {{ state.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-control">
+                    <select name="priority" class="select select-bordered">
+                        <option value="">All Priorities</option>
+                        <option value="urgent" {% if request.GET.priority == "urgent" %}selected{% endif %}>Urgent</option>
+                        <option value="high" {% if request.GET.priority == "high" %}selected{% endif %}>High</option>
+                        <option value="medium" {% if request.GET.priority == "medium" %}selected{% endif %}>Medium</option>
+                        <option value="low" {% if request.GET.priority == "low" %}selected{% endif %}>Low</option>
+                    </select>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-1">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </button>
+                    <a href="{% url 'workflow_list' %}" class="btn btn-ghost">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Workflows Table -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-0">
+            <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>State</th>
+                            <th>Group</th>
+                            <th>Priority</th>
+                            <th>Owner</th>
+                            <th>Deadline</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for workflow in workflows %}
+                        <tr class="hover">
+                            <td>
+                                <div class="font-semibold">{{ workflow.title|truncatewords:10 }}</div>
+                                <div class="text-xs text-base-content/60">
+                                    Created {{ workflow.created_at|timesince }} ago
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-outline">{{ workflow.workflow_type.name }}</span>
+                            </td>
+                            <td>
+                                <span class="badge" style="background-color: {{ workflow.current_state.color }}; color: white;">
+                                    {{ workflow.current_state.name }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="text-sm">{{ workflow.group.name|truncatewords:5 }}</div>
+                            </td>
+                            <td>
+                                {% if workflow.priority == 'urgent' %}
+                                    <span class="badge badge-error">Urgent</span>
+                                {% elif workflow.priority == 'high' %}
+                                    <span class="badge badge-warning">High</span>
+                                {% elif workflow.priority == 'medium' %}
+                                    <span class="badge badge-info">Medium</span>
+                                {% else %}
+                                    <span class="badge badge-ghost">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="avatar placeholder">
+                                        <div class="bg-primary text-primary-content rounded-full w-8">
+                                            <span class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="text-sm">{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if workflow.deadline %}
+                                    <div class="text-sm {% if workflow.is_overdue %}text-error{% endif %}">
+                                        {{ workflow.deadline|date:"M d, Y" }}
+                                        {% if workflow.is_overdue %}
+                                            <i data-lucide="alert-circle" class="w-4 h-4 inline"></i>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-base-content/50">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-sm btn-ghost">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-12">
+                                <div class="text-base-content/50">
+                                    <i data-lucide="inbox" class="w-16 h-16 mx-auto mb-4"></i>
+                                    <p class="text-lg">No workflows found</p>
+                                    <p class="text-sm mt-2">Try adjusting your filters or create a new workflow</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

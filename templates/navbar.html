@@ -1,0 +1,71 @@
+<!-- Top Navbar -->
+  <div class="navbar navbar-custom shadow-lg sticky top-0 z-50">
+    <div class="flex-none">
+      <label for="sidebar-drawer" class="btn btn-square btn-ghost drawer-button lg:hidden">
+        <i data-lucide="menu" class="w-6 h-6"></i>
+      </label>
+    </div>
+    <div>
+      <a href="{% url 'dashboard' %}" class="text-center flex h-16 items-center text-3xl h-full justify-center">
+        <i data-lucide="landmark" class="w-12 h-12 mr-2"></i>
+        <span class="leading-none align-middle">BUNGENI</span>
+      </a>
+    </div>
+    <div class="flex-1 justify-center">
+      <!-- Search -->
+      <div class="form-control hidden md:block">
+        <input type="text" placeholder="Search Workflows..." class="input input-bordered w-96" />
+      </div>
+    </div>
+    <div class="flex-none gap-2">
+      <!-- Theme Toggle -->
+      <button onclick="toggleTheme()" class="btn btn-ghost btn-circle">
+        <i data-lucide="sun" class="w-5 h-5 theme-icon-light"></i>
+        <i data-lucide="moon" class="w-5 h-5 theme-icon-dark hidden"></i>
+      </button>
+      <!-- Notifications -->
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-circle">
+          <div class="indicator">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span class="badge badge-xs badge-error indicator-item">3</span>
+          </div>
+        </label>
+        <div tabindex="0" class="mt-3 card card-compact dropdown-content w-80 bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h3 class="font-bold text-lg">Notifications</h3>
+            <div class="space-y-2">
+              <div class="alert alert-info text-sm">
+                <span>New workflow assigned to you</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Menu -->
+      <div class="dropdown dropdown-end">
+        <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+          <div class="w-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
+            {% if user.is_authenticated %}
+            {{ user.first_name.0|default:user.username.0|upper }}
+            {% else %}
+            <i data-lucide="user" class="w-5 h-5"></i>
+            {% endif %}
+          </div>
+        </label>
+        <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 p-2 shadow bg-base-100 rounded-box w-52">
+          {% if user.is_authenticated %}
+          <li class="menu-title">
+            <span>{{ user.get_full_name|default:user.username }}</span>
+          </li>
+          <li><a href="#"><i data-lucide="user" class="w-4 h-4"></i> Profile</a></li>
+          <li><a href="#"><i data-lucide="settings" class="w-4 h-4"></i> Settings</a></li>
+          <li><a href="{% url 'logout' %}"><i data-lucide="log-out" class="w-4 h-4"></i> Logout</a></li>
+          {% else %}
+          <li><a href="{% url 'login' %}"><i data-lucide="log-in" class="w-4 h-4"></i> Login</a></li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>

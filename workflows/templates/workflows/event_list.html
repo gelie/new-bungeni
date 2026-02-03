@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Events - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold">Events</h1>
+            <p class="text-base-content/70 mt-1">Parliamentary events and meetings</p>
+        </div>
+        <button class="btn btn-primary">
+            <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+            New Event
+        </button>
+    </div>
+
+    <!-- Upcoming Events -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i data-lucide="calendar" class="w-5 h-5"></i>
+                Upcoming Events
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                {% for event in upcoming_events %}
+                <a href="{% url 'event_detail' event.pk %}" class="card bg-base-200 hover:shadow-lg transition">
+                    <div class="card-body">
+                        <div class="flex justify-between items-start">
+                            <div class="badge badge-primary">{{ event.event_type.name }}</div>
+                            <div class="badge badge-outline">{{ event.status|title }}</div>
+                        </div>
+                        <h3 class="card-title text-base mt-2">{{ event.title|truncatewords:8 }}</h3>
+                        <div class="space-y-2 text-sm text-base-content/70 mt-2">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                                {{ event.start_datetime|date:"M d, Y" }}
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="clock" class="w-4 h-4"></i>
+                                {{ event.start_datetime|date:"H:i" }} - {{ event.end_datetime|date:"H:i" }}
+                            </div>
+                            {% if event.venue %}
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                {{ event.venue.name }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </a>
+                {% empty %}
+                <div class="col-span-full text-center py-12 text-base-content/50">
+                    <i data-lucide="calendar-x" class="w-16 h-16 mx-auto mb-4"></i>
+                    <p>No upcoming events</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Past Events -->
+    {% if past_events %}
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i data-lucide="archive" class="w-5 h-5"></i>
+                Past Events
+            </h2>
+            <div class="overflow-x-auto mt-4">
+                <table class="table table-zebra">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in past_events|slice:":10" %}
+                        <tr>
+                            <td>{{ event.title }}</td>
+                            <td><span class="badge badge-outline">{{ event.event_type.name }}</span></td>
+                            <td>{{ event.start_datetime|date:"M d, Y" }}</td>
+                            <td><span class="badge">{{ event.status|title }}</span></td>
+                            <td>
+                                <a href="{% url 'event_detail' event.pk %}" class="btn btn-sm btn-ghost">
+                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

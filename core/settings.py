@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "mptt",
     "workflows",
 ]
 
@@ -120,3 +121,8 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Custom user model
 AUTH_USER_MODEL = "workflows.User"
+
+# Login URLs
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/login/"

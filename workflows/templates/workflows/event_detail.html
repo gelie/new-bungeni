@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ event.title }} - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="text-sm breadcrumbs">
+        <ul>
+            <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
+            <li><a href="{% url 'event_list' %}">Events</a></li>
+            <li>{{ event.title|truncatewords:5 }}</li>
+        </ul>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-3xl font-bold">{{ event.title }}</h1>
+                    <div class="flex gap-2 mt-4">
+                        <span class="badge badge-lg badge-primary">{{ event.event_type.name }}</span>
+                        <span class="badge badge-lg badge-outline">{{ event.status|title }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-sm text-base-content/70">Date & Time</div>
+                        <div class="font-semibold">
+                            {{ event.start_datetime|date:"F d, Y" }}<br>
+                            {{ event.start_datetime|date:"H:i" }} - {{ event.end_datetime|date:"H:i" }}
+                        </div>
+                    </div>
+                    {% if event.venue %}
+                    <div>
+                        <div class="text-sm text-base-content/70">Venue</div>
+                        <div class="font-semibold">{{ event.venue.name }}</div>
+                        {% if event.venue.location %}
+                        <div class="text-sm text-base-content/60">{{ event.venue.location }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-sm text-base-content/70">Group</div>
+                        <div class="font-semibold">{{ event.group.name }}</div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-base-content/70">Organizer</div>
+                        <div>{{ event.organizer.get_full_name|default:event.organizer.username }}</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if event.description %}
+            <div class="divider"></div>
+            <div>
+                <div class="text-sm text-base-content/70 mb-2">Description</div>
+                <div class="prose max-w-none">{{ event.description|linebreaks }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Attendance -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">
+                <i data-lucide="users" class="w-5 h-5"></i>
+                Attendance
+            </h2>
+            <div class="overflow-x-auto mt-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendance in attendances %}
+                        <tr>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div class="avatar placeholder">
+                                        <div class="bg-neutral text-neutral-content rounded-full w-8">
+                                            <span class="text-xs">{{ attendance.user.first_name.0|default:attendance.user.username.0|upper }}</span>
+                                        </div>
+                                    </div>
+                                    {{ attendance.user.get_full_name|default:attendance.user.username }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge {% if attendance.status == 'attended' %}badge-success{% elif attendance.status == 'absent' %}badge-error{% else %}badge-info{% endif %}">
+                                    {{ attendance.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ attendance.notes|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center text-base-content/50">No attendance records</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
