@@ -1,0 +1,98 @@
+/* Custom CSS */
+/* Parliament of SA Color Scheme */
+:root {
+    --parliament-green: #275937;
+    --parliament-green-dark: #004d28;
+    --parliament-green-light: #5b8f22;
+    --parliament-gold: #efbd47;
+    --parliament-gold-dark: #9e7c0c;
+    --parliament-gold-light: #b3995d;
+    --parliament-red: #cc4b37;
+    --parliament-blue: #003da5;
+    --parliament-black: #0a0a0a;
+    --parliament-white: #fefefe;
+    --parliament-gray: #8a8a8a;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+    --primary: var(--parliament-green);
+    --primary-focus: var(--parliament-green-dark);
+    --primary-content: var(--parliament-white);
+    --secondary: var(--parliament-gold);
+    --secondary-focus: var(--parliament-gold-dark);
+    --accent: var(--parliament-blue);
+    --neutral: var(--parliament-gray);
+}
+
+/* Dark Theme */
+[data-theme="dark"] {
+    --primary: var(--parliament-green-light);
+    --primary-focus: var(--parliament-green);
+    --primary-content: var(--parliament-white);
+    --secondary: var(--parliament-gold);
+    --secondary-focus: var(--parliament-gold-dark);
+    --accent: var(--parliament-blue);
+    --neutral: #1f2937;
+    --base-100: #111827;
+    --base-200: #1f2937;
+    --base-300: #374151;
+}
+
+body {
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Open Sans",
+        "Helvetica Neue", Arial, sans-serif;
+}
+
+.sidebar {
+    background: var(--parliament-green);
+    color: white;
+}
+
+.sidebar a {
+    color: white;
+    /* transition: all 0.05s; */
+}
+
+.sidebar a:hover {
+    background: var(--parliament-green-dark);
+}
+
+.sidebar a.active {
+    background: var(--parliament-green-dark);
+    border-left: 4px solid var(--parliament-gold);
+}
+
+.navbar-custom {
+    background: var(--parliament-green);
+    color: white;
+}
+
+.btn-primary {
+    background: var(--parliament-green);
+    border-color: var(--parliament-green);
+}
+
+.btn-primary:hover {
+    background: var(--parliament-green-dark);
+    border-color: var(--parliament-green-dark);
+}
+
+.badge-urgent {
+    background: var(--parliament-red);
+    color: white;
+}
+
+.badge-high {
+    background: var(--parliament-gold);
+    color: black;
+}
+
+[data-theme="dark"] .sidebar {
+    background: var(--parliament-green-dark);
+}
+
+[data-theme="dark"] .navbar-custom {
+    background: var(--parliament-green-dark);
+}
