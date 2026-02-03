@@ -140,7 +140,7 @@
                                 {{ item.count }}
                             </span>
                         </div>
-                        <progress class="progress" value="{{ item.count }}" max="{{ total_workflows }}" 
+                        <progress class="progress" value="{{ item.count }}" max="{{ total_workflows }}"
                                   style="--progress-color: {{ item.current_state__color }}"></progress>
                     </div>
                     {% empty %}
@@ -162,7 +162,7 @@
                     <div>
                         <div class="flex justify-between text-sm mb-1">
                             <span class="font-semibold capitalize">{{ item.priority }}</span>
-                            <span class="badge 
+                            <span class="badge
                                 {% if item.priority == 'urgent' %}badge-error
                                 {% elif item.priority == 'high' %}badge-warning
                                 {% elif item.priority == 'medium' %}badge-info
@@ -170,11 +170,11 @@
                                 {{ item.count }}
                             </span>
                         </div>
-                        <progress class="progress 
+                        <progress class="progress
                             {% if item.priority == 'urgent' %}progress-error
                             {% elif item.priority == 'high' %}progress-warning
                             {% elif item.priority == 'medium' %}progress-info
-                            {% else %}progress-ghost{% endif %}" 
+                            {% else %}progress-ghost{% endif %}"
                             value="{{ item.count }}" max="{{ total_workflows }}"></progress>
                     </div>
                     {% empty %}
@@ -250,7 +250,7 @@
                             </td>
                             <td>
                                 <div class="flex items-center gap-2">
-                                    <div class="avatar placeholder">
+                                    <div class="avatar avatar-placeholder">
                                         <div class="bg-neutral text-neutral-content rounded-full w-8">
                                             <span class="text-xs">{{ log.user.first_name.0|default:log.user.username.0|upper }}</span>
                                         </div>

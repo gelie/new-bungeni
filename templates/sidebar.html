@@ -1,0 +1,51 @@
+<!-- Sidebar -->
+<div class="drawer-side">
+  <label for="sidebar-drawer" class="drawer-overlay"></label>
+  <aside class="sidebar w-64 min-h-screen">
+    <ul class="menu p-4 space-y-2 w-full">
+      <li class="text-lg">
+        <a href="{% url 'dashboard' %}"
+          class="{% if request.resolver_match.url_name == 'dashboard' %}menu-active{% endif %}">
+          <i data-lucide="pie-chart" class="w-5 h-5"></i>
+          Dashboard
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'workflow_list' %}" class="{% if 'workflow' in request.path %}menu-active{% endif %}">
+          <i data-lucide="git-branch" class="w-5 h-5"></i>
+          Workflows
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'event_list' %}" class="{% if 'event' in request.path %}menu-active{% endif %}">
+          <i data-lucide="calendar" class="w-5 h-5"></i>
+          Events
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'group_list' %}" class="{% if 'group' in request.path %}menu-active{% endif %}">
+          <i data-lucide="users" class="w-5 h-5"></i>
+          Groups
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'reports' %}" class="{% if 'report' in request.path %}menu-active{% endif %}">
+          <i data-lucide="file-text" class="w-5 h-5"></i>
+          Reports
+        </a>
+      </li>
+      {% if user.is_staff %}
+      <li class="menu-title mt-4">
+        <span>Administration</span>
+      </li>
+      <li class="text-lg">
+        <a href="/admin/">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+          Admin Panel
+        </a>
+      </li>
+      {% endif %}
+    </ul>
+  </aside>
+</div>
+</div>

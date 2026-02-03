@@ -21,12 +21,12 @@
         <div class="card-body">
             <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div class="form-control">
-                    <input type="text" name="search" placeholder="Search workflows..." 
-                           value="{{ request.GET.search }}" class="input input-bordered">
+                    <input type="text" name="search" placeholder="Search workflows..."
+                           value="{{ request.GET.search }}" class="input">
                 </div>
-                
+
                 <div class="form-control">
-                    <select name="type" class="select select-bordered">
+                    <select name="type" class="select">
                         <option value="">All Types</option>
                         {% for wf_type in workflow_types %}
                         <option value="{{ wf_type.id }}" {% if request.GET.type == wf_type.id|stringformat:"s" %}selected{% endif %}>
@@ -35,9 +35,9 @@
                         {% endfor %}
                     </select>
                 </div>
-                
+
                 <div class="form-control">
-                    <select name="state" class="select select-bordered">
+                    <select name="state" class="select">
                         <option value="">All States</option>
                         {% for state in states %}
                         <option value="{{ state.id }}" {% if request.GET.state == state.id|stringformat:"s" %}selected{% endif %}>
@@ -46,9 +46,9 @@
                         {% endfor %}
                     </select>
                 </div>
-                
+
                 <div class="form-control">
-                    <select name="priority" class="select select-bordered">
+                    <select name="priority" class="select">
                         <option value="">All Priorities</option>
                         <option value="urgent" {% if request.GET.priority == "urgent" %}selected{% endif %}>Urgent</option>
                         <option value="high" {% if request.GET.priority == "high" %}selected{% endif %}>High</option>
@@ -56,7 +56,7 @@
                         <option value="low" {% if request.GET.priority == "low" %}selected{% endif %}>Low</option>
                     </select>
                 </div>
-                
+
                 <div class="flex gap-2">
                     <button type="submit" class="btn btn-primary flex-1">
                         <i data-lucide="search" class="w-4 h-4"></i>
@@ -88,7 +88,7 @@
                     </thead>
                     <tbody>
                         {% for workflow in workflows %}
-                        <tr class="hover">
+                        <tr class="hover:bg-base-300">
                             <td>
                                 <div class="font-semibold">{{ workflow.title|truncatewords:10 }}</div>
                                 <div class="text-xs text-base-content/60">
@@ -119,7 +119,7 @@
                             </td>
                             <td>
                                 <div class="flex items-center gap-2">
-                                    <div class="avatar placeholder">
+                                    <div class="avatar avatar-placeholder">
                                         <div class="bg-primary text-primary-content rounded-full w-8">
                                             <span class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
                                         </div>

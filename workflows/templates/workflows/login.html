@@ -4,32 +4,69 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Bungeni</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5.5.17/dist/full.min.css" rel="stylesheet" type="text/css" />
     <script src="https://unpkg.com/lucide@latest"></script>
-    
+
     <style>
         :root {
             --parliament-green: #006838;
             --parliament-gold: #FFB81C;
         }
-        
+
         .bg-parliament-green {
             background-color: var(--parliament-green);
         }
-        
+
         .text-parliament-gold {
             color: var(--parliament-gold);
+        }
+
+        /* Fix DaisyUI 5 form spacing */
+        .form-control {
+            margin-bottom: 1rem;
+        }
+
+        .form-control .label {
+            padding-left: 0;
+            padding-right: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-control .input {
+            margin-top: 0.25rem;
+        }
+
+        /* Ensure proper card body spacing */
+        .card-body {
+            padding: 2rem;
+        }
+
+        /* Fix button compression */
+        .btn {
+            min-height: 3rem !important;
+            padding: 0.75rem 1.5rem !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0.5rem !important;
+            font-size: 1rem !important;
+            line-height: 1.5 !important;
+            border-radius: 0.5rem !important;
+        }
+
+        .btn:not(:disabled):not(.btn-disabled):hover {
+            transform: none !important;
         }
     </style>
 </head>
 <body class="bg-base-200">
     <div class="min-h-screen flex items-center justify-center p-4">
         <div class="card w-full max-w-md bg-base-100 shadow-2xl">
-            <div class="card-body">
+            <div class="card-body p-8">
                 <!-- Logo and Title -->
-                <div class="text-center mb-6">
+                <div class="text-center mb-8">
                     <div class="bg-parliament-green text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i data-lucide="landmark" class="w-8 h-8"></i>
                     </div>
@@ -39,7 +76,7 @@
 
                 <!-- Messages -->
                 {% if messages %}
-                    <div class="space-y-2 mb-4">
+                    <div class="space-y-2 mb-6">
                         {% for message in messages %}
                             <div class="alert alert-{{ message.tags }}">
                                 <span>{{ message }}</span>
@@ -49,51 +86,54 @@
                 {% endif %}
 
                 <!-- Login Form -->
-                <form method="post" class="space-y-4">
+                <form method="post" class="space-y-6">
                     {% csrf_token %}
-                    
+
                     <div class="form-control">
-                        <label class="label">
-                            <span class="label-text">Username</span>
+                        <label class="label pb-2" for="username">
+                            <span class="label-text text-base font-medium">Username</span>
                         </label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3">
                                 <i data-lucide="user" class="w-5 h-5 text-base-content/50"></i>
                             </span>
-                            <input type="text" name="username" placeholder="Enter your username" 
-                                   class="input input-bordered w-full pl-10" required autofocus>
+                            <input type="text" id="username" name="username" placeholder="Enter your username"
+                                   class="input w-full pl-10 h-12" required autofocus>
                         </div>
                     </div>
 
                     <div class="form-control">
-                        <label class="label">
-                            <span class="label-text">Password</span>
+                        <label class="label pb-2" for="password">
+                            <span class="label-text text-base font-medium">Password</span>
                         </label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3">
                                 <i data-lucide="lock" class="w-5 h-5 text-base-content/50"></i>
                             </span>
-                            <input type="password" name="password" placeholder="Enter your password" 
-                                   class="input input-bordered w-full pl-10" required>
+                            <input type="password" id="password" name="password" placeholder="Enter your password"
+                                   class="input w-full pl-10 h-12" required>
                         </div>
-                        <label class="label">
-                            <a href="#" class="label-text-alt link link-hover">Forgot password?</a>
+                        <label class="label pt-2">
+                            <span></span>
+                            <a href="#" class="label-text-alt link link-hover text-sm">Forgot password?</a>
                         </label>
                     </div>
 
-                    <div class="form-control mt-6">
-                        <button type="submit" class="btn bg-parliament-green hover:bg-parliament-green/90 text-white border-0">
+                    <div class="form-control mt-8">
+                        <button type="submit" class="btn bg-parliament-green hover:bg-parliament-green/90 text-white border-0 w-full">
                             <i data-lucide="log-in" class="w-5 h-5 mr-2"></i>
                             Sign In
                         </button>
                     </div>
                 </form>
 
-                <div class="divider">OR</div>
+                <div class="divider my-6">OR</div>
 
                 <div class="text-center text-sm text-base-content/70">
-                    <p>For demo purposes, use:</p>
-                    <p class="font-mono text-xs mt-1">admin / admin</p>
+                    <p class="mb-2">For demo purposes, use:</p>
+                    <div class="bg-base-200 rounded-lg p-3">
+                        <p class="font-mono text-sm font-semibold">admin / admin</p>
+                    </div>
                 </div>
             </div>
         </div>

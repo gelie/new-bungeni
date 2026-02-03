@@ -1,3 +1,288 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from mptt.admin import MPTTModelAdmin
 
-# Register your models here.
+from .models import (
+    AuditLog,
+    Comment,
+    Event,
+    EventAttendance,
+    EventType,
+    Facet,
+    Group,
+    GroupMembership,
+    GroupType,
+    Notification,
+    Role,
+    State,
+    StateFacet,
+    Transition,
+    User,
+    Venue,
+    Workflow,
+    WorkflowTransitionLog,
+    WorkflowType,
+)
+
+# ============================================================================
+# USER ADMIN
+# ============================================================================
+
+
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    list_display = [
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "is_active",
+        "is_staff",
+    ]
+    list_filter = ["is_staff", "is_superuser", "is_active", "is_active"]
+    search_fields = ["username", "first_name", "last_name", "email"]
+
+    fieldsets = BaseUserAdmin.fieldsets + (
+        (
+            "Parliamentary Info",
+            {
+                "fields": (
+                    "phone",
+                    "title",
+                    "bio",
+                    "avatar",
+                    "date_joined_parliament",
+                )
+            },
+        ),
+    )
+
+
+# ============================================================================
+# GROUP ADMIN
+# ============================================================================
+
+
+@admin.register(GroupType)
+class GroupTypeAdmin(admin.ModelAdmin):
+    list_display = ["name", "description"]
+    search_fields = ["name"]
+
+
+@admin.register(Group)
+class GroupAdmin(MPTTModelAdmin):
+    list_display = ["name", "group_type", "parent", "is_active", "start_date"]
+    list_filter = ["group_type", "is_active"]
+    search_fields = ["name", "short_name", "description"]
+    mptt_level_indent = 20
+
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "can_create_workflows",
+        "can_edit_workflows",
+        "can_view_all_workflows",
+    ]
+    list_filter = ["can_create_workflows", "can_edit_workflows", "can_delete_workflows"]
+    search_fields = ["name"]
+
+
+@admin.register(GroupMembership)
+class GroupMembershipAdmin(admin.ModelAdmin):
+    list_display = ["user", "group", "role", "start_date", "is_active"]
+    list_filter = ["is_active", "role", "group__group_type"]
+    search_fields = [
+        "user__username",
+        "user__first_name",
+        "user__last_name",
+        "group__name",
+    ]
+    date_hierarchy = "start_date"
+
+
+# ============================================================================
+# WORKFLOW ADMIN
+# ============================================================================
+
+
+@admin.register(WorkflowType)
+class WorkflowTypeAdmin(admin.ModelAdmin):
+    list_display = ["name", "description"]
+    search_fields = ["name"]
+
+
+@admin.register(State)
+class StateAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "workflow_type",
+        "is_initial",
+        "is_terminal",
+        "order",
+        "color",
+    ]
+    list_filter = ["workflow_type", "is_initial", "is_terminal"]
+    search_fields = ["name"]
+    ordering = ["workflow_type", "order"]
+
+
+@admin.register(Transition)
+class TransitionAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "workflow_type",
+        "from_state",
+        "to_state",
+        "requires_comment",
+    ]
+    list_filter = ["workflow_type", "requires_comment"]
+    search_fields = ["name"]
+    filter_horizontal = ["allowed_roles"]
+
+
+@admin.register(Facet)
+class FacetAdmin(admin.ModelAdmin):
+    list_display = ["name", "description"]
+    search_fields = ["name", "description"]
+    # filter_horizontal = ['roles_can_view', 'roles_can_edit', 'roles_can_delete']
+    fieldsets = (
+        ("Basic Information", {"fields": ("name", "description")}),
+        (
+            "View Permissions",
+            {
+                "fields": ("roles_can_view",),
+                "description": "Roles that can view workflows in states with this facet",
+            },
+        ),
+        (
+            "Edit Permissions",
+            {
+                "fields": ("roles_can_edit",),
+                "description": "Roles that can edit workflows in states with this facet",
+            },
+        ),
+        (
+            "Delete Permissions",
+            {
+                "fields": ("roles_can_delete",),
+                "description": "Roles that can delete workflows in states with this facet",
+            },
+        ),
+    )
+
+
+@admin.register(StateFacet)
+class StateFacetAdmin(admin.ModelAdmin):
+    list_display = ["state", "facet"]
+    list_filter = ["state__workflow_type"]
+    search_fields = ["state__name", "facet__name"]
+
+
+@admin.register(Workflow)
+class WorkflowAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "workflow_type",
+        "current_state",
+        "group",
+        "owner",
+        "priority",
+        "deadline",
+        "created_at",
+    ]
+    list_filter = ["workflow_type", "current_state", "priority", "group__group_type"]
+    search_fields = ["title", "description"]
+    date_hierarchy = "created_at"
+    readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(WorkflowTransitionLog)
+class WorkflowTransitionLogAdmin(admin.ModelAdmin):
+    list_display = [
+        "workflow",
+        "transition",
+        "from_state",
+        "to_state",
+        "user",
+        "timestamp",
+    ]
+    list_filter = ["transition", "from_state", "to_state"]
+    search_fields = ["workflow__title", "user__username"]
+    date_hierarchy = "timestamp"
+    readonly_fields = ["timestamp"]
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ["content_type", "object_id", "action", "user", "timestamp"]
+    list_filter = ["action", "content_type"]
+    search_fields = ["user__username"]
+    date_hierarchy = "timestamp"
+    readonly_fields = ["timestamp"]
+
+
+# ============================================================================
+# EVENT ADMIN
+# ============================================================================
+
+
+@admin.register(EventType)
+class EventTypeAdmin(admin.ModelAdmin):
+    list_display = ["name", "description"]
+    search_fields = ["name"]
+
+
+@admin.register(Venue)
+class VenueAdmin(admin.ModelAdmin):
+    list_display = ["name", "location", "capacity"]
+    search_fields = ["name", "location"]
+
+
+@admin.register(Event)
+class EventAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "event_type",
+        "group",
+        "venue",
+        "start_datetime",
+        "status",
+        "organizer",
+    ]
+    list_filter = ["event_type", "status", "group__group_type"]
+    search_fields = ["title", "description"]
+    date_hierarchy = "start_datetime"
+
+
+@admin.register(EventAttendance)
+class EventAttendanceAdmin(admin.ModelAdmin):
+    list_display = ["event", "user", "status"]
+    list_filter = ["status", "event__event_type"]
+    search_fields = [
+        "event__title",
+        "user__username",
+        "user__first_name",
+        "user__last_name",
+    ]
+
+
+# ============================================================================
+# NOTIFICATION & COMMENT ADMIN
+# ============================================================================
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ["user", "title", "is_read", "created_at"]
+    list_filter = ["is_read"]
+    search_fields = ["user__username", "title", "message"]
+    date_hierarchy = "created_at"
+
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ["workflow", "user", "created_at"]
+    search_fields = ["workflow__title", "user__username", "text"]
+    date_hierarchy = "created_at"

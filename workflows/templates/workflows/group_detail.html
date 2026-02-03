@@ -16,14 +16,14 @@
         <div class="card-body">
             <h1 class="text-3xl font-bold">{{ group.name }}</h1>
             <div class="badge badge-lg badge-primary mt-2">{{ group.group_type.name }}</div>
-            
+
             {% if group.description %}
             <div class="divider"></div>
             <p class="text-base-content/80">{{ group.description }}</p>
             {% endif %}
 
             <div class="divider"></div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <div class="text-sm text-base-content/70">Contact Email</div>
@@ -62,7 +62,7 @@
                         <tr>
                             <td>
                                 <div class="flex items-center gap-2">
-                                    <div class="avatar placeholder">
+                                    <div class="avatar avatar-placeholder">
                                         <div class="bg-primary text-primary-content rounded-full w-8">
                                             <span class="text-xs">{{ membership.user.first_name.0|default:membership.user.username.0|upper }}</span>
                                         </div>

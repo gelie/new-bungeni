@@ -93,7 +93,7 @@
                     </h2>
                     <a href="{% url 'workflow_list' %}" class="btn btn-sm btn-ghost">View All</a>
                 </div>
-                
+
                 <div class="space-y-3">
                     {% for workflow in recent_workflows %}
                     <a href="{% url 'workflow_detail' workflow.pk %}" class="block p-3 rounded-lg hover:bg-base-200 transition">
@@ -138,7 +138,7 @@
                     </h2>
                     <a href="{% url 'event_list' %}" class="btn btn-sm btn-ghost">View All</a>
                 </div>
-                
+
                 <div class="space-y-3">
                     {% for event in upcoming_events %}
                     <a href="{% url 'event_detail' event.pk %}" class="block p-3 rounded-lg hover:bg-base-200 transition">

@@ -1,23 +1,85 @@
 {% load static %}
 <!doctype html>
 <html lang="en" data-theme="light">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{% block title %}Workflow Manager{% endblock %}</title>
-        <link rel="icon" href="{% static 'favicon.ico' %}" type="image/x-icon">
-        {% block styles %}
-        <link rel="stylesheet" href="{% static 'css/main.css' %}" />
-        <link rel="stylesheet" href="{% static 'css/style.css' %}" />
-        <link rel="stylesheet" href="{% static 'css/fonts.css' %}" />
-        {% endblock %}
-        {% block scripts %}
-        <script src="{% static 'js/htmx.min.js' %}"></script>
-        <script src="{% static 'js/lucide.min.js' %}"></script>
-        {% endblock %}
-    </head>
-    <body class="bg-base-200">
-      {% include 'navbar.html' %}
-        {% block content %} {% endblock %}
-    </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Workflow Manager{% endblock %}</title>
+  <link rel="icon" href="{% static 'favicon.ico' %}" type="image/x-icon">
+  {% block styles %}
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/fonts.css' %}" />
+  {% endblock %}
+  {% block scripts %}
+  <script src="{% static 'js/htmx.min.js' %}"></script>
+  <!--<script src="{% static 'js/lucide.min.js' %}"></script>-->
+  {% endblock %}
+</head>
+
+<body class="bg-base-200">
+  {% include 'navbar.html' %}
+  <!-- Drawer Layout -->
+  <div class="drawer lg:drawer-open">
+    <input id="sidebar-drawer" type="checkbox" class="drawer-toggle" />
+    <div class="drawer-content">
+      <!-- Main Content -->
+      <main class="p-6">
+        {% if messages %}
+        <div class="mb-4 space-y-2">
+          {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}">
+            <span>{{ message }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    {% include 'sidebar.html' %}
+  </div>
+  </div>
+  <script>
+    // Initialize Lucide icons
+    // lucide.createIcons();
+
+    // Theme toggle
+    function toggleTheme() {
+      const html = document.documentElement;
+      const currentTheme = html.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+
+      // Toggle icon visibility
+      document.querySelectorAll('.theme-icon-light').forEach(el => {
+        el.classList.toggle('hidden');
+      });
+      document.querySelectorAll('.theme-icon-dark').forEach(el => {
+        el.classList.toggle('hidden');
+      });
+    }
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    if (savedTheme === 'dark') {
+      document.querySelectorAll('.theme-icon-light').forEach(el => {
+        el.classList.add('hidden');
+      });
+      document.querySelectorAll('.theme-icon-dark').forEach(el => {
+        el.classList.remove('hidden');
+      });
+    }
+
+    // HTMX event listeners
+    document.body.addEventListener('htmx:afterSwap', function (event) {
+      // lucide.createIcons();
+    });
+  </script>
+</body>
+
 </html>
