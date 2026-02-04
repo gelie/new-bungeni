@@ -97,3 +97,8 @@ font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;;
 [data-theme="dark"] .navbar-custom {
     background: var(--parliament-green-dark);
 }
+
+.navbar {
+    background-color: var(--parliament-gold-light) !important;
+    color: var(--parliament-green-dark) !important;
+}

@@ -10,391 +10,657 @@
             <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
             <li><a href="{% url 'workflow_list' %}">Workflows</a></li>
             {% if hierarchy_path %}
-                {% for workflow_item in hierarchy_path %}
-                    {% if forloop.last %}
-                        <li>{{ workflow_item.title|truncatewords:5 }}</li>
-                    {% else %}
-                        <li><a href="{% url 'workflow_detail' workflow_item.pk %}">{{ workflow_item.title|truncatewords:3 }}</a></li>
-                    {% endif %}
-                {% endfor %}
+            {% for workflow_item in hierarchy_path %}
+            {% if forloop.last %}
+            <li>{{ workflow_item.title|truncatewords:5 }}</li>
             {% else %}
-                <li>{{ workflow.title|truncatewords:5 }}</li>
+            <li><a href="{% url 'workflow_detail' workflow_item.pk %}">{{ workflow_item.title|truncatewords:3 }}</a></li>
+            {% endif %}
+            {% endfor %}
+            {% else %}
+            <li>{{ workflow.title|truncatewords:5 }}</li>
             {% endif %}
         </ul>
     </div>
 
-    <!-- Workflow Header -->
+    <!-- Workflow Header (Compact) -->
     <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
+        <div class="card-body pb-4">
             <div class="flex justify-between items-start">
                 <div class="flex-1">
                     {% if workflow.parent_workflow %}
-                        <div class="text-sm text-base-content/60 mb-2">
-                            <i data-lucide="link" class="w-4 h-4 inline mr-1"></i>
-                            {{ workflow.get_relationship_type_display|default:"Child" }} of
-                            <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}" class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
-                        </div>
+                    <div class="text-sm text-base-content/60 mb-2">
+                        {% lucide "link" class="w-4 h-4 inline mr-1" %}
+                        {{ workflow.get_relationship_type_display|default:"Child" }} of
+                        <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}" class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
+                    </div>
                     {% endif %}
-                    <h1 class="text-3xl font-bold">{{ workflow.title }}</h1>
-                    {% if workflow.has_sub_workflows %}
-                        <div class="text-sm text-base-content/60 mt-1">
-                            <i data-lucide="folder" class="w-4 h-4 inline mr-1"></i>
-                            Has {{ sub_workflows|length }} related item{{ sub_workflows|length|pluralize }}
-                        </div>
-                    {% endif %}
-                    <div class="flex flex-wrap gap-2 mt-4">
+                    <h1 class="text-2xl font-bold">{{ workflow.title }}</h1>
+
+                    <!-- Key Status Indicators (Always Visible) -->
+                    <div class="flex flex-wrap gap-2 mt-3">
                         <span class="badge badge-lg" style="background-color: {{ workflow.current_state.color }}; color: white;">
                             {{ workflow.current_state.name }}
                         </span>
                         <span class="badge badge-lg badge-outline">{{ workflow.workflow_type.name }}</span>
                         {% if workflow.priority == 'urgent' %}
-                            <span class="badge badge-lg badge-error">Urgent</span>
+                        <span class="badge badge-lg badge-error">Urgent</span>
                         {% elif workflow.priority == 'high' %}
-                            <span class="badge badge-lg badge-warning">High Priority</span>
+                        <span class="badge badge-lg badge-warning">High Priority</span>
                         {% endif %}
-                        {% if workflow.hierarchy_level > 0 %}
-                            <span class="badge badge-lg badge-ghost">Level {{ workflow.hierarchy_level }}</span>
+                        {% if workflow.is_overdue %}
+                        <span class="badge badge-lg badge-error">Overdue</span>
+                        {% endif %}
+                        {% if workflow.has_sub_workflows %}
+                        <span class="badge badge-lg badge-info">{{ sub_workflows|length }} Related</span>
                         {% endif %}
                     </div>
                 </div>
-                <div class="dropdown dropdown-end">
-                    <label tabindex="0" class="btn btn-ghost btn-circle">
-                        <i data-lucide="more-vertical" class="w-5 h-5"></i>
-                    </label>
-                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
-                        <li><a><i data-lucide="edit" class="w-4 h-4"></i> Edit</a></li>
-                        <li><a><i data-lucide="share-2" class="w-4 h-4"></i> Share</a></li>
-                        <li><a><i data-lucide="download" class="w-4 h-4"></i> Export</a></li>
-                    </ul>
-                </div>
-            </div>
 
-            <div class="divider"></div>
-
-            <!-- Workflow Details -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-3">
-                    <div>
-                        <div class="text-sm text-base-content/70">Group</div>
-                        <div class="font-semibold">{{ workflow.group.name }}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-base-content/70">Owner</div>
-                        <div class="flex items-center gap-2">
-                            <div class="avatar avatar-placeholder">
-                                <div class="bg-primary text-primary-content rounded-full w-8">
-                                    <span class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
-                                </div>
-                            </div>
-                            <span>{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
-                        </div>
-                    </div>
-                    {% if workflow.assigned_to %}
-                    <div>
-                        <div class="text-sm text-base-content/70">Assigned To</div>
-                        <div class="flex items-center gap-2">
-                            <div class="avatar avatar-placeholder">
-                                <div class="bg-secondary text-secondary-content rounded-full w-8">
-                                    <span class="text-xs">{{ workflow.assigned_to.first_name.0|default:workflow.assigned_to.username.0|upper }}</span>
-                                </div>
-                            </div>
-                            <span>{{ workflow.assigned_to.get_full_name|default:workflow.assigned_to.username }}</span>
-                        </div>
+                <!-- Quick Actions -->
+                <div class="flex gap-2">
+                    {% if available_transitions %}
+                    <div class="dropdown dropdown-end">
+                        <label tabindex="0" class="btn btn-primary">
+                            {% lucide "zap" class="w-4 h-4 mr-1" %}
+                            Workflow
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
+                            {% for transition in available_transitions %}
+                            <li>
+                                <a href="{% url 'workflow_transition' workflow.pk transition.pk %}">
+                                    {{ transition.name }}
+                                    {% lucide "arrow-right" class="w-4 h-4 ml-auto" %}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
                     </div>
                     {% endif %}
-                </div>
-                <div class="space-y-3">
-                    <div>
-                        <div class="text-sm text-base-content/70">Created</div>
-                        <div>{{ workflow.created_at|date:"F d, Y H:i" }}</div>
-                    </div>
-                    <div>
-                        <div class="text-sm text-base-content/70">Last Updated</div>
-                        <div>{{ workflow.updated_at|date:"F d, Y H:i" }}</div>
-                    </div>
-                    {% if workflow.deadline %}
-                    <div>
-                        <div class="text-sm text-base-content/70">Deadline</div>
-                        <div class="{% if workflow.is_overdue %}text-error font-semibold{% endif %}">
-                            {{ workflow.deadline|date:"F d, Y H:i" }}
-                            {% if workflow.is_overdue %}
-                                <span class="badge badge-error badge-sm ml-2">Overdue</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
 
-            {% if workflow.description %}
-            <div class="divider"></div>
-            <div>
-                <div class="text-sm text-base-content/70 mb-2">Description</div>
-                <div class="prose max-w-none">{{ workflow.description|linebreaks }}</div>
+                    <div class="dropdown dropdown-end">
+                        <label tabindex="0" class="btn btn-neutral">
+                            {% lucide "chevron-down" class="w-5 h-5" %}
+                            Actions
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
+                            <li><a href="{% url 'workflow_edit' workflow.pk %}">{% lucide "pencil" class="w-4 h-4" %} Edit</a></li>
+                            <li><a>{% lucide "share-2" class="w-4 h-4" %} Share</a></li>
+                            <li><a>{% lucide "download" class="w-4 h-4" %} Export</a></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
-            {% endif %}
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Main Content -->
-        <div class="lg:col-span-2 space-y-6">
-            <!-- Available Transitions -->
-            {% if available_transitions %}
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h2 class="card-title">
-                        <i data-lucide="git-branch" class="w-5 h-5"></i>
-                        Available Actions
-                    </h2>
-                    <div class="flex flex-wrap gap-2 mt-4">
-                        {% for transition in available_transitions %}
-                        <a href="{% url 'workflow_transition' workflow.pk transition.pk %}"
-                           class="btn btn-primary">
-                            {{ transition.name }}
-                            <i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i>
-                        </a>
-                        {% endfor %}
+    <!-- Tabbed Content -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-0">
+            <!-- Tab Navigation -->
+            <div class="tabs tabs-bordered bg-base-100 px-6 pt-4">
+                <a class="tab tab-active" data-tab="overview">
+                    {% lucide "info" class="w-4 h-4 mr-2" %}
+                    Overview
+                </a>
+                <a class="tab" data-tab="related">
+                    {% lucide "git-branch" class="w-4 h-4 mr-2" %}
+                    Related
+                    {% if related_count > 0 %}
+                    <span class="badge badge-sm badge-primary ml-1">
+                        {{ related_count }}
+                    </span>
+                    {% endif %}
+                </a>
+                <a class="tab" data-tab="comments">
+                    {% lucide "message-square" class="w-4 h-4 mr-2" %}
+                    Comments
+                    {% if comments %}
+                    <span class="badge badge-sm badge-outline ml-1">{{ comments|length }}</span>
+                    {% endif %}
+                </a>
+                <a class="tab" data-tab="history">
+                    {% lucide "clock" class="w-4 h-4 mr-2" %}
+                    History
+                    {% if transition_logs %}
+                    <span class="badge badge-sm badge-outline ml-1">{{ transition_logs|length }}</span>
+                    {% endif %}
+                </a>
+                <a class="tab" data-tab="attachments">
+                    {% lucide "paperclip" class="w-4 h-4 mr-2" %}
+                    Attachments
+                    <span class="badge badge-sm badge-ghost ml-1">0</span>
+                </a>
+                <a class="tab" data-tab="details">
+                    {% lucide "file-text" class="w-4 h-4 mr-2" %}
+                    Details
+                </a>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="p-6">
+                <!-- Overview Tab -->
+                <div id="tab-overview" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Key Information -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                {% lucide "info" class="w-5 h-5" %}
+                                Key Information
+                            </h3>
+                            <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Type</span>
+                                    <span class="font-semibold">{{ workflow.workflow_type.name }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Priority</span>
+                                    <span class="font-semibold capitalize">{{ workflow.priority }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">State</span>
+                                    <span class="badge" style="background-color: {{ workflow.current_state.color }}; color: white;">
+                                        {{ workflow.current_state.name }}
+                                    </span>
+                                </div>
+                                {% if workflow.deadline %}
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Deadline</span>
+                                    <span class="{% if workflow.is_overdue %}text-error font-semibold{% endif %}">
+                                        {{ workflow.deadline|date:"M d, Y" }}
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Ownership & Assignment -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                {% lucide "users" class="w-5 h-5" %}
+                                Ownership
+                            </h3>
+                            <div class="bg-base-200 rounded-lg p-4 space-y-4">
+                                <div>
+                                    <div class="text-sm text-base-content/70 mb-2">Group</div>
+                                    <div class="font-semibold">{{ workflow.group.name }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-sm text-base-content/70 mb-2">Owner</div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="avatar avatar-placeholder">
+                                            <div class="bg-primary text-primary-content rounded-full w-8">
+                                                <span class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
+                                            </div>
+                                        </div>
+                                        <span>{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
+                                    </div>
+                                </div>
+                                {% if workflow.assigned_to %}
+                                <div>
+                                    <div class="text-sm text-base-content/70 mb-2">Assigned To</div>
+                                    <div class="flex items-center gap-2">
+                                        <div class="avatar avatar-placeholder">
+                                            <div class="bg-secondary text-secondary-content rounded-full w-8">
+                                                <span class="text-xs">{{ workflow.assigned_to.first_name.0|default:workflow.assigned_to.username.0|upper }}</span>
+                                            </div>
+                                        </div>
+                                        <span>{{ workflow.assigned_to.get_full_name|default:workflow.assigned_to.username }}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if workflow.description %}
+                    <div class="mt-6">
+                        <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                            {% lucide "file-text" class="w-5 h-5" %}
+                            Description
+                        </h3>
+                        <div class="bg-base-200 rounded-lg p-4">
+                            <div class="prose max-w-none">{{ workflow.description|linebreaks }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Related Tab -->
+                <div id="tab-related" class="tab-content">
+                    <div class="space-y-6">
+                        <!-- Parent Workflow -->
+                        {% if workflow.parent_workflow %}
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                                {% lucide "arrow-up" class="w-5 h-5" %}
+                                Parent {{ workflow.parent_workflow.workflow_type.name }}
+                            </h3>
+                            <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
+                                class="block p-4 rounded-lg border-2 border-base-300 hover:border-primary hover:bg-base-200 transition-all duration-200">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex-shrink-0 mt-1">
+                                        <span class="text-2xl">📁</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-lg">{{ workflow.parent_workflow.title }}</div>
+                                        <div class="text-sm text-base-content/60 mt-1">
+                                            {{ workflow.parent_workflow.workflow_type.name }}
+                                            {% if workflow.relationship_type %}
+                                            • This is a {{ workflow.get_relationship_type_display|lower }}
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex items-center gap-2 mt-2">
+                                            <span class="badge" style="background-color: {{ workflow.parent_workflow.current_state.color }}; color: white;">
+                                                {{ workflow.parent_workflow.current_state.name }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        <!-- Sub-workflows -->
+                        {% if sub_workflows %}
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center justify-between mb-4">
+                                <span class="flex items-center gap-2">
+                                    {% lucide "folder-tree" class="w-5 h-5" %}
+                                    Related {{ workflow.workflow_type.name }}s
+                                </span>
+                                <span class="badge badge-primary">{{ sub_workflows|length }}</span>
+                            </h3>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                {% for sub_workflow in sub_workflows %}
+                                <a href="{% url 'workflow_detail' sub_workflow.pk %}"
+                                    class="block p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-base-200 hover:shadow-md transition-all duration-200">
+                                    <div class="flex items-start gap-2">
+                                        <div class="flex-shrink-0 mt-1">
+                                            <span class="text-base-content/40">└─</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-semibold truncate">{{ sub_workflow.title }}</div>
+                                            <div class="text-xs text-base-content/60 mt-1">
+                                                {{ sub_workflow.workflow_type.name }}
+                                                {% if sub_workflow.relationship_type %}
+                                                • {{ sub_workflow.get_relationship_type_display }}
+                                                {% endif %}
+                                            </div>
+                                            <div class="flex items-center gap-2 mt-2">
+                                                <span class="badge badge-xs" style="background-color: {{ sub_workflow.current_state.color }}; color: white;">
+                                                    {{ sub_workflow.current_state.name }}
+                                                </span>
+                                                {% if sub_workflow.priority == 'urgent' %}
+                                                <span class="badge badge-xs badge-error">Urgent</span>
+                                                {% elif sub_workflow.priority == 'high' %}
+                                                <span class="badge badge-xs badge-warning">High</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Sibling workflows -->
+                        {% if sibling_workflows %}
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center justify-between mb-4">
+                                <span class="flex items-center gap-2">
+                                    {% lucide "git-branch" class="w-5 h-5" %}
+                                    Related Items
+                                </span>
+                                <span class="badge badge-outline">{{ sibling_workflows|length }}</span>
+                            </h3>
+                            <div class="space-y-2">
+                                {% for sibling in sibling_workflows %}
+                                <a href="{% url 'workflow_detail' sibling.pk %}"
+                                    class="block p-3 rounded-lg border border-base-300 hover:border-primary hover:bg-base-200 transition-all duration-200">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-base-content/40 text-xs">└─</span>
+                                        <div class="flex-1">
+                                            <div class="font-medium truncate">{{ sibling.title }}</div>
+                                            <div class="text-xs text-base-content/60">
+                                                {% if sibling.relationship_type %}
+                                                {{ sibling.get_relationship_type_display }}
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <span class="badge badge-xs" style="background-color: {{ sibling.current_state.color }}; color: white;">
+                                            {{ sibling.current_state.name }}
+                                        </span>
+                                    </div>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if not workflow.parent_workflow and not sub_workflows and not sibling_workflows %}
+                        <div class="text-center py-12">
+                            <div class="text-base-content/50">
+                                {% lucide "git-branch" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                                <p class="text-lg">No related workflows</p>
+                                <p class="text-sm mt-2">This workflow has no parent or child relationships</p>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-            </div>
-            {% endif %}
 
-            <!-- Timeline / History -->
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h2 class="card-title">
-                        <i data-lucide="clock" class="w-5 h-5"></i>
-                        Timeline
-                    </h2>
-                    <div class="mt-4">
-                        {% for log in transition_logs %}
-                        <div class="flex gap-4 pb-6 {% if not forloop.last %}border-l-2 border-base-300 ml-2{% endif %}">
-                            <div class="relative">
-                                <div class="absolute -left-[9px] w-4 h-4 rounded-full bg-primary"></div>
+                <!-- Comments Tab -->
+                <div id="tab-comments" class="tab-content">
+                    <div class="space-y-6">
+                        <!-- Comments List -->
+                        <div class="space-y-4">
+                            {% for comment in comments %}
+                            <div class="flex gap-3 p-4 bg-base-200 rounded-lg">
+                                <div class="avatar avatar-placeholder">
+                                    <div class="bg-neutral text-neutral-content rounded-full w-10">
+                                        <span class="text-sm">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-semibold text-sm mb-1">
+                                        {{ comment.user.get_full_name|default:comment.user.username }}
+                                        <span class="text-xs text-base-content/60 font-normal ml-2">
+                                            {{ comment.created_at|timesince }} ago
+                                        </span>
+                                    </div>
+                                    <div class="text-sm">{{ comment.text }}</div>
+                                </div>
                             </div>
-                            <div class="flex-1 -mt-1">
-                                <div class="flex items-center gap-2">
+                            {% empty %}
+                            <div class="text-center py-12">
+                                <div class="text-base-content/50">
+                                    {% lucide "message-square" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                                    <p class="text-lg">No comments yet</p>
+                                    <p class="text-sm mt-2">Start the conversation by adding a comment</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Add Comment Form -->
+                        <div class="border-t pt-6">
+                            <form method="post" class="flex gap-3">
+                                {% csrf_token %}
+                                <div class="avatar avatar-placeholder">
+                                    <div class="bg-primary text-primary-content rounded-full w-10">
+                                        <span class="text-sm">{{ request.user.first_name.0|default:request.user.username.0|upper }}</span>
+                                    </div>
+                                </div>
+                                <div class="flex-1 flex gap-2">
+                                    <input type="text" name="comment" placeholder="Add a comment..." class="input flex-1" required>
+                                    <button type="submit" class="btn btn-primary">
+                                        {% lucide "send" class="w-4 h-4" %}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div id="tab-history" class="tab-content">
+                    <div class="space-y-4">
+                        {% for log in transition_logs %}
+                        <div class="flex gap-4 p-4 bg-base-200 rounded-lg">
+                            <div class="flex-shrink-0">
+                                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                                    {% lucide "zap" class="w-5 h-5 text-primary-content" %}
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
                                     <span class="font-semibold">{{ log.transition.name }}</span>
                                     <span class="text-xs text-base-content/60">{{ log.timestamp|timesince }} ago</span>
                                 </div>
-                                <div class="text-sm text-base-content/70 mt-1">
+                                <div class="text-sm text-base-content/70 mb-2">
                                     {{ log.from_state.name }} → {{ log.to_state.name }}
                                 </div>
-                                <div class="text-sm mt-1">
+                                <div class="text-sm mb-2">
                                     by {{ log.user.get_full_name|default:log.user.username }}
                                 </div>
                                 {% if log.comment %}
-                                <div class="bg-base-200 rounded-lg p-3 mt-2 text-sm">
+                                <div class="bg-base-300 rounded p-2 text-sm">
                                     {{ log.comment }}
                                 </div>
                                 {% endif %}
                             </div>
                         </div>
                         {% empty %}
-                        <p class="text-center text-base-content/50 py-4">No history yet</p>
+                        <div class="text-center py-12">
+                            <div class="text-base-content/50">
+                                {% lucide "clock" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                                <p class="text-lg">No history yet</p>
+                                <p class="text-sm mt-2">Workflow transitions will appear here</p>
+                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
-            </div>
 
-            <!-- Comments -->
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h2 class="card-title">
-                        <i data-lucide="message-square" class="w-5 h-5"></i>
-                        Comments
-                    </h2>
-                    <div class="space-y-4 mt-4">
-                        {% for comment in comments %}
-                        <div class="flex gap-3">
-                            <div class="avatar avatar-placeholder">
-                                <div class="bg-neutral text-neutral-content rounded-full w-10">
-                                    <span class="text-xs">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
-                                </div>
+                <!-- Attachments Tab -->
+                <div id="tab-attachments" class="tab-content">
+                    <div class="text-center py-12">
+                        <div class="text-base-content/50">
+                            {% lucide "paperclip" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                            <p class="text-lg">Attachments Feature</p>
+                            <p class="text-sm mt-2">File attachments will be implemented here</p>
+                            <div class="mt-4">
+                                <button class="btn btn-outline btn-disabled">
+                                    {% lucide "upload" class="w-4 h-4 mr-2" %}
+                                    Upload File (Coming Soon)
+                                </button>
                             </div>
-                            <div class="flex-1">
-                                <div class="bg-base-200 rounded-lg p-3">
-                                    <div class="font-semibold text-sm">
-                                        {{ comment.user.get_full_name|default:comment.user.username }}
-                                    </div>
-                                    <div class="text-sm mt-1">{{ comment.text }}</div>
-                                </div>
-                                <div class="text-xs text-base-content/60 mt-1 ml-3">
-                                    {{ comment.created_at|timesince }} ago
-                                </div>
-                            </div>
-                        </div>
-                        {% empty %}
-                        <p class="text-center text-base-content/50 py-4">No comments yet</p>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Add Comment Form -->
-                    <div class="divider"></div>
-                    <form method="post" class="flex gap-2">
-                        {% csrf_token %}
-                        <input type="text" placeholder="Add a comment..." class="input flex-1">
-                        <button type="submit" class="btn btn-primary">
-                            <i data-lucide="send" class="w-4 h-4"></i>
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sidebar -->
-        <div class="space-y-6">
-            <!-- Quick Info -->
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h3 class="font-bold mb-4">Quick Info</h3>
-                    <div class="space-y-3 text-sm">
-                        <div class="flex justify-between">
-                            <span class="text-base-content/70">Type</span>
-                            <span class="font-semibold">{{ workflow.workflow_type.name }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-base-content/70">Priority</span>
-                            <span class="font-semibold capitalize">{{ workflow.priority }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-base-content/70">State</span>
-                            <span class="font-semibold">{{ workflow.current_state.name }}</span>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Sub-workflows / Children -->
-            {% if sub_workflows %}
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h3 class="font-bold mb-4 flex items-center justify-between">
-                        <span class="flex items-center gap-2">
-                            <i data-lucide="folder-tree" class="w-5 h-5"></i>
-                            Related {{ workflow.workflow_type.name }}s
-                        </span>
-                        <span class="badge badge-sm badge-primary">{{ sub_workflows|length }}</span>
-                    </h3>
-                    <div class="space-y-2 max-h-64 overflow-y-auto">
-                        {% for sub_workflow in sub_workflows %}
-                        <a href="{% url 'workflow_detail' sub_workflow.pk %}"
-                           class="block p-3 rounded-lg border border-base-300 hover:bg-base-200 hover:border-primary hover:shadow-sm transition-all duration-200">
-                            <div class="flex items-start gap-2">
-                                <div class="flex-shrink-0 mt-1">
-                                    <span class="text-base-content/40">└─</span>
+                <!-- Details Tab -->
+                <div id="tab-details" class="tab-content">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Metadata -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                {% lucide "calendar" class="w-5 h-5" %}
+                                Timeline
+                            </h3>
+                            <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Created</span>
+                                    <span>{{ workflow.created_at|date:"F d, Y H:i" }}</span>
                                 </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-semibold text-sm truncate">{{ sub_workflow.title }}</div>
-                                    <div class="text-xs text-base-content/60 mt-1">
-                                        {{ sub_workflow.workflow_type.name }}
-                                        {% if sub_workflow.relationship_type %}
-                                            • {{ sub_workflow.get_relationship_type_display }}
-                                        {% endif %}
-                                    </div>
-                                    <div class="flex items-center gap-2 mt-2">
-                                        <span class="badge badge-xs" style="background-color: {{ sub_workflow.current_state.color }}; color: white;">
-                                            {{ sub_workflow.current_state.name }}
-                                        </span>
-                                        {% if sub_workflow.priority == 'urgent' %}
-                                            <span class="badge badge-xs badge-error">Urgent</span>
-                                        {% elif sub_workflow.priority == 'high' %}
-                                            <span class="badge badge-xs badge-warning">High</span>
-                                        {% endif %}
-                                    </div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Last Updated</span>
+                                    <span>{{ workflow.updated_at|date:"F d, Y H:i" }}</span>
                                 </div>
-                            </div>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Parent workflow -->
-            {% if workflow.parent_workflow %}
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h3 class="font-bold mb-4 flex items-center gap-2">
-                        <i data-lucide="arrow-up" class="w-5 h-5"></i>
-                        Parent {{ workflow.parent_workflow.workflow_type.name }}
-                    </h3>
-                    <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
-                       class="block p-3 rounded-lg border border-base-300 hover:bg-base-200 hover:border-primary hover:shadow-sm transition-all duration-200">
-                        <div class="flex items-start gap-2">
-                            <div class="flex-shrink-0 mt-1">
-                                <span class="text-base-content/40">📁</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="font-semibold text-sm truncate">{{ workflow.parent_workflow.title }}</div>
-                                <div class="text-xs text-base-content/60 mt-1">
-                                    {{ workflow.parent_workflow.workflow_type.name }}
-                                    {% if workflow.relationship_type %}
-                                        • This is a {{ workflow.get_relationship_type_display|lower }}
-                                    {% endif %}
-                                </div>
-                                <div class="flex items-center gap-2 mt-2">
-                                    <span class="badge badge-xs" style="background-color: {{ workflow.parent_workflow.current_state.color }}; color: white;">
-                                        {{ workflow.parent_workflow.current_state.name }}
+                                {% if workflow.deadline %}
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Deadline</span>
+                                    <span class="{% if workflow.is_overdue %}text-error font-semibold{% endif %}">
+                                        {{ workflow.deadline|date:"F d, Y H:i" }}
                                     </span>
                                 </div>
+                                {% endif %}
                             </div>
                         </div>
-                    </a>
-                </div>
-            </div>
-            {% endif %}
 
-            <!-- Sibling workflows -->
-            {% if sibling_workflows %}
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h3 class="font-bold mb-4 flex items-center justify-between">
-                        <span class="flex items-center gap-2">
-                            <i data-lucide="git-branch" class="w-5 h-5"></i>
-                            Related Items
-                        </span>
-                        <span class="badge badge-sm badge-outline">{{ sibling_workflows|length }}</span>
-                    </h3>
-                    <div class="space-y-2">
-                        {% for sibling in sibling_workflows %}
-                       <a href="{% url 'workflow_detail' sibling.pk %}"
-                          class="block p-3 rounded-lg border border-base-300 hover:bg-base-200 hover:border-primary hover:shadow-sm transition-all duration-200">
-                           <div class="flex items-center gap-2">
-                               <span class="text-base-content/40 text-xs">└─</span>
-                               <div class="flex-1 min-w-0">
-                                   <div class="font-medium text-sm truncate">{{ sibling.title }}</div>
-                                   <div class="text-xs text-base-content/60 mt-1">
-                                       {% if sibling.relationship_type %}
-                                           {{ sibling.get_relationship_type_display }}
-                                       {% endif %}
-                                   </div>
-                               </div>
-                               <span class="badge badge-xs" style="background-color: {{ sibling.current_state.color }}; color: white;">
-                                   {{ sibling.current_state.name }}
-                               </span>
-                           </div>
-                       </a>
-                       {% endfor %}
+                        <!-- System Information -->
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                {% lucide "settings" class="w-5 h-5" %}
+                                System Information
+                            </h3>
+                            <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Workflow ID</span>
+                                    <span class="font-mono text-sm">{{ workflow.id }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Hierarchy Level</span>
+                                    <span>{{ workflow.hierarchy_level }}</span>
+                                </div>
+                                {% if workflow.referred_to %}
+                                <div class="flex justify-between items-center">
+                                    <span class="text-base-content/70">Referred To</span>
+                                    <a href="{% url 'group_detail' workflow.referred_to.pk %}" class="btn btn-outline btn-xs">
+                                        {{ workflow.referred_to.name|truncatewords:3 }}
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
-
-            <!-- Related Items -->
-            {% if workflow.referred_to %}
-            <div class="card bg-base-100 shadow-xl">
-                <div class="card-body">
-                    <h3 class="font-bold mb-4">Referred To</h3>
-                    <a href="{% url 'group_detail' workflow.referred_to.pk %}" class="btn btn-outline btn-sm">
-                        <i data-lucide="users" class="w-4 h-4 mr-2"></i>
-                        {{ workflow.referred_to.name }}
-                    </a>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 </div>
+
+<style>
+    /* Custom tab styling */
+    .tabs {
+        border-bottom: 2px solid hsl(var(--b3));
+    }
+
+    .tab {
+        position: relative;
+        padding: 0.75rem 1rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        border: none;
+        border-radius: 0.5rem 0.5rem 0 0;
+        margin-bottom: -2px;
+    }
+
+    .tab:hover {
+        background-color: hsl(var(--b2));
+    }
+
+    .tab-active {
+        background-color: hsl(var(--b1));
+        border-bottom: 2px solid hsl(var(--p));
+        color: hsl(var(--p));
+    }
+
+    .tab-active::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: hsl(var(--p));
+    }
+
+    .tab .badge {
+        margin-left: 0.25rem;
+        font-size: 0.7rem;
+    }
+
+    /* Tab content animation and visibility */
+    .tab-content {
+        animation: fadeIn 0.2s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(0.5rem);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Enhanced card hover effects */
+    .hover\:border-primary:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Status badge improvements */
+    .badge-xs {
+        font-size: 0.6rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .badge-sm {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+</style>
+
+<noscript>
+    <style>
+        /* Show all tab content when JavaScript is disabled */
+        .tab-content {
+            display: block !important;
+            border-top: 2px solid hsl(var(--b3));
+            margin-top: 1rem;
+            padding-top: 1rem;
+        }
+
+        .tab-content:not(:first-child) {
+            margin-top: 2rem;
+        }
+
+        .tabs {
+            display: none;
+        }
+    </style>
+</noscript>
+
+<script>
+    // Tab switching functionality
+    document.addEventListener('DOMContentLoaded', function () {
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+
+
+        // Hide all tab contents first
+        tabContents.forEach(content => {
+            content.style.display = 'none';
+        });
+
+        // Show overview tab by default
+        const overviewTab = document.getElementById('tab-overview');
+        if (overviewTab) {
+            overviewTab.style.display = 'block';
+        }
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                const targetTab = this.getAttribute('data-tab');
+
+                // Remove active class from all tabs
+                tabs.forEach(t => t.classList.remove('tab-active'));
+
+                // Hide all tab contents
+                tabContents.forEach(content => {
+                    content.style.display = 'none';
+                });
+
+                // Add active class to clicked tab
+                this.classList.add('tab-active');
+
+                // Show corresponding content
+                const targetContent = document.getElementById('tab-' + targetTab);
+                if (targetContent) {
+                    targetContent.style.display = 'block';
+                }
+            });
+        });
+    });
+</script>
+
 {% endblock %}

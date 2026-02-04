@@ -10,7 +10,7 @@
             <p class="text-base-content/70 mt-1">Parliamentary events and meetings</p>
         </div>
         <button class="btn btn-primary">
-            <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
+            {% lucide "plus" class="w-5 h-5 mr-2" %}
             New Event
         </button>
     </div>
@@ -19,7 +19,7 @@
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <h2 class="card-title">
-                <i data-lucide="calendar" class="w-5 h-5"></i>
+                {% lucide "calendar" class="w-5 h-5" %}
                 Upcoming Events
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
@@ -33,16 +33,16 @@
                         <h3 class="card-title text-base mt-2">{{ event.title|truncatewords:8 }}</h3>
                         <div class="space-y-2 text-sm text-base-content/70 mt-2">
                             <div class="flex items-center gap-2">
-                                <i data-lucide="calendar" class="w-4 h-4"></i>
+                                {% lucide "calendar" class="w-4 h-4" %}
                                 {{ event.start_datetime|date:"M d, Y" }}
                             </div>
                             <div class="flex items-center gap-2">
-                                <i data-lucide="clock" class="w-4 h-4"></i>
+                                {% lucide "clock" class="w-4 h-4" %}
                                 {{ event.start_datetime|date:"H:i" }} - {{ event.end_datetime|date:"H:i" }}
                             </div>
                             {% if event.venue %}
                             <div class="flex items-center gap-2">
-                                <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                {% lucide "map-pin" class="w-4 h-4" %}
                                 {{ event.venue.name }}
                             </div>
                             {% endif %}
@@ -51,7 +51,7 @@
                 </a>
                 {% empty %}
                 <div class="col-span-full text-center py-12 text-base-content/50">
-                    <i data-lucide="calendar-x" class="w-16 h-16 mx-auto mb-4"></i>
+                    {% lucide "calendar-x" class="w-16 h-16 mx-auto mb-4" %}
                     <p>No upcoming events</p>
                 </div>
                 {% endfor %}
@@ -64,7 +64,7 @@
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <h2 class="card-title">
-                <i data-lucide="archive" class="w-5 h-5"></i>
+                {% lucide "archive" class="w-5 h-5" %}
                 Past Events
             </h2>
             <div class="overflow-x-auto mt-4">
@@ -87,7 +87,7 @@
                             <td><span class="badge">{{ event.status|title }}</span></td>
                             <td>
                                 <a href="{% url 'event_detail' event.pk %}" class="btn btn-sm btn-ghost">
-                                    <i data-lucide="eye" class="w-4 h-4"></i>
+                                    {% lucide "eye" class="w-4 h-4" %}
                                 </a>
                             </td>
                         </tr>

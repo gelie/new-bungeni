@@ -6,31 +6,31 @@
       <li class="text-lg">
         <a href="{% url 'dashboard' %}"
           class="{% if request.resolver_match.url_name == 'dashboard' %}menu-active{% endif %}">
-          <i data-lucide="pie-chart" class="w-5 h-5"></i>
+          {% lucide "chart-pie" class="w-5 h-5" %}
           Dashboard
         </a>
       </li>
       <li class="text-lg">
         <a href="{% url 'workflow_list' %}" class="{% if 'workflow' in request.path %}menu-active{% endif %}">
-          <i data-lucide="git-branch" class="w-5 h-5"></i>
+          {% lucide "git-branch" class="w-5 h-5" %}
           Workflows
         </a>
       </li>
       <li class="text-lg">
         <a href="{% url 'event_list' %}" class="{% if 'event' in request.path %}menu-active{% endif %}">
-          <i data-lucide="calendar" class="w-5 h-5"></i>
+          {% lucide "calendar" class="w-5 h-5" %}
           Events
         </a>
       </li>
       <li class="text-lg">
         <a href="{% url 'group_list' %}" class="{% if 'group' in request.path %}menu-active{% endif %}">
-          <i data-lucide="users" class="w-5 h-5"></i>
+          {% lucide "users" class="w-5 h-5" %}
           Groups
         </a>
       </li>
       <li class="text-lg">
         <a href="{% url 'reports' %}" class="{% if 'report' in request.path %}menu-active{% endif %}">
-          <i data-lucide="file-text" class="w-5 h-5"></i>
+          {% lucide "file-text" class="w-5 h-5" %}
           Reports
         </a>
       </li>
@@ -40,7 +40,7 @@
       </li>
       <li class="text-lg">
         <a href="/admin/">
-          <i data-lucide="settings" class="w-5 h-5"></i>
+          {% lucide "settings" class="w-5 h-5" %}
           Admin Panel
         </a>
       </li>

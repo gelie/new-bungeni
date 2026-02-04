@@ -95,20 +95,20 @@
                             <td>
                                 <div class="flex items-start gap-2">
                                     {% if workflow.parent_workflow %}
-                                        <div class="flex items-center text-base-content/40 mt-1">
-                                            <span class="text-xs">└─</span>
-                                        </div>
+                                    <div class="flex items-center text-base-content/40 mt-1">
+                                        <span class="text-xs">└─</span>
+                                    </div>
                                     {% elif workflow.has_sub_workflows %}
-                                        <div class="flex items-center text-base-content/40 mt-1">
-                                            <span class="text-xs">📁</span>
-                                        </div>
+                                    <div class="flex items-center text-base-content/40 mt-1">
+                                        <span class="text-xs">📁</span>
+                                    </div>
                                     {% endif %}
                                     <div class="flex-1">
                                         <div class="font-semibold">{{ workflow.title|truncatewords:10 }}</div>
                                         <div class="text-xs text-base-content/60">
                                             Created {{ workflow.created_at|timesince }} ago
                                             {% if workflow.parent_workflow %}
-                                                <span class="text-base-content/50">• Child of {{ workflow.parent_workflow.title|truncatewords:3 }}</span>
+                                            <span class="text-base-content/50">• Child of {{ workflow.parent_workflow.title|truncatewords:3 }}</span>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -122,7 +122,7 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="badge" style="background-color: {{ workflow.current_state.color }}; color: white;">
+                                <span class="badge w-36" style="background-color: {{ workflow.current_state.color }}; color: white;">
                                     {{ workflow.current_state.name }}
                                 </span>
                             </td>
@@ -155,7 +155,7 @@
                                 <div class="text-sm {% if workflow.is_overdue %}text-error{% endif %}">
                                     {{ workflow.deadline|date:"M d, Y" }}
                                     {% if workflow.is_overdue %}
-                                    <i data-lucide="alert-circle" class="w-4 h-4 inline"></i>
+                                    {% lucide "circle-alert" class="w-4 h-4 inline" %}
                                     {% endif %}
                                 </div>
                                 {% else %}
@@ -167,7 +167,7 @@
                         <tr>
                             <td colspan="7" class="text-center py-12">
                                 <div class="text-base-content/50">
-                                    <i data-lucide="inbox" class="w-16 h-16 mx-auto mb-4"></i>
+                                    {% lucide "inbox" class="w-16 h-16 mx-auto mb-4" %}
                                     <p class="text-lg">No workflows found</p>
                                     <p class="text-sm mt-2">Try adjusting your filters or create a new workflow</p>
                                 </div>

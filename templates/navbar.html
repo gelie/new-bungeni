@@ -6,18 +6,19 @@
         {% lucide "menu" class="w-6 h-6" %}
       </label>
     </div>
-    <div>
-      <a href="{% url 'dashboard' %}" class="btn btn-ghost text-3xl h-16 normal-case">
-        {% lucide "landmark" class="w-12 h-12 mr-2" %}
-        <span class="leading-none align-middle">BUNGENI</span>
-      </a>
-    </div>
+
   </div>
   <div class="navbar-center hidden lg:flex">
-    <!-- Search -->
-    <div class="form-control hidden md:block">
-      <input type="text" placeholder="Search Workflows..." class="input w-96" />
+    <div>
+      <a href="{% url 'dashboard' %}" class="text-3xl h-16 normal-case font-bold flex items-center" title="Parliamentary Workflow Management System">
+        {% lucide "landmark" class="w-12 h-12 mr-2 flex-shrink-0" %}
+        <span class="whitespace-nowrap align-middle leading-none -mb-3">BUNGENI</span>
+      </a>
     </div>
+    <!-- Search -->
+    {% comment %} <div class="form-control hidden md:block">
+      <input type="text" placeholder="Search Workflows..." class="input w-96" />
+    </div> {% endcomment %}
   </div>
   <div class="navbar-end gap-2">
     <!-- Theme Toggle -->

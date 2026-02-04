@@ -84,6 +84,8 @@ def dashboard(request):
     total_workflows = workflows.count()
     my_workflows = workflows.filter(owner=user).count()
     assigned_to_me = workflows.filter(assigned_to=user).count()
+
+    # Overdue workflows - count all workflows past deadline
     overdue_workflows = workflows.filter(
         deadline__lt=timezone.now(), current_state__is_terminal=False
     ).count()
@@ -142,7 +144,14 @@ def workflow_list(request):
     # Base queryset with hierarchy support
     workflows = Workflow.objects.filter(
         Q(group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "group", "owner", "assigned_to", "parent_workflow")
+    ).select_related(
+        "workflow_type",
+        "current_state",
+        "group",
+        "owner",
+        "assigned_to",
+        "parent_workflow",
+    )
 
     # Filters
     workflow_type = request.GET.get("type")
@@ -295,6 +304,11 @@ def workflow_detail(request, pk):
             id=workflow.id
         ).select_related("workflow_type", "current_state")
 
+    # Calculate related count for badge
+    related_count = sub_workflows.count() + len(sibling_workflows)
+    if workflow.parent_workflow:
+        related_count += 1
+
     context = {
         "workflow": workflow,
         "available_transitions": available_transitions,
@@ -307,9 +321,63 @@ def workflow_detail(request, pk):
         "is_root": workflow.is_root_workflow,
         "has_children": workflow.has_sub_workflows,
         "hierarchy_level": workflow.hierarchy_level,
+        "related_count": related_count,
     }
 
     return render(request, "workflows/workflow_detail.html", context)
+
+
+@login_required
+def workflow_edit(request, pk):
+    """Edit a workflow"""
+    workflow = get_object_or_404(Workflow, pk=pk)
+
+    # Check if user can edit this workflow (owner or has edit permissions)
+    if workflow.owner != request.user:
+        messages.error(request, "You do not have permission to edit this workflow.")
+        return redirect("workflow_detail", pk=pk)
+
+    user_groups_qs = Group.objects.filter(
+        id__in=request.user.memberships.filter(is_active=True).values_list(
+            "group", flat=True
+        )
+    )
+
+    if request.method == "GET":
+        context = {
+            "workflow": workflow,
+            "workflow_types": WorkflowType.objects.all(),
+            "groups": user_groups_qs,
+        }
+        return render(request, "workflows/workflow_edit.html", context)
+
+    # POST
+    workflow_type_id = request.POST.get("workflow_type")
+    group_id = request.POST.get("group")
+    title = (request.POST.get("title") or "").strip()
+    description = (request.POST.get("description") or "").strip()
+    priority = request.POST.get("priority") or "medium"
+    deadline = request.POST.get("deadline")
+
+    if not workflow_type_id or not group_id or not title:
+        messages.error(request, "Workflow type, group, and title are required.")
+        return redirect("workflow_edit", pk=pk)
+
+    workflow_type = get_object_or_404(WorkflowType, pk=workflow_type_id)
+    group = get_object_or_404(user_groups_qs, pk=group_id)
+
+    # Update workflow
+    workflow.workflow_type = workflow_type
+    workflow.title = title
+    workflow.description = description
+    workflow.priority = priority
+    workflow.group = group
+    if deadline:
+        workflow.deadline = deadline
+    workflow.save()
+
+    messages.success(request, f"Workflow updated: {workflow.title}")
+    return redirect("workflow_detail", pk=workflow.pk)
 
 
 @login_required

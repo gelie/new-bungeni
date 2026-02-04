@@ -18,7 +18,7 @@
             <h1 class="text-2xl font-bold">Confirm Transition</h1>
 
             <div class="alert alert-info mt-4">
-                <i data-lucide="info" class="w-5 h-5"></i>
+                {% lucide "info" class="w-5 h-5" %}
                 <div>
                     <div class="font-semibold">{{ transition.name }}</div>
                     <div class="text-sm">
@@ -42,20 +42,20 @@
                         <span>
                             Comment
                             {% if transition.requires_comment %}
-                                <span class="text-error">*</span>
+                            <span class="text-error">*</span>
                             {% endif %}
                         </span>
                     </label>
                     <textarea id="comment" name="comment" class="textarea h-24"
-                              placeholder="Add a comment about this transition..."
-                              {% if transition.requires_comment %}required{% endif %}></textarea>
+                        placeholder="Add a comment about this transition..."
+                        {% if transition.requires_comment %}required{% endif %}></textarea>
                 </fieldset>
 
                 <div class="flex gap-2 justify-end">
                     <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-ghost">Cancel</a>
                     <button type="submit" class="btn btn-primary">
                         Confirm Transition
-                        <i data-lucide="arrow-right" class="w-4 h-4 ml-2"></i>
+                        {% lucide "arrow-right" class="w-4 h-4 ml-2" %}
                     </button>
                 </div>
             </form>
