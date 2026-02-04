@@ -1,5 +1,3 @@
-import json
-
 from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -22,7 +20,7 @@ class User(AbstractUser):
     title = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
-    is_active_member = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)  # type: ignore
     date_joined_parliament = models.DateField(null=True, blank=True)
 
     class Meta:
@@ -71,7 +69,7 @@ class GroupType(models.Model):
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 class Group(MPTTModel):
@@ -98,7 +96,7 @@ class Group(MPTTModel):
     description = models.TextField(blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)  # type: ignore
 
     # Additional metadata
     contact_email = models.EmailField(blank=True)
@@ -108,12 +106,12 @@ class Group(MPTTModel):
     class MPTTMeta:
         order_insertion_by = ["name"]
 
-    class Meta:
+    class Meta:  # type: ignore
         ordering = ["name"]
         unique_together = [["name", "parent"]]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def get_full_path(self):
         """Get full hierarchical path"""
@@ -142,17 +140,17 @@ class Role(models.Model):
     description = models.TextField(blank=True)
 
     # Permission flags
-    can_create_workflows = models.BooleanField(default=False)
-    can_edit_workflows = models.BooleanField(default=False)
-    can_delete_workflows = models.BooleanField(default=False)
-    can_view_all_workflows = models.BooleanField(default=False)
-    can_manage_members = models.BooleanField(default=False)
+    can_create_workflows = models.BooleanField(default=False)  # type: ignore
+    can_edit_workflows = models.BooleanField(default=False)  # type: ignore
+    can_delete_workflows = models.BooleanField(default=False)  # type: ignore
+    can_view_all_workflows = models.BooleanField(default=False)  # type: ignore
+    can_manage_members = models.BooleanField(default=False)  # type: ignore
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 class GroupMembership(models.Model):
@@ -169,7 +167,7 @@ class GroupMembership(models.Model):
 
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)  # type: ignore
 
     notes = models.TextField(blank=True)
 
@@ -205,7 +203,7 @@ class WorkflowType(models.Model):
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 class State(models.Model):
@@ -221,12 +219,13 @@ class State(models.Model):
 
     # State properties
     is_initial = models.BooleanField(
-        default=False, help_text="Is this the initial state?"
-    )
-    is_terminal = models.BooleanField(default=False, help_text="Is this a final state?")
+        default=False,
+        help_text="Is this the initial state?",  # ignore
+    )  # type: ignore
+    is_terminal = models.BooleanField(default=False, help_text="Is this a final state?")  # type: ignore
 
     # Ordering for display
-    order = models.IntegerField(default=0)
+    order = models.IntegerField(default=0)  # type: ignore
 
     # Visual properties
     color = models.CharField(
@@ -261,8 +260,8 @@ class Transition(models.Model):
     allowed_roles = models.ManyToManyField(Role, related_name="allowed_transitions")
 
     # Transition properties
-    requires_comment = models.BooleanField(default=False)
-    order = models.IntegerField(default=0)
+    requires_comment = models.BooleanField(default=False)  # type: ignore
+    order = models.IntegerField(default=0)  # type: ignore
 
     class Meta:
         ordering = ["workflow_type", "order", "name"]
@@ -285,15 +284,15 @@ class Facet(models.Model):
     allowed_roles = models.ManyToManyField(Role, related_name="facets")
 
     # What can be done with this facet
-    can_view = models.BooleanField(default=True)
-    can_edit = models.BooleanField(default=False)
-    can_delete = models.BooleanField(default=False)
+    can_view = models.BooleanField(default=True)  # type: ignore
+    can_edit = models.BooleanField(default=False)  # type: ignore
+    can_delete = models.BooleanField(default=False)  # type: ignore
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 class StateFacet(models.Model):
@@ -349,6 +348,31 @@ class Workflow(models.Model):
         help_text="Group this workflow is referred to",
     )
 
+    # Parent-child workflow relationships
+    parent_workflow = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="sub_workflows",
+        help_text="Parent workflow (e.g., International Report for Resolutions)",
+    )
+
+    # Optional: Add a field to indicate the relationship type
+    relationship_type = models.CharField(
+        max_length=50,
+        choices=[
+            ("resolution", "Resolution"),
+            ("amendment", "Amendment"),
+            ("follow_up", "Follow-up Action"),
+            ("supplement", "Supplementary Document"),
+            ("correction", "Correction/Erratum"),
+        ],
+        null=True,
+        blank=True,
+        help_text="Type of relationship to parent workflow",
+    )
+
     # Workflow-specific data stored as JSON
     data = models.JSONField(
         default=dict, blank=True, help_text="Workflow-specific attributes"
@@ -377,9 +401,23 @@ class Workflow(models.Model):
             models.Index(fields=["workflow_type", "current_state"]),
             models.Index(fields=["group", "current_state"]),
             models.Index(fields=["deadline"]),
+            models.Index(fields=["parent_workflow"]),
+        ]
+        constraints = [
+            # Prevent workflows from being their own parent (direct or indirect)
+            models.CheckConstraint(
+                condition=~models.Q(id=models.F("parent_workflow_id")),
+                name="workflow_not_self_parent",
+            ),
         ]
 
     def __str__(self):
+        if self.parent_workflow:
+            prefix = "  " * self.hierarchy_level
+            relationship = (
+                f" ({self.relationship_type})" if self.relationship_type else ""
+            )
+            return f"{prefix}└─ {self.workflow_type.name}: {self.title}{relationship}"
         return f"{self.workflow_type.name}: {self.title}"
 
     def get_available_transitions(self, user):
@@ -410,8 +448,8 @@ class Workflow(models.Model):
             "group", flat=True
         )
 
-        if self.group_id in user_groups or (
-            self.referred_to_id and self.referred_to_id in user_groups
+        if self.group.id in user_groups or (
+            self.referred_to.id and self.referred_to.id in user_groups
         ):
             # Check facet permissions for current state
             state_facets = self.current_state.facets.all()
@@ -419,7 +457,7 @@ class Workflow(models.Model):
                 return True  # No facets = visible to all group members
 
             user_roles = user.memberships.filter(
-                group__in=[self.group_id, self.referred_to_id], is_active=True
+                group__in=[self.group.id, self.referred_to.id], is_active=True
             ).values_list("role", flat=True)
 
             return state_facets.filter(
@@ -433,6 +471,117 @@ class Workflow(models.Model):
         if self.deadline:
             return timezone.now() > self.deadline
         return False
+
+    def clean(self):
+        """Validate workflow to prevent circular references"""
+        super().clean()
+
+        if self.parent_workflow:
+            # Prevent workflow from being its own ancestor
+            if self._would_create_circular_reference(self.parent_workflow):
+                from django.core.exceptions import ValidationError
+
+                raise ValidationError(
+                    "Cannot set parent workflow: this would create a circular reference."
+                )
+
+    def _would_create_circular_reference(self, potential_parent):
+        """Check if setting potential_parent would create a circular reference"""
+        if not potential_parent:
+            return False
+
+        # Check if potential parent is self
+        if potential_parent.id == self.id:
+            return True
+
+        # Check if potential parent is already a descendant
+        descendants = self.get_all_descendants()
+        return potential_parent in descendants
+
+    def save(self, *args, **kwargs):
+        """Override save to run validation"""
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def get_root_workflow(self):
+        """Get the root parent workflow (top of the hierarchy)"""
+        current = self
+        while current.parent_workflow:
+            current = current.parent_workflow
+        return current
+
+    def get_all_descendants(self):
+        """Get all descendant workflows recursively"""
+        descendants = []
+        for sub_workflow in self.sub_workflows.all():
+            descendants.append(sub_workflow)
+            descendants.extend(sub_workflow.get_all_descendants())
+        return descendants
+
+    def get_workflow_hierarchy_path(self):
+        """Get the full path from root to this workflow"""
+        path = []
+        current = self
+        while current:
+            path.insert(0, current)
+            current = current.parent_workflow
+        return path
+
+    def can_be_parent_of(self, potential_child_type):
+        """Check if this workflow type can be parent of another workflow type"""
+        # Define valid parent-child relationships
+        valid_relationships = {
+            "International Report": ["International Resolution"],
+            "Bill": ["Amendment"],
+            "Motion": ["Amendment", "Follow-up Action"],
+            # Add more as needed
+        }
+
+        parent_type = self.workflow_type.name
+        return potential_child_type in valid_relationships.get(parent_type, [])
+
+    def create_sub_workflow(self, workflow_type, title, relationship_type, **kwargs):
+        """Helper method to create a sub-workflow"""
+        if not self.can_be_parent_of(workflow_type.name):
+            raise ValueError(
+                f"{self.workflow_type.name} cannot be parent of {workflow_type.name}"
+            )
+
+        # Inherit some properties from parent if not specified
+        defaults = {
+            "group": self.group,
+            "owner": self.owner,
+            "priority": self.priority,
+        }
+        defaults.update(kwargs)
+
+        return Workflow.objects.create(
+            workflow_type=workflow_type,
+            title=title,
+            parent_workflow=self,
+            relationship_type=relationship_type,
+            **defaults,
+        )
+
+    @property
+    def hierarchy_level(self):
+        """Get the depth level in the hierarchy (0 for root)"""
+        level = 0
+        current = self.parent_workflow
+        while current:
+            level += 1
+            current = current.parent_workflow
+        return level
+
+    @property
+    def is_root_workflow(self):
+        """Check if this is a root workflow (has no parent)"""
+        return self.parent_workflow is None
+
+    @property
+    def has_sub_workflows(self):
+        """Check if this workflow has any sub-workflows"""
+        return self.sub_workflows.exists()
 
 
 # ============================================================================
@@ -524,7 +673,7 @@ class EventType(models.Model):
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 class Venue(models.Model):
@@ -541,7 +690,7 @@ class Venue(models.Model):
         ordering = ["name"]
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
 
 class Event(models.Model):
@@ -652,7 +801,7 @@ class Notification(models.Model):
     object_id = models.PositiveIntegerField(null=True, blank=True)
     content_object = GenericForeignKey("content_type", "object_id")
 
-    is_read = models.BooleanField(default=False)
+    is_read = models.BooleanField(default=False)  # type: ignore
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

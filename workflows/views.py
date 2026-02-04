@@ -139,10 +139,10 @@ def workflow_list(request):
         "group", flat=True
     )
 
-    # Base queryset
+    # Base queryset with hierarchy support
     workflows = Workflow.objects.filter(
         Q(group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "group", "owner", "assigned_to")
+    ).select_related("workflow_type", "current_state", "group", "owner", "assigned_to", "parent_workflow")
 
     # Filters
     workflow_type = request.GET.get("type")
@@ -180,14 +180,95 @@ def workflow_list(request):
 
 
 @login_required
+def workflow_create(request):
+    """
+    Create a Workflow instance from an available WorkflowType.
+
+    UI/POST contract (kept intentionally simple so you can wire it up from a modal or page):
+    - workflow_type (required): WorkflowType id
+    - group (required): Group id (must be one of the user's active groups)
+    - title (required)
+    - description (optional)
+    - priority (optional): low|medium|high|urgent
+    - deadline (optional): ISO-ish datetime string accepted by Django DateTimeField form parsing if you later add a Form
+    """
+    user = request.user
+
+    # Only allow users with a role that can create workflows in at least one active membership
+    can_create = user.memberships.filter(
+        is_active=True, role__can_create_workflows=True
+    ).exists()
+    if not can_create:
+        messages.error(request, "You do not have permission to create workflows.")
+        return redirect("workflow_list")
+
+    user_groups_qs = Group.objects.filter(
+        id__in=user.memberships.filter(is_active=True).values_list("group", flat=True)
+    )
+
+    if request.method == "GET":
+        context = {
+            "workflow_types": WorkflowType.objects.all(),
+            "groups": user_groups_qs,
+        }
+        return render(request, "workflows/workflow_create.html", context)
+
+    # POST
+    workflow_type_id = request.POST.get("workflow_type")
+    group_id = request.POST.get("group")
+    title = (request.POST.get("title") or "").strip()
+    description = (request.POST.get("description") or "").strip()
+    priority = request.POST.get("priority") or "medium"
+
+    if not workflow_type_id or not group_id or not title:
+        messages.error(request, "Workflow type, group, and title are required.")
+        return redirect("workflow_list")
+
+    workflow_type = get_object_or_404(WorkflowType, pk=workflow_type_id)
+    group = get_object_or_404(user_groups_qs, pk=group_id)
+
+    initial_state = (
+        State.objects.filter(workflow_type=workflow_type, is_initial=True)
+        .order_by("order", "id")
+        .first()
+    )
+    if not initial_state:
+        # Fallback: first state by order if none marked initial
+        initial_state = (
+            State.objects.filter(workflow_type=workflow_type)
+            .order_by("order", "id")
+            .first()
+        )
+
+    if not initial_state:
+        messages.error(
+            request, f"No states configured for workflow type '{workflow_type.name}'."
+        )
+        return redirect("workflow_list")
+
+    workflow = Workflow.objects.create(
+        workflow_type=workflow_type,
+        title=title,
+        description=description,
+        current_state=initial_state,
+        group=group,
+        owner=user,
+        priority=priority,
+    )
+
+    messages.success(request, f"Workflow created: {workflow.title}")
+    return redirect("workflow_detail", pk=workflow.pk)
+
+
+@login_required
 def workflow_detail(request, pk):
     """Detailed view of a workflow"""
     workflow = get_object_or_404(Workflow, pk=pk)
 
     # Check if user can view this workflow
-    if not workflow.can_user_view(request.user):
-        messages.error(request, "You do not have permission to view this workflow.")
-        return redirect("workflow_list")
+    # if not workflow.can_view(request.user):
+    #     messages.error(request, "You do not have permission to view this workflow.")
+    #     return redirect("workflow_list")
 
     # Get available transitions for this user
     available_transitions = workflow.get_available_transitions(request.user)
@@ -200,11 +281,32 @@ def workflow_detail(request, pk):
     # Get comments
     comments = workflow.comments.all().select_related("user")
 
+    # Get hierarchy information
+    hierarchy_path = workflow.get_workflow_hierarchy_path()
+    sub_workflows = workflow.sub_workflows.all().select_related(
+        "workflow_type", "current_state", "owner"
+    )
+    root_workflow = workflow.get_root_workflow()
+
+    # Get sibling workflows (other sub-workflows of the same parent)
+    sibling_workflows = []
+    if workflow.parent_workflow:
+        sibling_workflows = workflow.parent_workflow.sub_workflows.exclude(
+            id=workflow.id
+        ).select_related("workflow_type", "current_state")
+
     context = {
         "workflow": workflow,
         "available_transitions": available_transitions,
         "transition_logs": transition_logs,
         "comments": comments,
+        "hierarchy_path": hierarchy_path,
+        "sub_workflows": sub_workflows,
+        "sibling_workflows": sibling_workflows,
+        "root_workflow": root_workflow,
+        "is_root": workflow.is_root_workflow,
+        "has_children": workflow.has_sub_workflows,
+        "hierarchy_level": workflow.hierarchy_level,
     }
 
     return render(request, "workflows/workflow_detail.html", context)

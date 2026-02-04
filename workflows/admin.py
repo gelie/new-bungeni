@@ -152,21 +152,21 @@ class FacetAdmin(admin.ModelAdmin):
         (
             "View Permissions",
             {
-                "fields": ("roles_can_view",),
+                "fields": ("can_view",),
                 "description": "Roles that can view workflows in states with this facet",
             },
         ),
         (
             "Edit Permissions",
             {
-                "fields": ("roles_can_edit",),
+                "fields": ("can_edit",),
                 "description": "Roles that can edit workflows in states with this facet",
             },
         ),
         (
             "Delete Permissions",
             {
-                "fields": ("roles_can_delete",),
+                "fields": ("can_delete",),
                 "description": "Roles that can delete workflows in states with this facet",
             },
         ),
@@ -185,6 +185,8 @@ class WorkflowAdmin(admin.ModelAdmin):
     list_display = [
         "title",
         "workflow_type",
+        "parent_workflow",
+        "relationship_type",
         "current_state",
         "group",
         "owner",
@@ -192,10 +194,52 @@ class WorkflowAdmin(admin.ModelAdmin):
         "deadline",
         "created_at",
     ]
-    list_filter = ["workflow_type", "current_state", "priority", "group__group_type"]
+    list_filter = [
+        "workflow_type",
+        "current_state",
+        "priority",
+        "group__group_type",
+        "relationship_type",
+        ("parent_workflow", admin.RelatedOnlyFieldListFilter),
+    ]
     search_fields = ["title", "description"]
     date_hierarchy = "created_at"
     readonly_fields = ["created_at", "updated_at"]
+
+    fieldsets = (
+        ("Basic Information", {"fields": ("workflow_type", "title", "description")}),
+        (
+            "Hierarchy",
+            {
+                "fields": ("parent_workflow", "relationship_type"),
+                "description": "Configure parent-child workflow relationships",
+            },
+        ),
+        ("Assignment", {"fields": ("group", "owner", "assigned_to", "referred_to")}),
+        ("State & Priority", {"fields": ("current_state", "priority", "deadline")}),
+        ("Data", {"fields": ("data",), "classes": ("collapse",)}),
+        (
+            "Timestamps",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "parent_workflow":
+            # Only allow selection of workflows that can be parents
+            # and prevent circular references
+            obj = getattr(request, "_obj_", None)
+            if obj:
+                # If editing existing workflow, exclude self and descendants
+                exclude_ids = [obj.id] + [w.id for w in obj.get_all_descendants()]
+                kwargs["queryset"] = Workflow.objects.exclude(id__in=exclude_ids)
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        # Store the object being edited for use in formfield_for_foreignkey
+        request._obj_ = obj
+        return super().get_form(request, obj, change, **kwargs)
 
 
 @admin.register(WorkflowTransitionLog)

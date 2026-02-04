@@ -10,10 +10,9 @@
             <h1 class="text-3xl font-bold">Workflows</h1>
             <p class="text-base-content/70 mt-1">Manage parliamentary workflows</p>
         </div>
-        <button class="btn btn-primary">
-            <i data-lucide="plus" class="w-5 h-5 mr-2"></i>
-            New Workflow
-        </button>
+        <a href="{% url 'workflow_create' %}" class="btn btn-primary">
+            {% lucide "plus" class="w-5 h-5 mr-2" %} New Workflow
+        </a>
     </div>
 
     <!-- Filters -->
@@ -22,7 +21,7 @@
             <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div class="form-control">
                     <input type="text" name="search" placeholder="Search workflows..."
-                           value="{{ request.GET.search }}" class="input">
+                        value="{{ request.GET.search }}" class="input">
                 </div>
 
                 <div class="form-control">
@@ -59,10 +58,10 @@
 
                 <div class="flex gap-2">
                     <button type="submit" class="btn btn-primary flex-1">
-                        <i data-lucide="search" class="w-4 h-4"></i>
+                        {% lucide "search" class="w-4 h-4" %} <span>Search</span>
                     </button>
                     <a href="{% url 'workflow_list' %}" class="btn btn-ghost">
-                        <i data-lucide="x" class="w-4 h-4"></i>
+                        {% lucide "x" class="w-4 h-4" %}
                     </a>
                 </div>
             </form>
@@ -73,30 +72,54 @@
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-0">
             <div class="overflow-x-auto">
-                <table class="table table-zebra">
+                <table class="table table-zebra w-full">
                     <thead>
                         <tr>
-                            <th>Title</th>
-                            <th>Type</th>
-                            <th>State</th>
-                            <th>Group</th>
-                            <th>Priority</th>
-                            <th>Owner</th>
-                            <th>Deadline</th>
-                            <th>Actions</th>
+                            <th class="w-1/4">Title</th>
+                            <th class="w-32">Type</th>
+                            <th class="w-24">State</th>
+                            <th class="w-1/6">Group</th>
+                            <th class="w-20">Priority</th>
+                            <th class="w-1/6">Owner</th>
+                            <th class="w-24">Deadline</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for workflow in workflows %}
-                        <tr class="hover:bg-base-300">
+                        <tr class="hover:bg-base-300 hover:shadow-md cursor-pointer transition-all duration-200 active:bg-base-200"
+                            onclick="window.location.href='{% url 'workflow_detail' workflow.pk %}'"
+                            title="Click to view {{ workflow.title }}"
+                            role="button"
+                            tabindex="0"
+                            onkeydown="if(event.key==='Enter'||event.key===' '){window.location.href='{% url 'workflow_detail' workflow.pk %}'}">
                             <td>
-                                <div class="font-semibold">{{ workflow.title|truncatewords:10 }}</div>
-                                <div class="text-xs text-base-content/60">
-                                    Created {{ workflow.created_at|timesince }} ago
+                                <div class="flex items-start gap-2">
+                                    {% if workflow.parent_workflow %}
+                                        <div class="flex items-center text-base-content/40 mt-1">
+                                            <span class="text-xs">└─</span>
+                                        </div>
+                                    {% elif workflow.has_sub_workflows %}
+                                        <div class="flex items-center text-base-content/40 mt-1">
+                                            <span class="text-xs">📁</span>
+                                        </div>
+                                    {% endif %}
+                                    <div class="flex-1">
+                                        <div class="font-semibold">{{ workflow.title|truncatewords:10 }}</div>
+                                        <div class="text-xs text-base-content/60">
+                                            Created {{ workflow.created_at|timesince }} ago
+                                            {% if workflow.parent_workflow %}
+                                                <span class="text-base-content/50">• Child of {{ workflow.parent_workflow.title|truncatewords:3 }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
                             </td>
                             <td>
-                                <span class="badge badge-outline">{{ workflow.workflow_type.name }}</span>
+                                <div class="max-w-48">
+                                    <span class="badge badge-outline text-xs px-2 py-1 inline-block w-full truncate" title="{{ workflow.workflow_type.name }}">
+                                        {{ workflow.workflow_type.name|title }}
+                                    </span>
+                                </div>
                             </td>
                             <td>
                                 <span class="badge" style="background-color: {{ workflow.current_state.color }}; color: white;">
@@ -108,13 +131,13 @@
                             </td>
                             <td>
                                 {% if workflow.priority == 'urgent' %}
-                                    <span class="badge badge-error">Urgent</span>
+                                <span class="badge badge-error">Urgent</span>
                                 {% elif workflow.priority == 'high' %}
-                                    <span class="badge badge-warning">High</span>
+                                <span class="badge badge-warning">High</span>
                                 {% elif workflow.priority == 'medium' %}
-                                    <span class="badge badge-info">Medium</span>
+                                <span class="badge badge-info">Medium</span>
                                 {% else %}
-                                    <span class="badge badge-ghost">Low</span>
+                                <span class="badge badge-ghost">Low</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -129,25 +152,20 @@
                             </td>
                             <td>
                                 {% if workflow.deadline %}
-                                    <div class="text-sm {% if workflow.is_overdue %}text-error{% endif %}">
-                                        {{ workflow.deadline|date:"M d, Y" }}
-                                        {% if workflow.is_overdue %}
-                                            <i data-lucide="alert-circle" class="w-4 h-4 inline"></i>
-                                        {% endif %}
-                                    </div>
+                                <div class="text-sm {% if workflow.is_overdue %}text-error{% endif %}">
+                                    {{ workflow.deadline|date:"M d, Y" }}
+                                    {% if workflow.is_overdue %}
+                                    <i data-lucide="alert-circle" class="w-4 h-4 inline"></i>
+                                    {% endif %}
+                                </div>
                                 {% else %}
-                                    <span class="text-base-content/50">-</span>
+                                <span class="text-base-content/50">-</span>
                                 {% endif %}
-                            </td>
-                            <td>
-                                <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-sm btn-ghost">
-                                    <i data-lucide="eye" class="w-4 h-4"></i>
-                                </a>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center py-12">
+                            <td colspan="7" class="text-center py-12">
                                 <div class="text-base-content/50">
                                     <i data-lucide="inbox" class="w-16 h-16 mx-auto mb-4"></i>
                                     <p class="text-lg">No workflows found</p>

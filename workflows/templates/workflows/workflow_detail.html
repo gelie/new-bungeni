@@ -4,12 +4,22 @@
 
 {% block content %}
 <div class="space-y-6">
-    <!-- Breadcrumb -->
+    <!-- Breadcrumb with Hierarchy -->
     <div class="text-sm breadcrumbs">
         <ul>
             <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
             <li><a href="{% url 'workflow_list' %}">Workflows</a></li>
-            <li>{{ workflow.title|truncatewords:5 }}</li>
+            {% if hierarchy_path %}
+                {% for workflow_item in hierarchy_path %}
+                    {% if forloop.last %}
+                        <li>{{ workflow_item.title|truncatewords:5 }}</li>
+                    {% else %}
+                        <li><a href="{% url 'workflow_detail' workflow_item.pk %}">{{ workflow_item.title|truncatewords:3 }}</a></li>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <li>{{ workflow.title|truncatewords:5 }}</li>
+            {% endif %}
         </ul>
     </div>
 
@@ -18,7 +28,20 @@
         <div class="card-body">
             <div class="flex justify-between items-start">
                 <div class="flex-1">
+                    {% if workflow.parent_workflow %}
+                        <div class="text-sm text-base-content/60 mb-2">
+                            <i data-lucide="link" class="w-4 h-4 inline mr-1"></i>
+                            {{ workflow.get_relationship_type_display|default:"Child" }} of
+                            <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}" class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
+                        </div>
+                    {% endif %}
                     <h1 class="text-3xl font-bold">{{ workflow.title }}</h1>
+                    {% if workflow.has_sub_workflows %}
+                        <div class="text-sm text-base-content/60 mt-1">
+                            <i data-lucide="folder" class="w-4 h-4 inline mr-1"></i>
+                            Has {{ sub_workflows|length }} related item{{ sub_workflows|length|pluralize }}
+                        </div>
+                    {% endif %}
                     <div class="flex flex-wrap gap-2 mt-4">
                         <span class="badge badge-lg" style="background-color: {{ workflow.current_state.color }}; color: white;">
                             {{ workflow.current_state.name }}
@@ -28,6 +51,9 @@
                             <span class="badge badge-lg badge-error">Urgent</span>
                         {% elif workflow.priority == 'high' %}
                             <span class="badge badge-lg badge-warning">High Priority</span>
+                        {% endif %}
+                        {% if workflow.hierarchy_level > 0 %}
+                            <span class="badge badge-lg badge-ghost">Level {{ workflow.hierarchy_level }}</span>
                         {% endif %}
                     </div>
                 </div>
@@ -239,6 +265,122 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Sub-workflows / Children -->
+            {% if sub_workflows %}
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="font-bold mb-4 flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <i data-lucide="folder-tree" class="w-5 h-5"></i>
+                            Related {{ workflow.workflow_type.name }}s
+                        </span>
+                        <span class="badge badge-sm badge-primary">{{ sub_workflows|length }}</span>
+                    </h3>
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        {% for sub_workflow in sub_workflows %}
+                        <a href="{% url 'workflow_detail' sub_workflow.pk %}"
+                           class="block p-3 rounded-lg border border-base-300 hover:bg-base-200 hover:border-primary hover:shadow-sm transition-all duration-200">
+                            <div class="flex items-start gap-2">
+                                <div class="flex-shrink-0 mt-1">
+                                    <span class="text-base-content/40">└─</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-semibold text-sm truncate">{{ sub_workflow.title }}</div>
+                                    <div class="text-xs text-base-content/60 mt-1">
+                                        {{ sub_workflow.workflow_type.name }}
+                                        {% if sub_workflow.relationship_type %}
+                                            • {{ sub_workflow.get_relationship_type_display }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-2">
+                                        <span class="badge badge-xs" style="background-color: {{ sub_workflow.current_state.color }}; color: white;">
+                                            {{ sub_workflow.current_state.name }}
+                                        </span>
+                                        {% if sub_workflow.priority == 'urgent' %}
+                                            <span class="badge badge-xs badge-error">Urgent</span>
+                                        {% elif sub_workflow.priority == 'high' %}
+                                            <span class="badge badge-xs badge-warning">High</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Parent workflow -->
+            {% if workflow.parent_workflow %}
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="font-bold mb-4 flex items-center gap-2">
+                        <i data-lucide="arrow-up" class="w-5 h-5"></i>
+                        Parent {{ workflow.parent_workflow.workflow_type.name }}
+                    </h3>
+                    <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
+                       class="block p-3 rounded-lg border border-base-300 hover:bg-base-200 hover:border-primary hover:shadow-sm transition-all duration-200">
+                        <div class="flex items-start gap-2">
+                            <div class="flex-shrink-0 mt-1">
+                                <span class="text-base-content/40">📁</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold text-sm truncate">{{ workflow.parent_workflow.title }}</div>
+                                <div class="text-xs text-base-content/60 mt-1">
+                                    {{ workflow.parent_workflow.workflow_type.name }}
+                                    {% if workflow.relationship_type %}
+                                        • This is a {{ workflow.get_relationship_type_display|lower }}
+                                    {% endif %}
+                                </div>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="badge badge-xs" style="background-color: {{ workflow.parent_workflow.current_state.color }}; color: white;">
+                                        {{ workflow.parent_workflow.current_state.name }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Sibling workflows -->
+            {% if sibling_workflows %}
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h3 class="font-bold mb-4 flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <i data-lucide="git-branch" class="w-5 h-5"></i>
+                            Related Items
+                        </span>
+                        <span class="badge badge-sm badge-outline">{{ sibling_workflows|length }}</span>
+                    </h3>
+                    <div class="space-y-2">
+                        {% for sibling in sibling_workflows %}
+                       <a href="{% url 'workflow_detail' sibling.pk %}"
+                          class="block p-3 rounded-lg border border-base-300 hover:bg-base-200 hover:border-primary hover:shadow-sm transition-all duration-200">
+                           <div class="flex items-center gap-2">
+                               <span class="text-base-content/40 text-xs">└─</span>
+                               <div class="flex-1 min-w-0">
+                                   <div class="font-medium text-sm truncate">{{ sibling.title }}</div>
+                                   <div class="text-xs text-base-content/60 mt-1">
+                                       {% if sibling.relationship_type %}
+                                           {{ sibling.get_relationship_type_display }}
+                                       {% endif %}
+                                   </div>
+                               </div>
+                               <span class="badge badge-xs" style="background-color: {{ sibling.current_state.color }}; color: white;">
+                                   {{ sibling.current_state.name }}
+                               </span>
+                           </div>
+                       </a>
+                       {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Related Items -->
             {% if workflow.referred_to %}
