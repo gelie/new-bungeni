@@ -78,6 +78,36 @@
     // HTMX event listeners
     document.body.addEventListener('htmx:afterSwap', function (event) {
       // lucide.createIcons();
+      applyWorkflowStateColors();
+
+      // Re-add click handlers for workflow rows
+      document.querySelectorAll('[data-workflow-url]').forEach(row => {
+        row.addEventListener('click', function () {
+          window.location.href = this.dataset.workflowUrl;
+        });
+      });
+    });
+
+    // Apply dynamic background colors to workflow state badges
+    function applyWorkflowStateColors() {
+      document.querySelectorAll('.workflow-state-badge').forEach(badge => {
+        const color = badge.getAttribute('data-state-color');
+        if (color) {
+          badge.style.backgroundColor = color;
+        }
+      });
+    }
+
+    // Apply colors on page load
+    document.addEventListener('DOMContentLoaded', function () {
+      applyWorkflowStateColors();
+
+      // Add click handlers for workflow rows
+      document.querySelectorAll('[data-workflow-url]').forEach(row => {
+        row.addEventListener('click', function () {
+          window.location.href = this.dataset.workflowUrl;
+        });
+      });
     });
   </script>
 </body>
