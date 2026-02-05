@@ -9,6 +9,6 @@ wheels/
 # Virtual environments
 .venv
 db.sqlite3
-daisyui_setup/
 docs/
 static/js/_hyperscript.min.js
+.env
