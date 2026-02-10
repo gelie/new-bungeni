@@ -1,0 +1,40 @@
+digraph workflow {
+    rankdir=LR;
+    node [shape=box, style=filled];
+    edge [fontsize=10];
+
+    // Workflow: International Resolution
+    "Adopted" [
+        label="Adopted",
+        fillcolor="#6B7280",
+        shape=ellipse,
+        fontcolor="white"
+    ];
+    "Implemented" [
+        label="Implemented",
+        fillcolor="#6B7280",
+        shape=doubleoctagon,
+        fontcolor="white"
+    ];
+    "Sent to Committee" [
+        label="Sent to Committee",
+        fillcolor="#6B7280",
+        shape=box,
+        fontcolor="white"
+    ];
+    "Sent to Ministry" [
+        label="Sent to Ministry",
+        fillcolor="#6B7280",
+        shape=box,
+        fontcolor="white"
+    ];
+    "Sent to Ministry" -> "Implemented" [
+        label="complete"
+    ];
+    "Adopted" -> "Sent to Committee" [
+        label="refer_to_committee"
+    ];
+    "Sent to Committee" -> "Sent to Ministry" [
+        label="refer_to_ministry"
+    ];
+}

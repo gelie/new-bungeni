@@ -1,0 +1,101 @@
+digraph International_Report {
+	graph [bb="0,0,559.75,606.5",
+		fontname=bold,
+		fontsize=16,
+		label="International Report Workflow\nDelegation reports and multi-lateral agreements managed by IRPD",
+		labelloc=t,
+		lheight=0.62,
+		lp="279.88,580",
+		lwidth=7.55,
+		rankdir=TB
+	];
+	node [label="\N",
+		shape=box,
+		style=filled
+	];
+	edge [fontsize=10];
+	subgraph cluster_initial {
+		graph [bb="231.38,463,352.38,545.5",
+			color=lightgreen,
+			label="Initial States",
+			lheight=0.31,
+			lp="291.88,530.25",
+			lwidth=1.46,
+			style=filled
+		];
+		Draft	[fillcolor="#FF8C00",
+			fontcolor=white,
+			height=0.5,
+			label=Draft,
+			pos="288.38,489",
+			shape=ellipse,
+			width=1.0425];
+	}
+	subgraph cluster_regular {
+		graph [bb="228.38,142,361.38,419.5",
+			color=lightblue,
+			label="Regular States",
+			lheight=0.31,
+			lp="294.88,404.25",
+			lwidth=1.62,
+			style=filled
+		];
+		Approved	[fillcolor="#6B7280",
+			fontcolor=white,
+			height=0.5,
+			label=Approved,
+			pos="288.38,265.5",
+			width=1.1701];
+		Tabled	[fillcolor="#6B7280",
+			fontcolor=white,
+			height=0.5,
+			label=Tabled,
+			pos="288.38,168",
+			width=0.87847];
+		Approved -> Tabled	[label="table\n[Admin]",
+			lp="309,216.75",
+			pos="e,288.38,186.25 288.38,247.43 288.38,233.53 288.38,213.61 288.38,197.32"];
+		"In Review"	[fillcolor="#6B7280",
+			fontcolor=white,
+			height=0.5,
+			label="In Review",
+			pos="288.38,363",
+			width=1.2014];
+		"In Review" -> Approved	[label="approve\n[Admin]",
+			lp="309.38,314.25",
+			pos="e,288.38,283.75 288.38,344.93 288.38,331.03 288.38,311.11 288.38,294.82"];
+	}
+	subgraph cluster_terminal {
+		graph [bb="138.38,8,421.38,98.5",
+			color=lightcoral,
+			label="Terminal States",
+			lheight=0.31,
+			lp="279.88,83.25",
+			lwidth=1.78,
+			style=filled
+		];
+		Adopted	[fillcolor="#228B22",
+			fontcolor=white,
+			height=0.61111,
+			label=Adopted,
+			pos="207.38,38",
+			shape=doubleoctagon,
+			width=1.6982];
+		Rejected	[fillcolor="#228B22",
+			fontcolor=white,
+			height=0.61111,
+			label=Rejected,
+			pos="350.38,38",
+			shape=doubleoctagon,
+			width=1.7615];
+	}
+	Draft -> "In Review"	[label="send for review\n[Admin]",
+		lp="327.75,440.25",
+		pos="e,288.38,381.49 288.38,470.76 288.38,450.61 288.38,416.94 288.38,392.8"];
+	Tabled -> Adopted	[label="adopt\n[Admin]",
+		lp="281.75,119.25",
+		pos="e,218.53,60.183 274.03,149.55 269.72,144.05 265.08,137.88 261.12,132 247.65,112 234.07,88.467 223.93,70.081"];
+	Tabled -> Rejected	[label="reject\n[Admin]",
+		lp="338.14,119.25",
+		pos="e,340.09,60.24 296.74,149.74 306.57,129.44 323.09,95.34 335.2,70.333"];
+}
