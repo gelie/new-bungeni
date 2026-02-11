@@ -1,39 +1,41 @@
 <!-- Top Navbar -->
-<div class="navbar shadow-lg sticky top-0 z-50">
+<div class="navbar bg-base-100 shadow-lg sticky top-0 z-50 min-h-16">
   <div class="navbar-start">
-    <div>
-      <label for="sidebar-drawer" class="btn btn-square btn-ghost drawer-button lg:hidden">
-        {% lucide "menu" class="w-6 h-6" %}
-      </label>
-      <span
-        class="whitespace-nowrap align-middle leading-none -mb-3 sm:hidden md:hidden lg:block">{% lucide "landmark" class="w-12 h-12 mr-2 flex-shrink-0" %}</span>
-    </div>
+    {% if user.is_authenticated %}
+    <label for="sidebar-drawer" class="btn btn-square btn-ghost drawer-button lg:hidden">
+      {% lucide "menu" class="w-6 h-6" %}
+    </label>
+    {% endif %}
+    <span class="whitespace-nowrap align-middle leading-none lg:block hidden">
+      {% lucide "landmark" class="w-12 h-12 mr-2 flex-shrink-0" %}
+    </span>
   </div>
+
   <div class="navbar-center">
-    <div>
-      <a href="{% url 'dashboard' %}" class="text-3xl h-16 normal-case font-bold flex items-center"
-        title="Parliamentary Workflow Management System">
-        <span
-          class="whitespace-nowrap align-middle leading-none -mb-3 lg:hidden sm:flex md:flex">{% lucide "landmark" class="w-12 h-12 mr-2 flex-shrink-0" %}</span>
-        <span class="whitespace-nowrap align-middle leading-none -mb-3 lg:flex sm:hidden md:hidden">BUNGENI</span>
-      </a>
-    </div>
-    <!-- Search -->
-    {% comment %} <div class="form-control hidden md:block">
-      <input type="text" placeholder="Search Workflows..." class="input w-96" />
-    </div> {% endcomment %}
+    <a href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}"
+       class="text-3xl normal-case font-bold flex items-center gap-2"
+       title="Parliamentary Workflow Management System">
+      <span class="lg:hidden flex">
+        {% lucide "landmark" class="w-12 h-12 flex-shrink-0" %}
+      </span>
+      <span class="lg:flex hidden">BUNGENI</span>
+    </a>
   </div>
+
   <div class="navbar-end gap-2">
     <!-- Theme Toggle -->
     <button onclick="toggleTheme()" class="btn btn-ghost btn-circle">
-      {% lucide "sun" class="w-5 h-5 theme-icon-light" %}
-      {% lucide "moon" class="w-5 h-5 theme-icon-dark hidden" %}
+      <div>{% lucide "sun" class="w-5 h-5 theme-icon-light" %}</div>
+      <div>{% lucide "moon" class="w-5 h-5 theme-icon-dark hidden" %}</div>
     </button>
+
+    {% if user.is_authenticated %}
+
     <!-- Notifications -->
     <div class="dropdown dropdown-end">
       <label tabindex="0" class="btn btn-ghost btn-circle">
         <div class="indicator">
-          {% lucide "bell" class="w-5 h-5" %}
+          <span>{% lucide "bell" class="w-5 h-5" %}</span>
           <span class="badge badge-xs badge-error indicator-item">3</span>
         </div>
       </label>
@@ -53,25 +55,34 @@
     <div class="dropdown dropdown-end">
       <label tabindex="0" class="btn btn-ghost btn-circle avatar">
         <div class="w-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
-          {% if user.is_authenticated %}
           {{ user.first_name.0|default:user.username.0|upper }}
-          {% else %}
-          {% lucide "user" class="w-5 h-5" %}
-          {% endif %}
         </div>
       </label>
-      <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 p-2 shadow bg-base-100 rounded-box w-52">
-        {% if user.is_authenticated %}
+      <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 p-2 shadow bg-base-100 rounded-box w-40">
         <li class="menu-title">
           <span>{{ user.get_full_name|default:user.username }}</span>
         </li>
         <li><a href="#">{% lucide "user" class="w-4 h-4" %} Profile</a></li>
         <li><a href="#">{% lucide "settings" class="w-4 h-4" %} Settings</a></li>
         <li><a href="{% url 'logout' %}">{% lucide "log-out" class="w-4 h-4" %} Logout</a></li>
-        {% else %}
-        <li><a href="{% url 'login' %}">{% lucide "log-in" class="w-4 h-4" %} Login</a></li>
-        {% endif %}
       </ul>
     </div>
+    {% else %}
+    <!-- Login Button for unauthenticated users -->
+    <div class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-ghost btn-circle">
+        <div class="w-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
+          {% lucide "user" class="w-6 h-6" %}
+        </div>
+      </label>
+      <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 p-2 shadow bg-base-100 rounded-box w-40">
+        <li>
+          <a href="#" onclick="event.preventDefault(); document.getElementById('login-modal').showModal();">
+            <span>{% lucide "log-in" class="w-4 h-4" %}</span> Login
+          </a>
+        </li>
+      </ul>
+    </div>
+    {% endif %}
   </div>
 </div>

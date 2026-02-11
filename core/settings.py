@@ -8,11 +8,12 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 
 """
 
+import logging
 from pathlib import Path
 
 import ldap
 from decouple import config
-from django_auth_ldap.config import LDAPSearch
+from django_auth_ldap.config import GroupOfNamesType, LDAPSearch
 
 # LDAP Configuration for Active Directory
 ldap.set_option(
@@ -20,9 +21,9 @@ ldap.set_option(
 )  # matches the per-connection option
 
 # LDAP Server Configuration
-AUTH_LDAP_SERVER_URI = config("AUTH_LDAP_SERVER_URI")
-AUTH_LDAP_BIND_DN = config("AUTH_LDAP_BIND_DN")
-AUTH_LDAP_BIND_PASSWORD = config("AUTH_LDAP_BIND_PASSWORD")
+AUTH_LDAP_SERVER_URI = config("AUTH_LDAP_SERVER_URI", default="")
+AUTH_LDAP_BIND_DN = config("AUTH_LDAP_BIND_DN", default="")
+AUTH_LDAP_BIND_PASSWORD = config("AUTH_LDAP_BIND_PASSWORD", default="")
 
 # LDAP User Search
 AUTH_LDAP_USER_SEARCH = LDAPSearch(
@@ -40,21 +41,28 @@ AUTH_LDAP_USER_ATTR_MAP = {
 }
 
 # # LDAP Group Configuration (optional)
-# AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
-#     config("AUTH_LDAP_BASE_DN"), ldap.SCOPE_SUBTREE, "(objectClass=group)"
-# )
-# AUTH_LDAP_GROUP_TYPE = GroupOfNamesType()
-
-# # LDAP Group Configuration (optional)
-# AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
-#     config("AUTH_LDAP_BASE_DN"), ldap.SCOPE_SUBTREE, "(objectClass=group)"
-# )
-# AUTH_LDAP_GROUP_TYPE = GroupOfNamesType()
+AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
+    config("AUTH_LDAP_BASE_DN"), ldap.SCOPE_SUBTREE, "(objectClass=group)"
+)
+AUTH_LDAP_GROUP_TYPE = GroupOfNamesType()
 
 # Populate Django user model from LDAP
 AUTH_LDAP_ALWAYS_UPDATE_USER = True
 AUTH_LDAP_FIND_GROUP_PERMS = True
 AUTH_LDAP_MIRROR_GROUPS = True
+
+# LDAP Logging for debugging
+logger = logging.getLogger("django_auth_ldap")
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.DEBUG)
+
+# Check if LDAP is properly configured
+# if not AUTH_LDAP_SERVER_URI or not AUTH_LDAP_BIND_DN:
+#     logger.warning(
+#         "LDAP is not properly configured. Please check your .env file. "
+#         "Required: AUTH_LDAP_SERVER_URI, AUTH_LDAP_BIND_DN, AUTH_LDAP_BIND_PASSWORD, AUTH_LDAP_BASE_DN"
+#     )
+#     logger.warning("Falling back to Django ModelBackend only for authentication.")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -170,6 +178,17 @@ AUTHENTICATION_BACKENDS = [
     "django_auth_ldap.backend.LDAPBackend",  # LDAP authentication
     "django.contrib.auth.backends.ModelBackend",  # Django fallback
 ]
+
+# === Essential options for Active Directory ===
+AUTH_LDAP_CONNECTION_OPTIONS = {
+    ldap.OPT_REFERRALS: 0,  # AD referrals break everything if not disabled
+    ldap.OPT_NETWORK_TIMEOUT: 15,
+    # This tells OpenSSL/python-ldap to skip CA verification
+    # Perfectly safe when you fully control both ends (internal AD)
+    ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_ALLOW,
+    # or even (if you really don’t care about cert validity at all):
+    # ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER,
+}
 
 # Custom user model
 AUTH_USER_MODEL = "workflows.User"

@@ -1,149 +1,123 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="light">
+{% extends 'base.html' %}
+{% load lucide %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Bungeni</title>
+{% block content %}
+<style>
+    :root {
+        --parliament-green: #006838;
+        --parliament-gold: #FFB81C;
+    }
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@5.5.17/dist/full.min.css" rel="stylesheet" type="text/css" />
-    <script src="https://unpkg.com/lucide@latest"></script>
+    .bg-parliament-green {
+        background-color: var(--parliament-green);
+    }
 
-    <style>
-        :root {
-            --parliament-green: #006838;
-            --parliament-gold: #FFB81C;
-        }
+    .text-parliament-gold {
+        color: var(--parliament-gold);
+    }
 
-        .bg-parliament-green {
-            background-color: var(--parliament-green);
-        }
+    /* Fix DaisyUI 5 form spacing */
+    .form-control {
+        margin-bottom: 1rem;
+    }
 
-        .text-parliament-gold {
-            color: var(--parliament-gold);
-        }
+    .form-control .label {
+        padding-left: 0;
+        padding-right: 0;
+        margin-bottom: 0.5rem;
+    }
 
-        /* Fix DaisyUI 5 form spacing */
-        .form-control {
-            margin-bottom: 1rem;
-        }
+    .form-control .input {
+        margin-top: 0.25rem;
+    }
 
-        .form-control .label {
-            padding-left: 0;
-            padding-right: 0;
-            margin-bottom: 0.5rem;
-        }
+    /* Ensure proper card body spacing */
+    .card-body {
+        padding: 2rem;
+    }
 
-        .form-control .input {
-            margin-top: 0.25rem;
-        }
+    /* Fix button compression */
+    .btn {
+        min-height: 3rem !important;
+        padding: 0.75rem 1.5rem !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0.5rem !important;
+        font-size: 1rem !important;
+        line-height: 1.5 !important;
+        border-radius: 0.5rem !important;
+    }
 
-        /* Ensure proper card body spacing */
-        .card-body {
-            padding: 2rem;
-        }
+    .btn:not(:disabled):not(.btn-disabled):hover {
+        transform: none !important;
+    }
+</style>
 
-        /* Fix button compression */
-        .btn {
-            min-height: 3rem !important;
-            padding: 0.75rem 1.5rem !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 0.5rem !important;
-            font-size: 1rem !important;
-            line-height: 1.5 !important;
-            border-radius: 0.5rem !important;
-        }
-
-        .btn:not(:disabled):not(.btn-disabled):hover {
-            transform: none !important;
-        }
-    </style>
-</head>
-
-<body class="bg-base-200">
+<div class="bg-base-200">
     <div class="min-h-screen flex items-center justify-center p-4">
+        <!-- Landing Card with Login Button -->
         <div class="card w-full max-w-md bg-base-100 shadow-2xl">
             <div class="card-body p-8">
                 <!-- Logo and Title -->
                 <div class="text-center mb-8">
-                    <div class="bg-parliament-green text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                        {% lucide "landmark" class="w-8 h-8" %}
+                    <div class="bg-parliament-green text-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        {% lucide "landmark" class="w-10 h-10" %}
                     </div>
-                    <h1 class="text-3xl font-bold">BUNGENI</h1>
-                    <p class="text-base-content/70 mt-2">Parliamentary Workflow System</p>
+                    <h1 class="text-4xl font-bold">BUNGENI</h1>
+                    <p class="text-base-content/70 mt-2 text-lg">Parliamentary Workflow System</p>
                 </div>
 
-                <!-- Messages -->
-                {% if messages %}
-                <div class="space-y-2 mb-6">
-                    {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }}">
-                        <span>{{ message }}</span>
-                    </div>
-                    {% endfor %}
+                <!-- Welcome Message -->
+                <div class="text-center mb-8">
+                    <h2 class="text-xl font-semibold mb-2">Welcome</h2>
+                    <p class="text-base-content/70">
+                        Manage parliamentary workflows, documents, and processes efficiently.
+                    </p>
                 </div>
-                {% endif %}
 
-                <!-- Login Form -->
-                <form method="post" class="space-y-6">
-                    {% csrf_token %}
+                <!-- Login Button -->
+                <div class="form-control">
+                    <button type="button" onclick="document.getElementById('login-modal').showModal()"
+                        class="btn bg-parliament-green hover:bg-parliament-green/90 text-white border-0 w-full">
+                        {% lucide "log-in" class="w-5 h-5" %}
+                        Sign In
+                    </button>
+                </div>
 
-                    <div class="form-control">
-                        <label class="label pb-2" for="username">
-                            <span class="label-text text-base font-medium">Username</span>
-                        </label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-                                {% lucide "user" class="w-5 h-5 text-base-content/50" %}
-                            </span>
-                            <input type="text" id="username" name="username" placeholder="Enter your username"
-                                class="input w-full pl-10 h-12" required autofocus>
+                <!-- Info Section -->
+                <div class="mt-8 text-center">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-2xl font-bold text-parliament-green">24/7</div>
+                            <div class="text-xs text-base-content/70">Access</div>
                         </div>
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label pb-2" for="password">
-                            <span class="label-text text-base font-medium">Password</span>
-                        </label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-                                {% lucide "lock" class="w-5 h-5 text-base-content/50" %}
-                            </span>
-                            <input type="password" id="password" name="password" placeholder="Enter your password"
-                                class="input w-full pl-10 h-12" required>
+                        <div>
+                            <div class="text-2xl font-bold text-parliament-green">100%</div>
+                            <div class="text-xs text-base-content/70">Secure</div>
                         </div>
-                        <label class="label pt-2">
-                            <span></span>
-                            <a href="#" class="label-text-alt link link-hover text-sm">Forgot password?</a>
-                        </label>
-                    </div>
-
-                    <div class="form-control mt-8">
-                        <button type="submit" class="btn bg-parliament-green hover:bg-parliament-green/90 text-white border-0 w-full">
-                            {% lucide "log-in" class="w-5 h-5 mr-2" %}
-                            Sign In
-                        </button>
-                    </div>
-                </form>
-
-                <div class="divider my-6">OR</div>
-
-                <div class="text-center text-sm text-base-content/70">
-                    <p class="mb-2">For demo purposes, use:</p>
-                    <div class="bg-base-200 rounded-lg p-3">
-                        <p class="font-mono text-sm font-semibold">admin / admin</p>
+                        <div>
+                            <div class="text-2xl font-bold text-parliament-green">Fast</div>
+                            <div class="text-xs text-base-content/70">Processing</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        lucide.createIcons();
-    </script>
-</body>
+<!-- Include Login Modal Partial -->
+{% include "workflows/_login_modal.html" %}
 
-</html>
+<script>
+    // Auto-open modal if there are messages (e.g., login errors)
+    document.addEventListener('DOMContentLoaded', function () {
+        {% if messages %}
+        document.getElementById('login-modal').showModal();
+        {% endif %}
+
+    });
+</script>
+
+{% endblock content %}

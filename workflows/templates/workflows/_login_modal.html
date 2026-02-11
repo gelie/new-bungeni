@@ -1,0 +1,88 @@
+{% load lucide %}
+
+<!-- Login Modal -->
+<dialog id="login-modal" class="modal">
+    <div class="modal-box w-full max-w-md">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-bold">Sign In</h3>
+            <button type="button" onclick="document.getElementById('login-modal').close()" class="btn btn-sm btn-circle btn-ghost">
+                {% lucide "x" class="w-5 h-5" %}
+            </button>
+        </div>
+
+        <!-- Logo and Title -->
+        <div class="text-center mb-6">
+            <div class="bg-parliament-green text-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                {% lucide "landmark" class="w-8 h-8" %}
+            </div>
+            <h1 class="text-2xl font-bold">BUNGENI</h1>
+            <p class="text-base-content/70 mt-1">Parliamentary Workflow System</p>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+        <div class="space-y-2 mb-4">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Login Form -->
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+
+            <div class="form-control">
+                <label class="label pb-2" for="username">
+                    <span class="label-text text-base font-medium">Username</span>
+                </label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        {% lucide "user" class="w-5 h-5 text-base-content/50" %}
+                    </span>
+                    <input type="text" id="username" name="username" placeholder="Enter your username"
+                        class="input input-bordered w-full pl-10" required autofocus>
+                </div>
+            </div>
+
+            <div class="form-control">
+                <label class="label pb-2" for="password">
+                    <span class="label-text text-base font-medium">Password</span>
+                </label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                        {% lucide "lock" class="w-5 h-5 text-base-content/50" %}
+                    </span>
+                    <input type="password" id="password" name="password" placeholder="Enter your password"
+                        class="input input-bordered w-full pl-10" required>
+                </div>
+                <label class="label pt-2">
+                    <span></span>
+                    <a href="#" class="label-text-alt link link-hover text-sm">Forgot password?</a>
+                </label>
+            </div>
+
+            <div class="form-control mt-6">
+                <button type="submit" class="btn bg-parliament-green hover:bg-parliament-green/90 text-white border-0 w-full">
+                    {% lucide "log-in" class="w-5 h-5" %}
+                    Sign In
+                </button>
+            </div>
+        </form>
+
+        <div class="divider my-4">OR</div>
+
+        <div class="text-center text-sm text-base-content/70">
+            <p class="mb-2">For demo purposes, use:</p>
+            <div class="bg-base-200 rounded-lg p-3">
+                <p class="font-mono text-sm font-semibold">admin / admin</p>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+    </form>
+</dialog>
