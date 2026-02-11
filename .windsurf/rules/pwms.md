@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: glob
+globs: *.py
 ---
 
 # Project code in pwms
@@ -7,7 +8,6 @@ trigger: always_on
 ## Languages and Frameworks
 - Python 3.13
 - Django 6.0
-- TailwindCSS 4
-- DaisyUI 5
+
 
 

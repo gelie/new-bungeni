@@ -1,29 +1,39 @@
-from datetime import timedelta
+import asyncio
+import json
 
+import httpx
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Case, Count, IntegerField, Q, When
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 
 from .models import (
-    Comment,
+    Attachment,
+    Drive,
     Event,
-    EventAttendance,
     EventType,
     Group,
-    GroupMembership,
-    Notification,
-    Role,
+    SharePointFolder,
+    SharePointToken,
+    Site,
     State,
     Transition,
-    User,
-    Venue,
     Workflow,
     WorkflowTransitionLog,
     WorkflowType,
+)
+from .sharepoint import (
+    get_all_sites,
+    get_application_token,
+    get_drive_items,
+    get_folder_items,
+    get_site_drives,
+    upload_file,
 )
 
 # ============================================================================
@@ -609,7 +619,6 @@ def reports(request):
     ).count()
 
     # Workflows created this month
-    from datetime import datetime
 
     this_month_start = timezone.now().replace(
         day=1, hour=0, minute=0, second=0, microsecond=0
@@ -650,3 +659,434 @@ def reports(request):
     }
 
     return render(request, "workflows/reports.html", context)
+
+
+# ============================================================================
+# SHAREPOINT API VIEWS
+# ============================================================================
+
+
+@require_http_methods(["GET"])
+def sharepoint_test(request):
+    """Test SharePoint configuration and return debug info."""
+    try:
+        from django.conf import settings
+
+        debug_info = {
+            "settings": {
+                "SHAREPOINT_CLIENT_ID": bool(settings.SHAREPOINT_CLIENT_ID),
+                "SHAREPOINT_CLIENT_SECRET": bool(settings.SHAREPOINT_CLIENT_SECRET),
+                "SHAREPOINT_TENANT_ID": settings.SHAREPOINT_TENANT_ID,
+                "SHAREPOINT_TOKEN_URL": settings.SHAREPOINT_TOKEN_URL,
+                "SHAREPOINT_SCOPE": settings.SHAREPOINT_SCOPE,
+            },
+            "cached_tokens": list(
+                SharePointToken.objects.values_list("id", "is_active", "expires_at")
+            ),
+        }
+
+        # Try to get a token
+        try:
+            token_data = get_application_token()
+            debug_info["token_test"] = "SUCCESS"
+            debug_info["token_keys"] = list(token_data.keys())
+        except Exception as e:
+            debug_info["token_test"] = f"FAILED: {str(e)}"
+
+        return JsonResponse(debug_info)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def sharepoint_sites(request):
+    """Get all SharePoint sites accessible to the application."""
+    try:
+        # First try to get token
+        print("Attempting to get SharePoint token...")
+        token_data = get_application_token()
+        print("Token obtained successfully")
+
+        # Run async function in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        sites_data = loop.run_until_complete(get_all_sites(token_data))
+        loop.close()
+
+        print("Sites data received:", sites_data)
+
+        # Update local database with sites
+        sites = []
+        for site_info in sites_data.get("value", []):
+            site, created = Site.objects.update_or_create(
+                site_id=site_info["id"],
+                defaults={
+                    "name": site_info.get(
+                        "displayName", site_info.get("name", "Unknown")
+                    ),
+                    "url": site_info.get("webUrl", ""),
+                    "is_personal_site": site_info.get("isPersonalSite", False),
+                },
+            )
+            sites.append(
+                {
+                    "id": site.site_id,
+                    "name": site.name,
+                    "url": site.url,
+                    "is_personal_site": site.is_personal_site,
+                }
+            )
+
+        return JsonResponse({"sites": sites})
+
+    except Exception as e:
+        print("Error in sharepoint_sites:", str(e))
+        import traceback
+
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def sharepoint_site_drives(request, site_id):
+    """Get all drives for a specific SharePoint site."""
+    try:
+        token_data = get_application_token()
+
+        # Run async function in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        drives_data = loop.run_until_complete(get_site_drives(token_data, site_id))
+        loop.close()
+
+        # Update local database with drives
+        site = Site.objects.get(site_id=site_id)
+        drives = []
+        for drive_info in drives_data.get("value", []):
+            drive, created = Drive.objects.update_or_create(
+                site=site,
+                drive_id=drive_info["id"],
+                defaults={"name": drive_info.get("name", "Unknown")},
+            )
+            drives.append(
+                {"id": drive.drive_id, "name": drive.name, "site_id": site.site_id}
+            )
+
+        return JsonResponse({"drives": drives})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def sharepoint_drive_folders(request, drive_id):
+    """Get root folders for a specific drive."""
+    try:
+        token_data = get_application_token()
+
+        # Run async function in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        items_data = loop.run_until_complete(get_drive_items(token_data, drive_id))
+        loop.close()
+
+        # Filter for folders only
+        folders = []
+        for item in items_data.get("value", []):
+            if "folder" in item:
+                folders.append(
+                    {
+                        "id": item["id"],
+                        "name": item["name"],
+                        "web_url": item.get("webUrl", ""),
+                        "parent_reference": item.get("parentReference", {}),
+                    }
+                )
+
+        return JsonResponse({"folders": folders})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def sharepoint_folder_items(request, folder_id):
+    """Get items in a specific SharePoint folder."""
+    try:
+        # Get drive_id from query parameter or fetch from folder info
+        drive_id = request.GET.get("drive_id")
+        if not drive_id:
+            # Try to get drive_id from the folder itself
+            folder = SharePointFolder.objects.filter(folder_id=folder_id).first()
+            if folder:
+                drive_id = folder.drive.drive_id
+            else:
+                return JsonResponse(
+                    {"error": "drive_id parameter required"}, status=400
+                )
+
+        token_data = get_application_token()
+
+        # Run async function in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        items_data = loop.run_until_complete(
+            get_folder_items(token_data, drive_id, folder_id)
+        )
+        loop.close()
+
+        # Process items to separate files and folders
+        files = []
+        folders = []
+
+        for item in items_data.get("value", []):
+            if item.get("folder"):
+                # This is a folder
+                folders.append(
+                    {
+                        "id": item["id"],
+                        "name": item["name"],
+                        "parent_reference": item.get("parentReference", {}),
+                    }
+                )
+            elif item.get("file"):
+                # This is a file
+                files.append(
+                    {
+                        "id": item["id"],
+                        "name": item["name"],
+                        "size": item.get("size", 0),
+                        "mimetype": item.get("file", {}).get("mimeType", ""),
+                        "web_url": item.get("webUrl", ""),
+                        "download_url": item.get("@microsoft.graph.downloadUrl", ""),
+                        "created_at": item.get("createdDateTime"),
+                        "modified_at": item.get("lastModifiedDateTime"),
+                    }
+                )
+
+        return JsonResponse({"files": files, "folders": folders})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def attachment_link_sharepoint(request):
+    """Link an existing SharePoint file as an attachment."""
+    try:
+        data = json.loads(request.body)
+        file_id = data.get("file_id")
+        site_id = data.get("site_id")
+        drive_id = data.get("drive_id")
+        folder_id = data.get("folder_id")
+        attachment_type = data.get("type", "document")
+        workflow_id = data.get("workflow_id")
+
+        if not all([file_id, site_id, drive_id]):
+            return JsonResponse(
+                {"error": "file_id, site_id, and drive_id required"}, status=400
+            )
+
+        # Get SharePoint objects
+        site = Site.objects.get(site_id=site_id)
+        drive = Drive.objects.get(drive_id=drive_id)
+        folder = (
+            SharePointFolder.objects.filter(folder_id=folder_id).first()
+            if folder_id
+            else None
+        )
+
+        # Get file metadata from SharePoint
+        token_data = get_application_token()
+
+        # Run async function in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def fetch_file_metadata():
+            file_url = (
+                f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{file_id}"
+            )
+            headers = {"Authorization": f"Bearer {token_data['access_token']}"}
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(file_url, headers=headers)
+                response.raise_for_status()
+                return response.json()
+
+        file_data = loop.run_until_complete(fetch_file_metadata())
+        loop.close()
+
+        # Create attachment record
+        attachment = Attachment.objects.create(
+            name=file_data["name"],
+            drive_id=drive_id,
+            item_id=file_id,
+            mimetype=file_data.get("file", {}).get("mimeType", ""),
+            size=file_data.get("size", 0),
+            download_url=file_data.get("@microsoft.graph.downloadUrl", ""),
+            sharepoint_web_url=file_data.get("webUrl", ""),
+            sharepoint_site=site,
+            sharepoint_drive=drive,
+            sharepoint_folder=folder,
+            sharepoint_folder_path=folder.get_full_path() if folder else "",
+            type=attachment_type,
+            uploaded_by=request.user if request.user.is_authenticated else None,
+        )
+
+        # Link to workflow if provided
+        if workflow_id:
+            try:
+                workflow = Workflow.objects.get(pk=workflow_id)
+                attachment.related_workflow = workflow
+                attachment.save()
+                workflow.attachments.add(attachment)
+            except Workflow.DoesNotExist:
+                pass
+
+        return JsonResponse(
+            {
+                "success": True,
+                "attachment": {
+                    "id": attachment.id,
+                    "name": attachment.name,
+                    "size": attachment.size,
+                    "url": attachment.get_sharepoint_url(),
+                    "type": attachment.type,
+                },
+            }
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def attachment_upload(request):
+    """Upload a file to SharePoint."""
+    try:
+        if "file" not in request.FILES:
+            return JsonResponse({"error": "No file provided"}, status=400)
+
+        file_obj = request.FILES["file"]
+        site_id = request.POST.get("site_id")
+        drive_id = request.POST.get("drive_id")
+        folder_id = request.POST.get("folder_id")
+        attachment_type = request.POST.get("type", "document")
+        workflow_id = request.POST.get("workflow_id")
+
+        if not all([site_id, drive_id, folder_id]):
+            return JsonResponse(
+                {"error": "site_id, drive_id, and folder_id required"}, status=400
+            )
+
+        # Get SharePoint objects
+        site = Site.objects.get(site_id=site_id)
+        drive = Drive.objects.get(drive_id=drive_id)
+
+        # Read file content
+        file_content = file_obj.read()
+
+        # Get token and upload
+        token_data = get_application_token()
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        upload_result = loop.run_until_complete(
+            upload_file(token_data, drive_id, folder_id, file_obj.name, file_content)
+        )
+        loop.close()
+
+        # Create attachment record
+        attachment = Attachment.objects.create(
+            name=file_obj.name,
+            drive_id=drive_id,
+            item_id=upload_result["id"],
+            mimetype=upload_result.get("file", {}).get("mimeType", ""),
+            size=upload_result.get("size", 0),
+            download_url=upload_result.get("@microsoft.graph.downloadUrl", ""),
+            sharepoint_web_url=upload_result.get("webUrl", ""),
+            sharepoint_site=site,
+            sharepoint_drive=drive,
+            type=attachment_type,
+            uploaded_by=request.user if request.user.is_authenticated else None,
+        )
+
+        # Link to workflow if provided
+        if workflow_id:
+            try:
+                workflow = Workflow.objects.get(pk=workflow_id)
+                attachment.related_workflow = workflow
+                attachment.save()
+                # Also add to workflow's many-to-many relationship
+                workflow.attachments.add(attachment)
+            except Workflow.DoesNotExist:
+                pass  # Workflow doesn't exist, but attachment is still created
+
+        return JsonResponse(
+            {
+                "success": True,
+                "attachment": {
+                    "id": attachment.id,
+                    "name": attachment.name,
+                    "size": attachment.size,
+                    "url": attachment.get_sharepoint_url(),
+                    "type": attachment.type,
+                },
+            }
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["GET", "DELETE"])
+def attachment_detail(request, pk):
+    """Get or delete attachment details."""
+    try:
+        attachment = Attachment.objects.get(pk=pk)
+
+        if request.method == "GET":
+            return JsonResponse(
+                {
+                    "id": attachment.id,
+                    "name": attachment.name,
+                    "size": attachment.size,
+                    "mimetype": attachment.mimetype,
+                    "url": attachment.get_sharepoint_url(),
+                    "type": attachment.type,
+                    "created_at": attachment.created_at.isoformat(),
+                    "uploaded_by": attachment.uploaded_by.username
+                    if attachment.uploaded_by
+                    else None,
+                }
+            )
+
+        elif request.method == "DELETE":
+            attachment.delete()
+            return JsonResponse({"success": True})
+
+    except Attachment.DoesNotExist:
+        return JsonResponse({"error": "Attachment not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@login_required
+def workflow_attachments(request, pk):
+    """View and manage attachments for a specific workflow."""
+    workflow = get_object_or_404(Workflow, pk=pk)
+
+    # Check if user can view this workflow
+    if not workflow.can_user_view(request.user):
+        messages.error(request, "You don't have permission to view this workflow.")
+        return redirect("workflow_list")
+
+    context = {
+        "workflow": workflow,
+    }
+
+    return render(request, "workflows/attachments.html", context)

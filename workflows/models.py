@@ -835,39 +835,6 @@ class Comment(models.Model):
 
 
 # =======================================================================
-# Attachment Model for Sharepoint documents
-# =======================================================================
-
-
-class Attachment(models.Model):
-    attachment_type = {
-        "response": "Response",
-        "document": "Document",
-        "petition": "Petition",
-    }
-    related_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE)
-    name = models.CharField(max_length=200)
-    drive_id = models.CharField(max_length=200, help_text="SharePoint drive ID")
-    item_id = models.CharField(max_length=200, help_text="SharePoint item ID")
-    mimetype = models.CharField(
-        max_length=200, blank=True, null=True, help_text="MIME type of the file"
-    )
-    size = models.BigIntegerField(blank=True, null=True, help_text="File size in bytes")
-    download_url = models.URLField(
-        blank=True, null=True, help_text="SharePoint download URL"
-    )
-    type = models.CharField(max_length=200, choices=attachment_type.items())
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.name} - {self.related_workflow}"
-
-    class Meta:
-        ordering = ["-created_at"]
-
-
-# =======================================================================
 # Sharepoint Models for Sites and Drives
 # =======================================================================
 
@@ -909,3 +876,141 @@ class Drive(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class SharePointToken(models.Model):
+    """
+    Stores SharePoint Graph API access tokens for application-level authentication.
+    """
+
+    access_token = models.TextField(help_text="SharePoint access token")
+    refresh_token = models.TextField(blank=True, help_text="SharePoint refresh token")
+    expires_at = models.DateTimeField(help_text="Token expiration time")
+    is_active = models.BooleanField(
+        default=True, help_text="Whether this token is active"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Token {'Active' if self.is_active else 'Inactive'} - expires {self.expires_at}"
+
+    def is_expired(self):
+        """Check if the token is expired"""
+        from django.utils import timezone
+
+        return timezone.now() >= self.expires_at
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class SharePointFolder(models.Model):
+    """
+    Represents a folder hierarchy in SharePoint for navigation.
+    """
+
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    drive = models.ForeignKey(Drive, on_delete=models.CASCADE)
+    folder_id = models.CharField(max_length=200, help_text="SharePoint folder ID")
+    name = models.CharField(max_length=200)
+    parent_folder = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="subfolders",
+    )
+    web_url = models.URLField(
+        blank=True, null=True, help_text="Direct URL to folder in SharePoint"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.site.name}"
+
+    def get_full_path(self):
+        """Get the full path from root to this folder"""
+        if self.parent_folder:
+            return f"{self.parent_folder.get_full_path()}/{self.name}"
+        return f"/{self.name}"
+
+    class Meta:
+        ordering = ["site", "drive", "name"]
+        unique_together = [["site", "drive", "folder_id"]]
+
+
+# =======================================================================
+# Attachment Model for Sharepoint documents
+# =======================================================================
+
+
+class Attachment(models.Model):
+    attachment_type = {
+        "response": "Response",
+        "document": "Document",
+        "petition": "Petition",
+    }
+    # Generic foreign key to link to any model (Workflow, Event, etc.)
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, null=True, blank=True
+    )
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    # Legacy field for backward compatibility
+    related_workflow = models.ForeignKey(
+        Workflow, on_delete=models.CASCADE, null=True, blank=True
+    )
+
+    name = models.CharField(max_length=200)
+    drive_id = models.CharField(max_length=200, help_text="SharePoint drive ID")
+    item_id = models.CharField(max_length=200, help_text="SharePoint item ID")
+    mimetype = models.CharField(
+        max_length=200, blank=True, null=True, help_text="MIME type of the file"
+    )
+    size = models.BigIntegerField(blank=True, null=True, help_text="File size in bytes")
+    download_url = models.URLField(
+        blank=True, null=True, help_text="SharePoint download URL"
+    )
+    # Enhanced SharePoint references
+    sharepoint_site = models.ForeignKey(
+        Site, on_delete=models.CASCADE, null=True, blank=True
+    )
+    sharepoint_drive = models.ForeignKey(
+        Drive, on_delete=models.CASCADE, null=True, blank=True
+    )
+    sharepoint_folder = models.ForeignKey(
+        SharePointFolder, on_delete=models.CASCADE, null=True, blank=True
+    )
+    sharepoint_web_url = models.URLField(
+        blank=True, null=True, help_text="Direct SharePoint web URL"
+    )
+    sharepoint_folder_path = models.CharField(
+        max_length=500, blank=True, help_text="Folder path in SharePoint"
+    )
+
+    type = models.CharField(max_length=200, choices=attachment_type.items())
+    uploaded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        if self.content_object:
+            return f"{self.name} - {self.content_object}"
+        return f"{self.name} - {self.related_workflow or 'Unattached'}"
+
+    def get_sharepoint_url(self):
+        """Get the direct SharePoint URL for this attachment"""
+        return self.sharepoint_web_url or self.download_url
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+            models.Index(fields=["related_workflow"]),
+            models.Index(fields=["sharepoint_site", "sharepoint_drive"]),
+        ]

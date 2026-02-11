@@ -129,7 +129,9 @@
                 <a class="tab" data-tab="attachments">
                     {% lucide "paperclip" class="w-4 h-4 mr-2" %}
                     Attachments
-                    <span class="badge badge-sm badge-ghost ml-1">0</span>
+                    {% if workflow.attachments.all %}
+                    <span class="badge badge-sm badge-primary ml-1">{{ workflow.attachments.all|length }}</span>
+                    {% endif %}
                 </a>
                 <a class="tab" data-tab="details">
                     {% lucide "file-text" class="w-4 h-4 mr-2" %}
@@ -446,18 +448,78 @@
 
                 <!-- Attachments Tab -->
                 <div id="tab-attachments" class="tab-content">
-                    <div class="text-center py-12">
-                        <div class="text-base-content/50">
-                            {% lucide "paperclip" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
-                            <p class="text-lg">Attachments Feature</p>
-                            <p class="text-sm mt-2">File attachments will be implemented here</p>
-                            <div class="mt-4">
-                                <button class="btn btn-outline btn-disabled">
+                    <div class="space-y-4">
+                        <!-- Upload Button -->
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-lg font-semibold">Files & Documents</h3>
+                            <div class="flex gap-2">
+                                <button onclick="showSharepointModal()" class="btn btn-outline btn-sm">
+                                    {% lucide "folder-open" class="w-4 h-4 mr-2" %}
+                                    Select from SharePoint
+                                </button>
+                                <button onclick="showUploadModal()" class="btn btn-primary btn-sm">
                                     {% lucide "upload" class="w-4 h-4 mr-2" %}
-                                    Upload File (Coming Soon)
+                                    Upload File
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Attachments List -->
+                        {% if workflow.attachments.all %}
+                        {% for attachment in workflow.attachments.all %}
+                        <div class="border rounded-lg p-4 hover:bg-base-200 transition-colors">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="text-primary">
+                                        {% if attachment.mimetype %}
+                                        {% if 'pdf' in attachment.mimetype %}
+                                        {% lucide "file-text" class="w-8 h-8" %}
+                                        {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
+                                        {% lucide "file-text" class="w-8 h-8" %}
+                                        {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
+                                        {% lucide "file-spreadsheet" class="w-8 h-8" %}
+                                        {% elif 'image' in attachment.mimetype %}
+                                        {% lucide "image" class="w-8 h-8" %}
+                                        {% else %}
+                                        {% lucide "file" class="w-8 h-8" %}
+                                        {% endif %}
+                                        {% else %}
+                                        {% lucide "file" class="w-8 h-8" %}
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold">{{ attachment.name }}</h4>
+                                        <p class="text-sm text-base-content/70">
+                                            {% if attachment.size %}{{ attachment.size|filesizeformat }} • {% endif %}
+                                            {{ attachment.type|title }} •
+                                            {{ attachment.created_at|date:"M d, Y H:i" }}
+                                            {% if attachment.uploaded_by %}by {{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}{% endif %}
+                                        </p>
+                                        {% if attachment.sharepoint_folder_path %}
+                                        <p class="text-xs text-base-content/50">📁 {{ attachment.sharepoint_folder_path }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ attachment.get_sharepoint_url }}" target="_blank"
+                                        class="btn btn-ghost btn-sm">
+                                        {% lucide "external-link" class="w-4 h-4" %}
+                                    </a>
+                                    <button onclick="deleteAttachment({{ attachment.id }})"
+                                        class="btn btn-ghost btn-sm text-error">
+                                        {% lucide "trash-2" class="w-4 h-4" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="text-center py-12 text-base-content/50">
+                            {% lucide "paperclip" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                            <p class="text-lg">No attachments yet</p>
+                            <p class="text-sm">Click "Upload File" to add your first attachment</p>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -661,6 +723,699 @@
             });
         });
     });
+
+    // SharePoint Upload Functionality
+    let sites = [];
+    let drives = [];
+    let folders = [];
+
+    // Load SharePoint sites when page loads
+    document.addEventListener('DOMContentLoaded', function () {
+        loadSites();
+
+        // Add event listeners with null checks
+        const siteSelect = document.getElementById('site-select');
+        if (siteSelect) {
+            siteSelect.addEventListener('change', function () {
+                const siteId = this.value;
+                const driveSelect = document.getElementById('drive-select');
+
+                if (siteId) {
+                    loadDrives(siteId);
+                } else {
+                    driveSelect.disabled = true;
+                    driveSelect.innerHTML = '<option value="">Select a library...</option>';
+                    document.getElementById('folder-select').disabled = true;
+                    document.getElementById('folder-select').innerHTML = '<option value="">Select a folder...</option>';
+                }
+            });
+        }
+
+        const driveSelect = document.getElementById('drive-select');
+        if (driveSelect) {
+            driveSelect.addEventListener('change', function () {
+                const driveId = this.value;
+                const folderSelect = document.getElementById('folder-select');
+
+                if (driveId) {
+                    loadFolders(driveId);
+                } else {
+                    folderSelect.disabled = true;
+                    folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+                }
+            });
+        }
+
+        const uploadForm = document.getElementById('upload-form');
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const progressBar = document.getElementById('progress-bar');
+                const progressText = document.getElementById('progress-text');
+                const progressContainer = document.getElementById('upload-progress');
+
+                progressContainer.classList.remove('hidden');
+
+                fetch('/api/attachments/upload/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            hideUploadModal();
+                            location.reload(); // Refresh to show new attachment
+                        } else {
+                            showError(data.error || 'Upload failed');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Upload error:', error);
+                        showError('Upload failed. Please try again.');
+                    })
+                    .finally(() => {
+                        progressContainer.classList.add('hidden');
+                    });
+            });
+        }
+    });
+
+    function loadSites() {
+        console.log('Starting to load sites...');
+
+        // First test the configuration
+        fetch('/api/sharepoint/test/')
+            .then(response => response.json())
+            .then(debugInfo => {
+                console.log('Debug info:', debugInfo);
+
+                if (debugInfo.error) {
+                    throw new Error('Configuration error: ' + debugInfo.error);
+                }
+
+                if (debugInfo.token_test && debugInfo.token_test.startsWith('FAILED')) {
+                    throw new Error('Token error: ' + debugInfo.token_test);
+                }
+
+                // Now try to load sites
+                return fetch('/api/sharepoint/sites/');
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Sites data received:', data);
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                sites = data.sites || [];
+                const siteSelect = document.getElementById('site-select');
+                siteSelect.innerHTML = '<option value="">Select a site...</option>';
+
+                if (sites.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "No sites available";
+                    option.disabled = true;
+                    siteSelect.appendChild(option);
+                    return;
+                }
+
+                sites.forEach(site => {
+                    if (!site.is_personal_site) {
+                        const option = document.createElement('option');
+                        option.value = site.id;
+                        option.textContent = site.name;
+                        siteSelect.appendChild(option);
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading sites:', error);
+                showError('Failed to load SharePoint sites: ' + error.message);
+
+                // Show error in select
+                const siteSelect = document.getElementById('site-select');
+                siteSelect.innerHTML = '<option value="">Error loading sites</option>';
+                siteSelect.disabled = true;
+            });
+    }
+
+    function loadDrives(siteId) {
+        const driveSelect = document.getElementById('drive-select');
+        driveSelect.disabled = true;
+        driveSelect.innerHTML = '<option value="">Loading libraries...</option>';
+
+        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                drives = data.drives;
+                driveSelect.innerHTML = '<option value="">Select a library...</option>';
+
+                drives.forEach(drive => {
+                    const option = document.createElement('option');
+                    option.value = drive.id;
+                    option.textContent = drive.name;
+                    driveSelect.appendChild(option);
+                });
+
+                driveSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error loading drives:', error);
+                showError('Failed to load document libraries');
+            });
+    }
+
+    function loadFolders(driveId) {
+        const folderSelect = document.getElementById('folder-select');
+        folderSelect.disabled = true;
+        folderSelect.innerHTML = '<option value="">Loading folders...</option>';
+
+        fetch(`/api/sharepoint/drives/${driveId}/folders/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                folders = data.folders;
+                folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+
+                folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = folder.name;
+                    folderSelect.appendChild(option);
+                });
+
+                folderSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error loading folders:', error);
+                folderSelect.innerHTML = '<option value="">Error loading folders</option>';
+            });
+    }
+
+    function showUploadModal() {
+        document.getElementById('upload-modal').classList.remove('hidden');
+    }
+
+    function hideUploadModal() {
+        document.getElementById('upload-modal').classList.add('hidden');
+        const uploadForm = document.getElementById('upload-form');
+        if (uploadForm) {
+            uploadForm.reset();
+        }
+        const uploadProgress = document.getElementById('upload-progress');
+        if (uploadProgress) {
+            uploadProgress.classList.add('hidden');
+        }
+    }
+
+    function deleteAttachment(attachmentId) {
+        if (confirm('Are you sure you want to delete this attachment?')) {
+            fetch(`/api/attachments/${attachmentId}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload(); // Refresh to remove attachment
+                    } else {
+                        showError(data.error || 'Delete failed');
+                    }
+                })
+                .catch(error => {
+                    console.error('Delete error:', error);
+                    showError('Delete failed. Please try again.');
+                });
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function showError(message) {
+        alert(message); // Simple error display - could be enhanced with a toast notification
+    }
+
+    // SharePoint File Selection Functionality
+    let sharepointFiles = [];
+    let selectedSharepointFile = null;
+
+    function showSharepointModal() {
+        document.getElementById('sharepoint-modal').classList.remove('hidden');
+        loadSharepointSites();
+    }
+
+    function hideSharepointModal() {
+        document.getElementById('sharepoint-modal').classList.add('hidden');
+        // Reset form
+        document.getElementById('sharepoint-site-select').value = '';
+        document.getElementById('sharepoint-drive-select').value = '';
+        document.getElementById('sharepoint-drive-select').disabled = true;
+        document.getElementById('sharepoint-folder-select').value = '';
+        document.getElementById('sharepoint-folder-select').disabled = true;
+        document.getElementById('sharepoint-files-list').innerHTML = `
+            <p class="text-center text-base-content/50 py-8">
+                📁 Select a folder to view files
+            </p>
+        `;
+        document.getElementById('sharepoint-select-btn').disabled = true;
+        selectedSharepointFile = null;
+    }
+
+    function loadSharepointSites() {
+        const siteSelect = document.getElementById('sharepoint-site-select');
+        siteSelect.innerHTML = '<option value="">Loading sites...</option>';
+
+        fetch('/api/sharepoint/sites/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                siteSelect.innerHTML = '<option value="">Select a site...</option>';
+
+                data.sites.forEach(site => {
+                    if (!site.is_personal_site) {
+                        const option = document.createElement('option');
+                        option.value = site.id;
+                        option.textContent = site.name;
+                        siteSelect.appendChild(option);
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error loading sites:', error);
+                siteSelect.innerHTML = '<option value="">Error loading sites</option>';
+            });
+    }
+
+    function loadSharepointDrives() {
+        const siteId = document.getElementById('sharepoint-site-select').value;
+        const driveSelect = document.getElementById('sharepoint-drive-select');
+
+        if (!siteId) {
+            driveSelect.disabled = true;
+            driveSelect.innerHTML = '<option value="">Select a library...</option>';
+            return;
+        }
+
+        driveSelect.disabled = true;
+        driveSelect.innerHTML = '<option value="">Loading libraries...</option>';
+
+        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                driveSelect.innerHTML = '<option value="">Select a library...</option>';
+
+                data.drives.forEach(drive => {
+                    const option = document.createElement('option');
+                    option.value = drive.id;
+                    option.textContent = drive.name;
+                    driveSelect.appendChild(option);
+                });
+
+                driveSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error loading drives:', error);
+                driveSelect.innerHTML = '<option value="">Error loading libraries</option>';
+            });
+    }
+
+    function loadSharepointFolders() {
+        const driveId = document.getElementById('sharepoint-drive-select').value;
+        const folderSelect = document.getElementById('sharepoint-folder-select');
+
+        if (!driveId) {
+            folderSelect.disabled = true;
+            folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+            return;
+        }
+
+        folderSelect.disabled = true;
+        folderSelect.innerHTML = '<option value="">Loading folders...</option>';
+
+        fetch(`/api/sharepoint/drives/${driveId}/folders/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+
+                data.folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = folder.name;
+                    folderSelect.appendChild(option);
+                });
+
+                folderSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error loading folders:', error);
+                folderSelect.innerHTML = '<option value="">Error loading folders</option>';
+            });
+    }
+
+    function loadSharepointFiles() {
+        const folderId = document.getElementById('sharepoint-folder-select').value;
+        const driveId = document.getElementById('sharepoint-drive-select').value;
+        const filesList = document.getElementById('sharepoint-files-list');
+
+        if (!folderId) {
+            filesList.innerHTML = `
+                <p class="text-center text-base-content/50 py-8">
+                    📁 Select a folder to view files
+                </p>
+            `;
+            return;
+        }
+
+        filesList.innerHTML = `
+            <p class="text-center text-base-content/50 py-8">
+                ⏳ Loading files...
+            </p>
+        `;
+
+        fetch(`/api/sharepoint/folders/${folderId}/items/?drive_id=${driveId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                sharepointFiles = data.files || [];
+
+                if (sharepointFiles.length === 0) {
+                    filesList.innerHTML = `
+                        <p class="text-center text-base-content/50 py-8">
+                            📄 No files in this folder
+                        </p>
+                    `;
+                    return;
+                }
+
+                filesList.innerHTML = '';
+                sharepointFiles.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'flex items-center gap-3 p-3 rounded-lg border hover:bg-base-200 cursor-pointer transition-colors';
+                    fileItem.onclick = () => selectSharepointFile(file);
+
+                    const fileIcon = getFileIcon(file.mimetype);
+                    const fileSize = file.size ? formatFileSize(file.size) : '';
+
+                    fileItem.innerHTML = `
+                        <div class="text-primary">${fileIcon}</div>
+                        <div class="flex-1">
+                            <div class="font-medium">${file.name}</div>
+                            <div class="text-sm text-base-content/70">${fileSize}</div>
+                        </div>
+                        <div class="radio">
+                            <input type="radio" name="sharepoint-file" value="${file.id}" />
+                        </div>
+                    `;
+
+                    filesList.appendChild(fileItem);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading files:', error);
+                filesList.innerHTML = `
+                    <p class="text-center text-error py-8">
+                        ⚠️ Error loading files: ${error.message}
+                    </p>
+                `;
+            });
+    }
+
+    function selectSharepointFile(file) {
+        selectedSharepointFile = file;
+
+        // Update radio buttons
+        document.querySelectorAll('input[name="sharepoint-file"]').forEach(radio => {
+            radio.checked = radio.value === file.id;
+        });
+
+        // Enable select button
+        document.getElementById('sharepoint-select-btn').disabled = false;
+    }
+
+    function linkSharepointFile() {
+        if (!selectedSharepointFile) {
+            showError('Please select a file');
+            return;
+        }
+
+        const siteId = document.getElementById('sharepoint-site-select').value;
+        const driveId = document.getElementById('sharepoint-drive-select').value;
+        const folderId = document.getElementById('sharepoint-folder-select').value;
+        const attachmentType = document.getElementById('sharepoint-type-select').value;
+        const workflowId = document.getElementById('sharepoint-workflow-id').value;
+
+        const data = {
+            file_id: selectedSharepointFile.id,
+            site_id: siteId,
+            drive_id: driveId,
+            folder_id: folderId,
+            type: attachmentType,
+            workflow_id: workflowId
+        };
+
+        fetch('/api/attachments/link-sharepoint/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    hideSharepointModal();
+                    location.reload(); // Refresh to show new attachment
+                } else {
+                    showError(result.error || 'Failed to link file');
+                }
+            })
+            .catch(error => {
+                console.error('Error linking file:', error);
+                showError('Failed to link file. Please try again.');
+            });
+    }
+
+    function getFileIcon(mimetype) {
+        if (!mimetype) return '📄';
+
+        if (mimetype.includes('pdf')) return '📄';
+        if (mimetype.includes('word') || mimetype.includes('document')) return '📄';
+        if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) return '📊';
+        if (mimetype.includes('powerpoint') || mimetype.includes('presentation')) return '📊';
+        if (mimetype.includes('image')) return '🖼️';
+        if (mimetype.includes('video')) return '🎥';
+        if (mimetype.includes('audio')) return '🎵';
+
+        return '📄';
+    }
+
+    function formatFileSize(bytes) {
+        if (!bytes) return '';
+
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    }
 </script>
+
+<!-- Upload Modal -->
+<div id="upload-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-base-100 rounded-lg p-6 w-full max-w-md">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Upload File to SharePoint</h3>
+            <button onclick="hideUploadModal()" class="text-base-content/50 hover:text-base-content">
+                {% lucide "x" class="w-5 h-5" %}
+            </button>
+        </div>
+
+        <form id="upload-form" enctype="multipart/form-data" class="space-y-4">
+            <!-- Site Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">SharePoint Site</label>
+                <select id="site-select" name="site_id" required class="select select-bordered w-full">
+                    <option value="">Select a site...</option>
+                </select>
+            </div>
+
+            <!-- Drive Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Document Library</label>
+                <select id="drive-select" name="drive_id" required class="select select-bordered w-full" disabled>
+                    <option value="">Select a library...</option>
+                </select>
+            </div>
+
+            <!-- Folder Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Folder</label>
+                <select id="folder-select" name="folder_id" required class="select select-bordered w-full" disabled>
+                    <option value="">Select a folder...</option>
+                </select>
+            </div>
+
+            <!-- File Upload -->
+            <div>
+                <label class="block text-sm font-medium mb-1">File</label>
+                <input type="file" name="file" required class="file-input file-input-bordered w-full">
+            </div>
+
+            <!-- Attachment Type -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Type</label>
+                <select name="type" class="select select-bordered w-full">
+                    <option value="document">Document</option>
+                    <option value="response">Response</option>
+                    <option value="petition">Petition</option>
+                </select>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="upload-progress" class="hidden">
+                <div class="bg-base-300 rounded-full h-2">
+                    <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p class="text-sm mt-1">Uploading... <span id="progress-text">0%</span></p>
+            </div>
+
+            <!-- Hidden field for workflow ID -->
+            <input type="hidden" name="workflow_id" value="{{ workflow.id }}">
+
+            <!-- Buttons -->
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="hideUploadModal()"
+                    class="flex-1 btn btn-outline">
+                    Cancel
+                </button>
+                <button type="submit"
+                    class="flex-1 btn btn-primary">
+                    Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SharePoint File Selection Modal -->
+<div id="sharepoint-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-base-100 rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Select File from SharePoint</h3>
+            <button onclick="hideSharepointModal()" class="text-base-content/50 hover:text-base-content">
+                {% lucide "x" class="w-5 h-5" %}
+            </button>
+        </div>
+
+        <!-- Navigation -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <!-- Site Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">SharePoint Site</label>
+                <select id="sharepoint-site-select" onchange="loadSharepointDrives()" class="select select-bordered w-full">
+                    <option value="">Select a site...</option>
+                </select>
+            </div>
+
+            <!-- Drive Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Document Library</label>
+                <select id="sharepoint-drive-select" onchange="loadSharepointFolders()" class="select select-bordered w-full" disabled>
+                    <option value="">Select a library...</option>
+                </select>
+            </div>
+
+            <!-- Folder Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Folder</label>
+                <select id="sharepoint-folder-select" onchange="loadSharepointFiles()" class="select select-bordered w-full" disabled>
+                    <option value="">Select a folder...</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Files List -->
+        <div class="border rounded-lg p-4 max-h-60 overflow-y-auto">
+            <div id="sharepoint-files-list" class="space-y-2">
+                <p class="text-center text-base-content/50 py-8">
+                    📁 Select a folder to view files
+                </p>
+            </div>
+        </div>
+
+        <!-- Attachment Type -->
+        <div class="mt-4">
+            <label class="block text-sm font-medium mb-1">Type</label>
+            <select id="sharepoint-type-select" class="select select-bordered w-full">
+                <option value="document">Document</option>
+                <option value="response">Response</option>
+                <option value="petition">Petition</option>
+            </select>
+        </div>
+
+        <!-- Hidden field for workflow ID -->
+        <input type="hidden" id="sharepoint-workflow-id" value="{{ workflow.id }}">
+
+        <!-- Buttons -->
+        <div class="flex gap-3 pt-4">
+            <button type="button" onclick="hideSharepointModal()"
+                class="flex-1 btn btn-outline">
+                Cancel
+            </button>
+            <button type="button" id="sharepoint-select-btn" disabled
+                onclick="linkSharepointFile()"
+                class="flex-1 btn btn-primary">
+                Select File
+            </button>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

@@ -18,6 +18,12 @@ urlpatterns = [
         views.workflow_transition,
         name="workflow_transition",
     ),
+    # Workflow attachments
+    path(
+        "workflows/<int:pk>/attachments/",
+        views.workflow_attachments,
+        name="workflow_attachments",
+    ),
     # Events
     path("events/", views.event_list, name="event_list"),
     path("events/<int:pk>/", views.event_detail, name="event_detail"),
@@ -26,4 +32,31 @@ urlpatterns = [
     path("groups/<int:pk>/", views.group_detail, name="group_detail"),
     # Reports
     path("reports/", views.reports, name="reports"),
+    # SharePoint API endpoints
+    path("api/sharepoint/sites/", views.sharepoint_sites, name="sharepoint_sites"),
+    path("api/sharepoint/test/", views.sharepoint_test, name="sharepoint_test"),
+    path(
+        "api/sharepoint/sites/<str:site_id>/drives/",
+        views.sharepoint_site_drives,
+        name="sharepoint_site_drives",
+    ),
+    path(
+        "api/sharepoint/drives/<str:drive_id>/folders/",
+        views.sharepoint_drive_folders,
+        name="sharepoint_drive_folders",
+    ),
+    path(
+        "api/sharepoint/folders/<str:folder_id>/items/",
+        views.sharepoint_folder_items,
+        name="sharepoint_folder_items",
+    ),
+    path(
+        "api/attachments/link-sharepoint/",
+        views.attachment_link_sharepoint,
+        name="attachment_link_sharepoint",
+    ),
+    path("api/attachments/upload/", views.attachment_upload, name="attachment_upload"),
+    path(
+        "api/attachments/<int:pk>/", views.attachment_detail, name="attachment_detail"
+    ),
 ]
