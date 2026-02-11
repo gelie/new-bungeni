@@ -5,6 +5,7 @@ from mptt.admin import MPTTModelAdmin
 from .models import (
     AuditLog,
     Comment,
+    Drive,
     Event,
     EventAttendance,
     EventType,
@@ -14,6 +15,8 @@ from .models import (
     GroupType,
     Notification,
     Role,
+    Site,
+    SiteMember,
     State,
     StateFacet,
     Transition,
@@ -330,3 +333,62 @@ class CommentAdmin(admin.ModelAdmin):
     list_display = ["workflow", "user", "created_at"]
     search_fields = ["workflow__title", "user__username", "text"]
     date_hierarchy = "created_at"
+
+
+# ============================================================================
+# SHAREPOINT ADMIN
+# ============================================================================
+
+
+@admin.register(Site)
+class SiteAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "url",
+        "site_id",
+        "is_personal_site",
+        "user",
+        "last_synced_at",
+        "remote_modified_at",
+    ]
+    list_filter = ["is_personal_site", "last_synced_at"]
+    search_fields = ["name", "url", "site_id", "user__username"]
+    readonly_fields = ["last_synced_at", "remote_modified_at"]
+    date_hierarchy = "last_synced_at"
+
+    fieldsets = (
+        ("Basic Information", {"fields": ("name", "url", "site_id")}),
+        ("Site Type", {"fields": ("is_personal_site", "user")}),
+        (
+            "Synchronization",
+            {
+                "fields": ("last_synced_at", "remote_modified_at"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+
+@admin.register(SiteMember)
+class SiteMemberAdmin(admin.ModelAdmin):
+    list_display = ["site", "user"]
+    list_filter = ["site"]
+    search_fields = [
+        "site__name",
+        "user__username",
+        "user__first_name",
+        "user__last_name",
+    ]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("site", "user")
+
+
+@admin.register(Drive)
+class DriveAdmin(admin.ModelAdmin):
+    list_display = ["name", "site", "drive_id"]
+    list_filter = ["site"]
+    search_fields = ["name", "drive_id", "site__name"]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("site")

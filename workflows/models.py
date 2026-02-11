@@ -394,6 +394,7 @@ class Workflow(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    attachments = models.ManyToManyField("Attachment", blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -831,3 +832,80 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.user} on {self.workflow}"
+
+
+# =======================================================================
+# Attachment Model for Sharepoint documents
+# =======================================================================
+
+
+class Attachment(models.Model):
+    attachment_type = {
+        "response": "Response",
+        "document": "Document",
+        "petition": "Petition",
+    }
+    related_workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    drive_id = models.CharField(max_length=200, help_text="SharePoint drive ID")
+    item_id = models.CharField(max_length=200, help_text="SharePoint item ID")
+    mimetype = models.CharField(
+        max_length=200, blank=True, null=True, help_text="MIME type of the file"
+    )
+    size = models.BigIntegerField(blank=True, null=True, help_text="File size in bytes")
+    download_url = models.URLField(
+        blank=True, null=True, help_text="SharePoint download URL"
+    )
+    type = models.CharField(max_length=200, choices=attachment_type.items())
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.related_workflow}"
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+# =======================================================================
+# Sharepoint Models for Sites and Drives
+# =======================================================================
+
+
+class Site(models.Model):
+    name = models.CharField(max_length=200)
+    url = models.URLField()
+    site_id = models.CharField(max_length=200)
+    is_personal_site = models.BooleanField(default=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    # When this record was last refreshed from SharePoint.
+    last_synced_at = models.DateTimeField(
+        default=timezone.now,
+        help_text="When this record was last refreshed from SharePoint.",
+    )
+    # Timestamp reported by SharePoint (e.g., lastModifiedDateTime).
+    remote_modified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="The last modified timestamp reported by SharePoint for this site.",
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class SiteMember(models.Model):
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.site.name}"
+
+
+class Drive(models.Model):
+    site = models.ForeignKey(Site, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    drive_id = models.CharField(max_length=200)
+
+    def __str__(self):
+        return self.name
