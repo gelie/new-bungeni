@@ -12,4 +12,11 @@ db.sqlite3
 docs/
 static/js/_hyperscript.min.js
 .env
+
+# Database backups
 db.sqlite3.bak
+
+# Migrations and management commands
+workflows/migrations_backup/*
+workflows/management/commands/import_committees.py
+workflows/management/commands/import_roles.py

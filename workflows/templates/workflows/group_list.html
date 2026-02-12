@@ -16,7 +16,7 @@
         <a href="{% url 'group_detail' group.pk %}" class="card bg-base-100 shadow-xl hover:shadow-2xl transition">
             <div class="card-body">
                 <h2 class="card-title">{{ group.name }}</h2>
-                <div class="badge badge-outline">{{ group.group_type.name }}</div>
+                <div class="badge badge-outline">{{ group.group_type }}</div>
                 {% if group.description %}
                 <p class="text-sm text-base-content/70 mt-2">{{ group.description|truncatewords:20 }}</p>
                 {% endif %}

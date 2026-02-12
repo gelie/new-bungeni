@@ -59,13 +59,17 @@ class Command(BaseCommand):
         # Get workflow types to process
         if workflow_type_name:
             try:
-                workflow_types = [WorkflowType.objects.get(name=workflow_type_name)]
+                workflow_types = [
+                    WorkflowType.objects.get(name=workflow_type_name).filter(
+                        enabled=True
+                    )
+                ]
             except WorkflowType.DoesNotExist:
                 raise CommandError(
                     f'WorkflowType "{workflow_type_name}" does not exist.'
                 )
         else:
-            workflow_types = WorkflowType.objects.all()
+            workflow_types = WorkflowType.objects.filter(enabled=True)
 
         if not workflow_types:
             self.stdout.write(self.style.WARNING("No workflow types found."))

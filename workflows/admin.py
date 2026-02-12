@@ -143,6 +143,22 @@ class TransitionAdmin(admin.ModelAdmin):
     list_filter = ["workflow_type", "requires_comment"]
     search_fields = ["name"]
     filter_horizontal = ["allowed_roles"]
+    autocomplete_fields = ["from_state", "to_state"]
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name in ["from_state", "to_state"]:
+            if request.resolver_match.kwargs.get("object_id"):
+                try:
+                    transition = self.get_object(
+                        request, request.resolver_match.kwargs["object_id"]
+                    )
+                    if transition and transition.workflow_type:
+                        kwargs["queryset"] = State.objects.filter(
+                            workflow_type=transition.workflow_type
+                        )
+                except Exception:
+                    pass
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(Facet)

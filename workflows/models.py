@@ -369,6 +369,7 @@ class WorkflowType(models.Model):
     name = models.CharField(max_length=100, unique=True)
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
+    enabled = models.BooleanField(default=True)
 
     # JSON schema for workflow-specific fields
     json_schema = models.JSONField(

@@ -536,9 +536,7 @@ def group_detail(request, pk):
     group = get_object_or_404(Group, pk=pk)
 
     # Get members
-    memberships = group.memberships.filter(is_active=True).select_related(
-        "user", "role"
-    )
+    memberships = group.members.filter(is_active=True).select_related("user", "role")
 
     # Get workflows
     workflows = group.workflows.all().select_related("workflow_type", "current_state")[
