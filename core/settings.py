@@ -51,6 +51,14 @@ AUTH_LDAP_ALWAYS_UPDATE_USER = True
 AUTH_LDAP_FIND_GROUP_PERMS = True
 AUTH_LDAP_MIRROR_GROUPS = True
 
+# Start TLS (optional, set to False if not using TLS)
+AUTH_LDAP_START_TLS = False
+
+# Allow LDAP authentication to fail gracefully and fall back to ModelBackend
+# This prevents LDAP connection errors from blocking all authentication
+AUTH_LDAP_AUTHORIZE_ALL_USERS = False
+AUTH_LDAP_CACHE_TIMEOUT = 3600
+
 # LDAP Logging for debugging
 logger = logging.getLogger("django_auth_ldap")
 logger.addHandler(logging.StreamHandler())
@@ -66,6 +74,8 @@ logger.setLevel(logging.DEBUG)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOG_DIR = BASE_DIR / "logs"
 
 
 # Quick-start development settings - unsuitable for production
@@ -174,20 +184,20 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Authentication backends
+# Using custom backends for graceful LDAP fallback
 AUTHENTICATION_BACKENDS = [
-    "django_auth_ldap.backend.LDAPBackend",  # LDAP authentication
-    "django.contrib.auth.backends.ModelBackend",  # Django fallback
+    "workflows.backends.GracefulLDAPBackend",  # LDAP with graceful error handling
+    "workflows.backends.FallbackModelBackend",  # Django fallback with logging
 ]
 
 # === Essential options for Active Directory ===
 AUTH_LDAP_CONNECTION_OPTIONS = {
     ldap.OPT_REFERRALS: 0,  # AD referrals break everything if not disabled
-    ldap.OPT_NETWORK_TIMEOUT: 15,
+    ldap.OPT_NETWORK_TIMEOUT: 5,  # Reduced timeout to fail fast (5 seconds)
+    ldap.OPT_TIMEOUT: 5,  # Overall operation timeout
     # This tells OpenSSL/python-ldap to skip CA verification
     # Perfectly safe when you fully control both ends (internal AD)
     ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_ALLOW,
-    # or even (if you really don’t care about cert validity at all):
-    # ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER,
 }
 
 # Custom user model

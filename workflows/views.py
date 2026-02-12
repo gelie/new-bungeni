@@ -521,9 +521,7 @@ def group_list(request):
     )
 
     # Get groups user can access (their groups and descendants)
-    groups = Group.objects.filter(id__in=user_groups).select_related(
-        "group_type", "parent"
-    )
+    groups = Group.objects.filter(id__in=user_groups).select_related("parent")
 
     context = {
         "groups": groups,

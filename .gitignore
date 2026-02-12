@@ -12,3 +12,4 @@ db.sqlite3
 docs/
 static/js/_hyperscript.min.js
 .env
+db.sqlite3.bak

@@ -1,8 +1,19 @@
+import base64
+import datetime
+import hashlib
+import hmac
+from typing import Optional
+
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+from django_extensions.db.fields import AutoSlugField
 from mptt.models import MPTTModel, TreeForeignKey
 
 # ============================================================================
@@ -16,18 +27,167 @@ class User(AbstractUser):
     Users can be MPs, staff, administrators, etc.
     """
 
+    TITLE_CHOICES = [
+        ("mr", _("Mr.")),
+        ("ms", _("Ms.")),
+        ("mrs", _("Mrs.")),
+        ("dr", _("Dr.")),
+        ("prof", _("Prof.")),
+        ("hon", _("Hon.")),
+        ("rt_hon", _("Rt. Hon.")),
+    ]
+
+    EMPLOYEE_TYPE_CHOICES = [
+        ("staff", _("Staff")),
+        ("member", _("Member")),
+        ("graduate", _("Graduate")),
+    ]
+
+    GENDER_CHOICES = [
+        ("male", _("Male")),
+        ("female", _("Female")),
+        ("other", _("Other")),
+    ]
+
+    title = models.CharField(max_length=10, choices=TITLE_CHOICES, blank=True)
+    middle_name = models.CharField(max_length=100, blank=True)
+    employee_type = models.CharField(
+        max_length=10, choices=EMPLOYEE_TYPE_CHOICES, blank=True
+    )
+    positiondesc = models.CharField(max_length=100, blank=True)
+    supervisor = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    department = models.ForeignKey(
+        "Group", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    date_of_birth = models.DateField(null=True, blank=True)
+    idno_encrypted = models.TextField(blank=True)
+    idno_hmac = models.CharField(
+        max_length=64, unique=True, db_index=True, blank=True, null=True
+    )
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True)
     phone = models.CharField(max_length=20, blank=True)
-    title = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
-    is_active = models.BooleanField(default=True)  # type: ignore
+    is_mp = models.BooleanField(
+        default=False, help_text=_("Is this user a Member of Parliament?")
+    )
+    is_staff_member = models.BooleanField(
+        default=False, help_text=_("Is this user a staff member?")
+    )
+    constituency = models.CharField(max_length=200, blank=True)
+    party_affiliation = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     date_joined_parliament = models.DateField(null=True, blank=True)
+    termination_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)  # type: ignore
 
     class Meta:
         ordering = ["last_name", "first_name"]
 
+    # --- ID number security helpers ---
+
+    @staticmethod
+    def _compute_idno_hmac(plain_id: str) -> Optional[str]:
+        """Return hex-encoded HMAC-SHA256 of the ID using settings.IDNO_HMAC_KEY."""
+        key = getattr(settings, "IDNO_HMAC_KEY", None)
+        if not plain_id or not key:
+            return None
+        if isinstance(key, str):
+            key_bytes = key.encode("utf-8")
+        else:
+            key_bytes = key
+        msg = plain_id.encode("utf-8")
+        return hmac.new(key_bytes, msg, hashlib.sha256).hexdigest()
+
+    @staticmethod
+    def _encrypt_idno(plain_id: str) -> Optional[str]:
+        """Encrypt the ID number using Fernet if IDNO_ENC_KEY is configured. Returns base64 text or None."""
+        key = getattr(settings, "IDNO_ENC_KEY", None)
+        if not plain_id or not key:
+            return None
+        try:
+            # Lazy import to avoid hard dependency during migrations that don't need encryption
+            from cryptography.fernet import Fernet
+
+            # Expect key as urlsafe base64 32-byte string; if provided as raw, try to base64-encode
+            k = key
+            try:
+                # Validate length by attempting to construct Fernet
+                f = Fernet(k)
+            except Exception:
+                # Try to base64-url encode raw key
+                k = base64.urlsafe_b64encode(key.encode("utf-8"))
+                f = Fernet(k)
+            token = f.encrypt(plain_id.encode("utf-8"))
+            return token.decode("utf-8")
+        except Exception:
+            # If encryption fails, do not block save; simply skip encryption
+            return None
+
+    @staticmethod
+    def _decrypt_idno(ciphertext: str) -> Optional[str]:
+        key = getattr(settings, "IDNO_ENC_KEY", None)
+        if not ciphertext or not key:
+            return None
+        try:
+            from cryptography.fernet import Fernet
+
+            k = key
+            try:
+                f = Fernet(k)
+            except Exception:
+                k = base64.urlsafe_b64encode(key.encode("utf-8"))
+                f = Fernet(k)
+            plain = f.decrypt(ciphertext.encode("utf-8"))
+            return plain.decode("utf-8")
+        except Exception:
+            return None
+
+    def set_idno(self, plain_id: Optional[str]) -> None:
+        """Set the user's ID number, computing HMAC and encryption (no plaintext stored)."""
+        # HMAC for deterministic lookup/indexing
+        h = self._compute_idno_hmac(plain_id or "")
+        if h:
+            self.idno_hmac = h
+        # Encrypted for retrieval when authorized
+        enc = self._encrypt_idno(plain_id or "")
+        if enc:
+            self.idno_encrypted = enc
+
+    def get_idno(self) -> str:
+        """Return decrypted ID number if available; otherwise empty string."""
+        dec = (
+            self._decrypt_idno(self.idno_encrypted)
+            if getattr(self, "idno_encrypted", None)
+            else None
+        )
+        if dec:
+            return dec
+        return ""
+
     def __str__(self):
-        return self.get_full_name() or self.username
+        full_name = f"{self.title.title()} {self.first_name} {self.last_name}".strip()
+        return full_name if full_name else self.username
+
+    def get_full_name_with_title(self):
+        parts = [self.title.title(), self.first_name, self.middle_name, self.last_name]
+        return " ".join(part for part in parts if part)
+
+    def get_absolute_url(self):
+        return reverse("bungeni:user_detail", kwargs={"pk": self.pk})
+
+    def clean(self):
+        if self.date_of_birth and self.date_of_birth > datetime.date.today():
+            raise ValidationError(
+                {"date_of_birth": "Date of birth cannot be in the future."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
 
     def get_groups_with_roles(self):
         """Get all groups this user belongs to with their roles"""
@@ -56,22 +216,6 @@ class User(AbstractUser):
 # ============================================================================
 
 
-class GroupType(models.Model):
-    """
-    Types of groups: Legislature, Chamber, Committee, Office, Party,
-    Administration, Ministry, etc.
-    """
-
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ["name"]
-
-    def __str__(self):
-        return str(self.name)
-
-
 class Group(MPTTModel):
     """
     Hierarchical group structure using MPTT.
@@ -87,9 +231,34 @@ class Group(MPTTModel):
       - Ministries
     """
 
+    GROUP_TYPE_CHOICES = [
+        ("legislature", _("Legislature")),
+        ("house", _("House")),
+        ("portfolio_committee", _("Portfolio Committee")),
+        ("select_committee", _("Select Committee")),
+        ("special_committee", _("Special Committee")),
+        ("public_accounts_committee", _("Public Accounts Committee")),
+        ("internal_committee", _("Internal Committee")),
+        ("ad_hoc_committee", _("Ad Hoc Committee")),
+        ("joint_committee", _("Joint Committee")),
+        ("administration", _("Administration")),
+        ("office", _("Office")),
+        ("division", _("Division")),
+        ("section", _("Section")),
+        ("business_unit", _("Business Unit")),
+        ("party", _("Party")),
+        ("executive", _("Executive")),
+        ("presidency", _("Presidency")),
+        ("ministry", _("Ministry")),
+        ("department", _("Department")),
+        ("province", _("Province")),
+        ("premier", _("Premier")),
+    ]
+
     name = models.CharField(max_length=255)
-    short_name = models.CharField(max_length=100, blank=True)
-    group_type = models.ForeignKey(GroupType, on_delete=models.PROTECT)
+    slug = AutoSlugField(populate_from="name", unique=True, editable=False)
+    short_name = models.CharField(max_length=50, blank=True)
+    group_type = models.CharField(max_length=50, choices=GROUP_TYPE_CHOICES)
     parent = TreeForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children"
     )
@@ -137,7 +306,10 @@ class Role(models.Model):
     """
 
     name = models.CharField(max_length=100, unique=True)
+    slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     # Permission flags
     can_create_workflows = models.BooleanField(default=False)  # type: ignore
@@ -152,6 +324,9 @@ class Role(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def get_absolute_url(self):
+        return reverse("bungeni:role_detail", kwargs={"slug": self.slug})
+
 
 class GroupMembership(models.Model):
     """
@@ -160,9 +335,7 @@ class GroupMembership(models.Model):
     """
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
-    group = models.ForeignKey(
-        Group, on_delete=models.CASCADE, related_name="memberships"
-    )
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="members")
     role = models.ForeignKey(Role, on_delete=models.PROTECT)
 
     start_date = models.DateField(default=timezone.now)
@@ -178,6 +351,10 @@ class GroupMembership(models.Model):
     def __str__(self):
         return f"{self.user} - {self.role} in {self.group}"
 
+    def clean(self):
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ValidationError("End date cannot be before start date.")
+
 
 # ============================================================================
 # WORKFLOW ENGINE MODELS
@@ -190,6 +367,7 @@ class WorkflowType(models.Model):
     """
 
     name = models.CharField(max_length=100, unique=True)
+    slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
 
     # JSON schema for workflow-specific fields

@@ -12,7 +12,7 @@ from .models import (
     Facet,
     Group,
     GroupMembership,
-    GroupType,
+    # GroupType,
     Notification,
     Role,
     Site,
@@ -66,10 +66,10 @@ class UserAdmin(BaseUserAdmin):
 # ============================================================================
 
 
-@admin.register(GroupType)
-class GroupTypeAdmin(admin.ModelAdmin):
-    list_display = ["name", "description"]
-    search_fields = ["name"]
+# @admin.register(GroupType)
+# class GroupTypeAdmin(admin.ModelAdmin):
+#     list_display = ["name", "description"]
+#     search_fields = ["name"]
 
 
 @admin.register(Group)
