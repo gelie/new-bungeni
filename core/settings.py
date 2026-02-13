@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 """
 
 import logging
+from pathlib import Path
 
 import ldap
 from decouple import config
@@ -23,66 +24,199 @@ ldap.set_option(
 AUTH_LDAP_SERVER_URI = config("AUTH_LDAP_SERVER_URI", default="")
 AUTH_LDAP_BIND_DN = config("AUTH_LDAP_BIND_DN", default="")
 AUTH_LDAP_BIND_PASSWORD = config("AUTH_LDAP_BIND_PASSWORD", default="")
-AUTH_LDAP_BASE_DN = config("AUTH_LDAP_BASE_DN", default="")
 
-# Conditional LDAP configuration
-if AUTH_LDAP_BASE_DN:
-    # LDAP User Search
-    AUTH_LDAP_USER_SEARCH = LDAPSearch(
-        AUTH_LDAP_BASE_DN,
-        ldap.SCOPE_SUBTREE,
-        "(|(sAMAccountName=%(user)s)(userPrincipalName=%(user)s)(mail=%(user)s))",
-    )
+# LDAP User Search
+AUTH_LDAP_USER_SEARCH = LDAPSearch(
+    config("AUTH_LDAP_BASE_DN"),
+    ldap.SCOPE_SUBTREE,
+    "(|(sAMAccountName=%(user)s)(userPrincipalName=%(user)s)(mail=%(user)s))",
+)
 
-    # LDAP User Attributes Mapping
-    AUTH_LDAP_USER_ATTR_MAP = {
-        "username": "sAMAccountName",
-        "first_name": "givenName",
-        "last_name": "sn",
-        "email": "mail",
+# LDAP User Attributes Mapping
+AUTH_LDAP_USER_ATTR_MAP = {
+    "username": "sAMAccountName",
+    "first_name": "givenName",
+    "last_name": "sn",
+    "email": "mail",
+}
+
+# # LDAP Group Configuration (optional)
+AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
+    config("AUTH_LDAP_BASE_DN"), ldap.SCOPE_SUBTREE, "(objectClass=group)"
+)
+AUTH_LDAP_GROUP_TYPE = GroupOfNamesType()
+
+# Populate Django user model from LDAP
+AUTH_LDAP_ALWAYS_UPDATE_USER = True
+AUTH_LDAP_FIND_GROUP_PERMS = True
+AUTH_LDAP_MIRROR_GROUPS = True
+
+# Start TLS (optional, set to False if not using TLS)
+AUTH_LDAP_START_TLS = False
+
+# Allow LDAP authentication to fail gracefully and fall back to ModelBackend
+# This prevents LDAP connection errors from blocking all authentication
+AUTH_LDAP_AUTHORIZE_ALL_USERS = False
+AUTH_LDAP_CACHE_TIMEOUT = 3600
+
+# LDAP Logging for debugging
+logger = logging.getLogger("django_auth_ldap")
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.DEBUG)
+
+# Check if LDAP is properly configured
+# if not AUTH_LDAP_SERVER_URI or not AUTH_LDAP_BIND_DN:
+#     logger.warning(
+#         "LDAP is not properly configured. Please check your .env file. "
+#         "Required: AUTH_LDAP_SERVER_URI, AUTH_LDAP_BIND_DN, AUTH_LDAP_BIND_PASSWORD, AUTH_LDAP_BASE_DN"
+#     )
+#     logger.warning("Falling back to Django ModelBackend only for authentication.")
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOG_DIR = BASE_DIR / "logs"
+
+
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = "django-insecure-zx81q-5lri07m68(mxar3@q6&06*#ey3@1b%lmxauud2=ko(19"
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
+
+ALLOWED_HOSTS = []
+
+
+# Application definition
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "lucide",
+    "mptt",
+    "workflows",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "core.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+            "builtins": ["lucide.templatetags.lucide"],
+        },
+    },
+]
+
+WSGI_APPLICATION = "core.wsgi.application"
+
+
+# Database
+# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
+}
 
-    # # LDAP Group Configuration (optional)
-    AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
-        AUTH_LDAP_BASE_DN, ldap.SCOPE_SUBTREE, "(objectClass=group)"
-    )
-    AUTH_LDAP_GROUP_TYPE = GroupOfNamesType()
 
-    # Populate Django user model from LDAP
-    AUTH_LDAP_ALWAYS_UPDATE_USER = True
-    AUTH_LDAP_FIND_GROUP_PERMS = True
-    AUTH_LDAP_MIRROR_GROUPS = True
+# Password validation
+# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
-    # Start TLS (optional, set to False if not using TLS)
-    AUTH_LDAP_START_TLS = False
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
 
-    # Allow LDAP authentication to fail gracefully and fall back to ModelBackend
-    # This prevents LDAP connection errors from blocking all authentication
-    AUTH_LDAP_AUTHORIZE_ALL_USERS = False
-    AUTH_LDAP_CACHE_TIMEOUT = 3600
 
-    # LDAP Logging for debugging
-    logger = logging.getLogger("django_auth_ldap")
-    logger.addHandler(logging.StreamHandler())
-    logger.setLevel(logging.DEBUG)
+# Internationalization
+# https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-    # === Essential options for Active Directory ===
-    AUTH_LDAP_CONNECTION_OPTIONS = {
-        ldap.OPT_REFERRALS: 0,  # AD referrals break everything if not disabled
-        ldap.OPT_NETWORK_TIMEOUT: 5,  # Reduced timeout to fail fast (5 seconds)
-        ldap.OPT_TIMEOUT: 5,  # Overall operation timeout
-        # This tells OpenSSL/python-ldap to skip CA verification
-        # Perfectly safe when you fully control both ends (internal AD)
-        ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_ALLOW,
-    }
+LANGUAGE_CODE = "en-za"
 
-    # Authentication backends include LDAP
-    AUTHENTICATION_BACKENDS = [
-        "workflows.backends.GracefulLDAPBackend",  # LDAP with graceful error handling
-        "workflows.backends.FallbackModelBackend",  # Django fallback with logging
-    ]
-else:
-    # LDAP not configured, use only Django ModelBackend
-    AUTHENTICATION_BACKENDS = [
-        "workflows.backends.FallbackModelBackend",  # Django fallback with logging
-    ]
+TIME_ZONE = "Africa/Johannesburg"
+
+USE_I18N = True
+
+USE_TZ = True
+
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/6.0/howto/static-files/
+
+STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Authentication backends
+# Using custom backends for graceful LDAP fallback
+AUTHENTICATION_BACKENDS = [
+    "workflows.backends.GracefulLDAPBackend",  # LDAP with graceful error handling
+    "workflows.backends.FallbackModelBackend",  # Django fallback with logging
+]
+
+# === Essential options for Active Directory ===
+AUTH_LDAP_CONNECTION_OPTIONS = {
+    ldap.OPT_REFERRALS: 0,  # AD referrals break everything if not disabled
+    ldap.OPT_NETWORK_TIMEOUT: 5,  # Reduced timeout to fail fast (5 seconds)
+    ldap.OPT_TIMEOUT: 5,  # Overall operation timeout
+    # This tells OpenSSL/python-ldap to skip CA verification
+    # Perfectly safe when you fully control both ends (internal AD)
+    ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_ALLOW,
+}
+
+# Custom user model
+AUTH_USER_MODEL = "workflows.User"
+
+# Login URLs
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/login/"
+
+# SharePoint Graph API Configuration
+SHAREPOINT_CLIENT_ID = config("CLIENT_ID", default="")
+SHAREPOINT_CLIENT_SECRET = config("CLIENT_SECRET", default="")
+SHAREPOINT_TENANT_ID = config("TENANT_ID", default="")
+SHAREPOINT_TOKEN_URL = (
+    f"https://login.microsoftonline.com/{SHAREPOINT_TENANT_ID}/oauth2/v2.0/token"
+)
+SHAREPOINT_SCOPE = "https://graph.microsoft.com/.default"
+
+# File upload settings
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
