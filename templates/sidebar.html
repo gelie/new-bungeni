@@ -35,8 +35,32 @@
         </a>
       </li>
       {% if user.is_staff %}
-      <li class="menu-title mt-4">
+      <li class="menu-title mt-4 text-yellow-400">
         <span>Administration</span>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'admin_users' %}" class="{% if 'manage/users' in request.path %}menu-active{% endif %}">
+          {% lucide "user" class="w-5 h-5" %}
+          Users
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'admin_groups' %}" class="{% if 'manage/groups' in request.path %}menu-active{% endif %}">
+          {% lucide "users" class="w-5 h-5" %}
+          Groups
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'admin_roles' %}" class="{% if 'manage/roles' in request.path %}menu-active{% endif %}">
+          {% lucide "shield" class="w-5 h-5" %}
+          Roles
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'admin_workflow_types' %}" class="{% if 'manage/workflow-types' in request.path %}menu-active{% endif %}">
+          {% lucide "git-branch" class="w-5 h-5" %}
+          Workflow Types
+        </a>
       </li>
       <li class="text-lg">
         <a href="/admin/">

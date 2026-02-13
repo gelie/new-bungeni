@@ -18,11 +18,14 @@ from .models import (
     Event,
     EventType,
     Group,
+    GroupMembership,
+    Role,
     SharePointFolder,
     SharePointToken,
     Site,
     State,
     Transition,
+    User,
     Workflow,
     WorkflowTransitionLog,
     WorkflowType,
@@ -1086,3 +1089,160 @@ def workflow_attachments(request, pk):
     }
 
     return render(request, "workflows/attachments.html", context)
+
+
+# ============================================================================
+# ADMIN VIEWS
+# ============================================================================
+
+
+@login_required
+def user_admin(request):
+    """User administration - manage users and their basic information"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    users = User.objects.all().select_related("department", "supervisor")
+
+    search = request.GET.get("search")
+    employee_type = request.GET.get("employee_type")
+    is_active = request.GET.get("is_active")
+
+    if search:
+        users = users.filter(
+            Q(username__icontains=search)
+            | Q(first_name__icontains=search)
+            | Q(last_name__icontains=search)
+            | Q(email__icontains=search)
+        )
+    if employee_type:
+        users = users.filter(employee_type=employee_type)
+    if is_active:
+        users = users.filter(is_active=is_active == "true")
+
+    context = {
+        "users": users,
+        "employee_types": User.EMPLOYEE_TYPE_CHOICES,
+    }
+
+    return render(request, "workflows/admin/user_admin.html", context)
+
+
+@login_required
+def user_admin_groups(request):
+    """User administration - manage user group memberships"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    memberships = GroupMembership.objects.all().select_related("user", "group", "role")
+
+    user_filter = request.GET.get("user")
+    group_filter = request.GET.get("group")
+    role_filter = request.GET.get("role")
+    is_active = request.GET.get("is_active")
+
+    if user_filter:
+        memberships = memberships.filter(user_id=user_filter)
+    if group_filter:
+        memberships = memberships.filter(group_id=group_filter)
+    if role_filter:
+        memberships = memberships.filter(role_id=role_filter)
+    if is_active:
+        memberships = memberships.filter(is_active=is_active == "true")
+
+    users = User.objects.all()
+    groups = Group.objects.all()
+    roles = Role.objects.all()
+
+    context = {
+        "memberships": memberships,
+        "users": users,
+        "groups": groups,
+        "roles": roles,
+    }
+
+    return render(request, "workflows/admin/user_admin_groups.html", context)
+
+
+@login_required
+def user_admin_roles(request):
+    """User administration - manage user roles and permissions"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    roles = Role.objects.all()
+
+    context = {
+        "roles": roles,
+    }
+
+    return render(request, "workflows/admin/user_admin_roles.html", context)
+
+
+@login_required
+def user_admin_workflow_types(request):
+    """User administration - manage workflow types"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    workflow_types = WorkflowType.objects.all().prefetch_related(
+        "states", "transitions"
+    )
+
+    context = {
+        "workflow_types": workflow_types,
+    }
+
+    return render(request, "workflows/admin/user_admin_workflow_types.html", context)
+
+
+@login_required
+def group_admin(request):
+    """Group administration - manage groups and their hierarchies"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    groups = Group.objects.all().select_related("parent")
+
+    search = request.GET.get("search")
+    group_type = request.GET.get("group_type")
+
+    if search:
+        groups = groups.filter(
+            Q(name__icontains=search) | Q(description__icontains=search)
+        )
+    if group_type:
+        groups = groups.filter(group_type=group_type)
+
+    context = {
+        "groups": groups,
+    }
+
+    return render(request, "workflows/admin/group_admin.html", context)
+
+
+@login_required
+def role_admin(request):
+    """Role administration - manage roles and their permissions"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    roles = Role.objects.all()
+
+    search = request.GET.get("search")
+    if search:
+        roles = roles.filter(
+            Q(name__icontains=search) | Q(description__icontains=search)
+        )
+
+    context = {
+        "roles": roles,
+    }
+
+    return render(request, "workflows/admin/role_admin.html", context)

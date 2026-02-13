@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Role Administration - BUNGENI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- Breadcrumb -->
+  <div class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'dashboard' %}" class="text-primary">Dashboard</a></li>
+      <li>Roles</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "shield" class="w-8 h-8" %}
+        Roles
+      </h1>
+      <p class="text-base-content/70 mt-1">Manage roles and their permissions</p>
+    </div>
+    <button class="btn btn-primary gap-2">
+      {% lucide "plus" class="w-5 h-5" %}
+      Create Role
+    </button>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="card bg-base-100 shadow-sm mb-6">
+    <div class="card-body p-4">
+      <form method="get" class="flex items-center gap-4">
+        <div class="form-control flex-1">
+          <div class="input-group flex items-center gap-2">
+            <span class="bg-base-200">
+              {% lucide "search" class="w-5 h-5" %}
+            </span>
+            <input type="text" name="search" placeholder="Search roles by name or description..."
+                   value="{{ request.GET.search }}" class="input input-bordered w-full" />
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
+        {% if request.GET.search %}
+        <a href="{% url 'admin_roles' %}" class="btn btn-ghost">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- Roles Table -->
+  <div class="card bg-base-100 shadow-sm mb-6">
+    <div class="card-body p-0">
+      <div class="overflow-x-auto">
+        <table class="table w-full">
+          <thead>
+            <tr class="bg-base-200">
+              <th>Role Name</th>
+              <th>Description</th>
+              <th>Permissions</th>
+              <th>Members</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for role in roles %}
+            <tr class="hover">
+              <td>
+                <div class="flex items-center gap-3">
+                  <div class="avatar placeholder">
+                    <div class="bg-primary text-primary-content rounded-lg w-10">
+                      {% lucide "shield" class="w-5 h-5" %}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="font-semibold">{{ role.name }}</div>
+                    <div class="text-sm text-base-content/70">{{ role.slug }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="max-w-md">
+                <p class="text-sm truncate">{{ role.description|default:"No description provided" }}</p>
+              </td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  {% if role.can_create_workflows %}
+                  <span class="badge badge-success badge-xs">Create</span>
+                  {% endif %}
+                  {% if role.can_edit_workflows %}
+                  <span class="badge badge-info badge-xs">Edit</span>
+                  {% endif %}
+                  {% if role.can_delete_workflows %}
+                  <span class="badge badge-error badge-xs">Delete</span>
+                  {% endif %}
+                  {% if role.can_view_all_workflows %}
+                  <span class="badge badge-warning badge-xs">View All</span>
+                  {% endif %}
+                  {% if role.can_manage_members %}
+                  <span class="badge badge-primary badge-xs">Manage</span>
+                  {% endif %}
+                  {% if not role.can_create_workflows and not role.can_edit_workflows and not role.can_delete_workflows and not role.can_view_all_workflows and not role.can_manage_members %}
+                  <span class="text-base-content/50 text-xs">No permissions</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <span class="badge badge-ghost">0</span>
+              </td>
+              <td>
+                <div class="flex gap-2">
+                  <button class="btn btn-ghost btn-sm btn-square" title="Edit">
+                    {% lucide "pencil" class="w-4 h-4" %}
+                  </button>
+                  <button class="btn btn-ghost btn-sm btn-square" title="View Details">
+                    {% lucide "eye" class="w-4 h-4" %}
+                  </button>
+                  <button class="btn btn-ghost btn-sm btn-square" title="Delete">
+                    {% lucide "trash-2" class="w-4 h-4" %}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" class="text-center py-8 text-base-content/70">
+                No roles found. Create your first role to get started.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Permission Matrix -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h2 class="card-title text-xl mb-4">Permission Matrix</h2>
+
+      <div class="overflow-x-auto">
+        <table class="table table-compact w-full">
+          <thead>
+            <tr class="bg-base-200">
+              <th>Role</th>
+              <th class="text-center">Create Workflows</th>
+              <th class="text-center">Edit Workflows</th>
+              <th class="text-center">Delete Workflows</th>
+              <th class="text-center">View All Workflows</th>
+              <th class="text-center">Manage Members</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for role in roles %}
+            <tr>
+              <td class="font-semibold">{{ role.name }}</td>
+              <td class="text-center">
+                {% if role.can_create_workflows %}
+                <span class="text-success">{% lucide "check" class="w-5 h-5" %}</span>
+                {% else %}
+                <span class="text-base-content/30">{% lucide "x" class="w-5 h-5" %}</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if role.can_edit_workflows %}
+                <span class="text-success">{% lucide "check" class="w-5 h-5" %}</span>
+                {% else %}
+                <span class="text-base-content/30">{% lucide "x" class="w-5 h-5" %}</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if role.can_delete_workflows %}
+                <span class="text-success">{% lucide "check" class="w-5 h-5" %}</span>
+                {% else %}
+                <span class="text-base-content/30">{% lucide "x" class="w-5 h-5" %}</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if role.can_view_all_workflows %}
+                <span class="text-success">{% lucide "check" class="w-5 h-5" %}</span>
+                {% else %}
+                <span class="text-base-content/30">{% lucide "x" class="w-5 h-5" %}</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if role.can_manage_members %}
+                <span class="text-success">{% lucide "check" class="w-5 h-5" %}</span>
+                {% else %}
+                <span class="text-base-content/30">{% lucide "x" class="w-5 h-5" %}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="text-center py-4 text-base-content/70">
+                No roles to display
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+    <div class="stat bg-base-100 shadow-sm rounded-lg">
+      <div class="stat-figure text-primary">
+        {% lucide "shield" class="w-8 h-8" %}
+      </div>
+      <div class="stat-title">Total Roles</div>
+      <div class="stat-value text-primary">{{ roles|length }}</div>
+      <div class="stat-desc">System-wide roles</div>
+    </div>
+    <div class="stat bg-base-100 shadow-sm rounded-lg">
+      <div class="stat-figure text-success">
+        {% lucide "circle-check" class="w-8 h-8" %}
+      </div>
+      <div class="stat-title">Active Permissions</div>
+      <div class="stat-value text-success">{{ roles|length }}</div>
+      <div class="stat-desc">Across all roles</div>
+    </div>
+    <div class="stat bg-base-100 shadow-sm rounded-lg">
+      <div class="stat-figure text-info">
+        {% lucide "users" class="w-8 h-8" %}
+      </div>
+      <div class="stat-title">Total Assignments</div>
+      <div class="stat-value text-info">0</div>
+      <div class="stat-desc">Users with roles</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -59,4 +59,13 @@ urlpatterns = [
     path(
         "api/attachments/<int:pk>/", views.attachment_detail, name="attachment_detail"
     ),
+    path("manage/users/", views.user_admin, name="admin_users"),
+    path("manage/memberships/", views.user_admin_groups, name="admin_memberships"),
+    path("manage/roles/", views.role_admin, name="admin_roles"),
+    path(
+        "manage/workflow-types/",
+        views.user_admin_workflow_types,
+        name="admin_workflow_types",
+    ),
+    path("manage/groups/", views.group_admin, name="admin_groups"),
 ]
