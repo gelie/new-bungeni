@@ -102,6 +102,7 @@ class GroupMembershipAdmin(admin.ModelAdmin):
         "user__last_name",
         "group__name",
     ]
+    autocomplete_fields = ["user", "group", "role"]
     date_hierarchy = "start_date"
 
 
