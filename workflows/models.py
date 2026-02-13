@@ -317,6 +317,10 @@ class Role(models.Model):
     can_delete_workflows = models.BooleanField(default=False)  # type: ignore
     can_view_all_workflows = models.BooleanField(default=False)  # type: ignore
     can_manage_members = models.BooleanField(default=False)  # type: ignore
+    can_create_subworkflows = models.BooleanField(default=False)  # type: ignore
+    can_transition_workflows = models.BooleanField(default=False)  # type: ignore
+    can_manage_workflow_types = models.BooleanField(default=False)  # type: ignore
+    can_manage_states = models.BooleanField(default=False)  # type: ignore
 
     class Meta:
         ordering = ["name"]
@@ -370,6 +374,14 @@ class WorkflowType(models.Model):
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
     enabled = models.BooleanField(default=True)
+
+    # Group ownership - all workflows of this type belong to this group
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.PROTECT,
+        related_name="workflow_types",
+        help_text="The group that owns all workflows of this type",
+    )
 
     # JSON schema for workflow-specific fields
     json_schema = models.JSONField(
@@ -466,6 +478,8 @@ class Facet(models.Model):
     can_view = models.BooleanField(default=True)  # type: ignore
     can_edit = models.BooleanField(default=False)  # type: ignore
     can_delete = models.BooleanField(default=False)  # type: ignore
+    can_create = models.BooleanField(default=False)  # type: ignore
+    can_transition = models.BooleanField(default=False)  # type: ignore
 
     class Meta:
         ordering = ["name"]
@@ -505,7 +519,9 @@ class Workflow(models.Model):
     )
 
     # Ownership and assignment
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="workflows")
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="workflows", null=True, blank=True
+    )
     owner = models.ForeignKey(
         User, on_delete=models.PROTECT, related_name="owned_workflows"
     )
@@ -579,7 +595,7 @@ class Workflow(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["workflow_type", "current_state"]),
-            models.Index(fields=["group", "current_state"]),
+            models.Index(fields=["workflow_type__group", "current_state"]),
             models.Index(fields=["deadline"]),
             models.Index(fields=["parent_workflow"]),
         ]
@@ -604,7 +620,7 @@ class Workflow(models.Model):
         """Get transitions available to a user from current state"""
         # Get user's roles in the workflow's group
         user_roles = user.memberships.filter(
-            group=self.group, is_active=True
+            group=self.effective_group, is_active=True
         ).values_list("role", flat=True)
 
         # Also check referred_to group if exists
@@ -623,13 +639,19 @@ class Workflow(models.Model):
 
     def can_user_view(self, user):
         """Check if user can view this workflow"""
+        # Check if user has can_view_all_workflows role in any group
+        if user.memberships.filter(
+            role__can_view_all_workflows=True, is_active=True
+        ).exists():
+            return True
+
         # Check if user is in the workflow's group or referred group
         user_groups = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
         )
 
-        if self.group.id in user_groups or (
-            self.referred_to.id and self.referred_to.id in user_groups
+        if self.effective_group.id in user_groups or (
+            self.referred_to and self.referred_to.id in user_groups
         ):
             # Check facet permissions for current state
             state_facets = self.current_state.facets.all()
@@ -637,11 +659,82 @@ class Workflow(models.Model):
                 return True  # No facets = visible to all group members
 
             user_roles = user.memberships.filter(
-                group__in=[self.group.id, self.referred_to.id], is_active=True
+                group__in=[self.effective_group, self.referred_to]
+                if self.referred_to
+                else [self.effective_group],
+                is_active=True,
             ).values_list("role", flat=True)
 
             return state_facets.filter(
                 facet__allowed_roles__in=user_roles, facet__can_view=True
+            ).exists()
+
+        return False
+
+    def can_user_edit(self, user):
+        """Check if user can edit this workflow"""
+        # Check if user has can_edit_workflows role in any group
+        if user.memberships.filter(
+            role__can_edit_workflows=True, is_active=True
+        ).exists():
+            return True
+
+        # Check if user is in the workflow's group or referred group
+        user_groups = user.memberships.filter(is_active=True).values_list(
+            "group", flat=True
+        )
+
+        if self.effective_group.id in user_groups or (
+            self.referred_to and self.referred_to.id in user_groups
+        ):
+            # Check facet permissions for current state
+            state_facets = self.current_state.facets.all()
+            if not state_facets.exists():
+                return False  # No facets = no edit permission by default
+
+            user_roles = user.memberships.filter(
+                group__in=[self.effective_group, self.referred_to]
+                if self.referred_to
+                else [self.effective_group],
+                is_active=True,
+            ).values_list("role", flat=True)
+
+            return state_facets.filter(
+                facet__allowed_roles__in=user_roles, facet__can_edit=True
+            ).exists()
+
+        return False
+
+    def can_user_delete(self, user):
+        """Check if user can delete this workflow"""
+        # Check if user has can_delete_workflows role in any group
+        if user.memberships.filter(
+            role__can_delete_workflows=True, is_active=True
+        ).exists():
+            return True
+
+        # Check if user is in the workflow's group or referred group
+        user_groups = user.memberships.filter(is_active=True).values_list(
+            "group", flat=True
+        )
+
+        if self.effective_group.id in user_groups or (
+            self.referred_to and self.referred_to.id in user_groups
+        ):
+            # Check facet permissions for current state
+            state_facets = self.current_state.facets.all()
+            if not state_facets.exists():
+                return False  # No facets = no delete permission by default
+
+            user_roles = user.memberships.filter(
+                group__in=[self.effective_group, self.referred_to]
+                if self.referred_to
+                else [self.effective_group],
+                is_active=True,
+            ).values_list("role", flat=True)
+
+            return state_facets.filter(
+                facet__allowed_roles__in=user_roles, facet__can_delete=True
             ).exists()
 
         return False
@@ -679,8 +772,9 @@ class Workflow(models.Model):
         return potential_parent in descendants
 
     def save(self, *args, **kwargs):
-        """Override save to run validation"""
+        """Override save to run validation and set group"""
         self.clean()
+        self.group = self.group or self.workflow_type.group
         super().save(*args, **kwargs)
 
     def get_root_workflow(self):
@@ -729,7 +823,7 @@ class Workflow(models.Model):
 
         # Inherit some properties from parent if not specified
         defaults = {
-            "group": self.group,
+            "group": self.effective_group,
             "owner": self.owner,
             "priority": self.priority,
         }
@@ -762,6 +856,11 @@ class Workflow(models.Model):
     def has_sub_workflows(self):
         """Check if this workflow has any sub-workflows"""
         return self.sub_workflows.exists()
+
+    @property
+    def effective_group(self):
+        """Get the effective group: workflow's group or type's group"""
+        return self.group or self.workflow_type.group
 
 
 # ============================================================================

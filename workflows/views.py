@@ -208,7 +208,7 @@ def workflow_create(request):
 
     UI/POST contract (kept intentionally simple so you can wire it up from a modal or page):
     - workflow_type (required): WorkflowType id
-    - group (required): Group id (must be one of the user's active groups)
+    - group (optional): Group id (defaults to type's group)
     - title (required)
     - description (optional)
     - priority (optional): low|medium|high|urgent
@@ -288,9 +288,9 @@ def workflow_detail(request, pk):
     workflow = get_object_or_404(Workflow, pk=pk)
 
     # Check if user can view this workflow
-    # if not workflow.can_view(request.user):
-    #     messages.error(request, "You do not have permission to view this workflow.")
-    #     return redirect("workflow_list")
+    if not workflow.can_user_view(request.user):
+        messages.error(request, "You do not have permission to view this workflow.")
+        return redirect("workflow_list")
 
     # Get available transitions for this user
     available_transitions = workflow.get_available_transitions(request.user)
@@ -345,8 +345,8 @@ def workflow_edit(request, pk):
     """Edit a workflow"""
     workflow = get_object_or_404(Workflow, pk=pk)
 
-    # Check if user can edit this workflow (owner or has edit permissions)
-    if workflow.owner != request.user:
+    # Check if user can edit this workflow
+    if not workflow.can_user_edit(request.user):
         messages.error(request, "You do not have permission to edit this workflow.")
         return redirect("workflow_detail", pk=pk)
 
