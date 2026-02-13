@@ -90,8 +90,8 @@ def dashboard(request):
 
     # Get workflows user can view
     workflows = Workflow.objects.filter(
-        Q(group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "group", "owner")
+        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+    ).select_related("workflow_type", "current_state", "owner")
 
     # Statistics
     total_workflows = workflows.count()
@@ -156,11 +156,10 @@ def workflow_list(request):
 
     # Base queryset with hierarchy support
     workflows = Workflow.objects.filter(
-        Q(group__in=user_groups) | Q(referred_to__in=user_groups)
+        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
     ).select_related(
         "workflow_type",
         "current_state",
-        "group",
         "owner",
         "assigned_to",
         "parent_workflow",
@@ -180,7 +179,7 @@ def workflow_list(request):
     if priority:
         workflows = workflows.filter(priority=priority)
     if group:
-        workflows = workflows.filter(group_id=group)
+        workflows = workflows.filter(workflow_type__group_id=group)
     if search:
         workflows = workflows.filter(
             Q(title__icontains=search) | Q(description__icontains=search)
@@ -216,38 +215,79 @@ def workflow_create(request):
     """
     user = request.user
 
-    # Only allow users with a role that can create workflows in at least one active membership
-    can_create = user.memberships.filter(
-        is_active=True, role__can_create_workflows=True
+    # Only allow users with roles that can create at least one enabled workflow type
+    user_roles = user.memberships.filter(is_active=True).values_list("role", flat=True)
+    can_create = WorkflowType.objects.filter(
+        enabled=True, create_roles__in=user_roles
     ).exists()
     if not can_create:
         messages.error(request, "You do not have permission to create workflows.")
         return redirect("workflow_list")
 
-    user_groups_qs = Group.objects.filter(
-        id__in=user.memberships.filter(is_active=True).values_list("group", flat=True)
-    )
-
+    parent_workflow = None
     if request.method == "GET":
+        parent_id = request.GET.get("parent")
+        if parent_id:
+            parent_workflow = get_object_or_404(Workflow, pk=parent_id)
+            # Check if user can create subworkflows for this parent
+            if not parent_workflow.can_user_edit(request.user):
+                messages.error(
+                    request,
+                    "You do not have permission to create subworkflows for this workflow.",
+                )
+                return redirect("workflow_detail", pk=parent_id)
+
+        # Filter workflow types to only enabled ones where user has create roles
         context = {
-            "workflow_types": WorkflowType.objects.all(),
-            "groups": user_groups_qs,
+            "workflow_types": WorkflowType.objects.filter(
+                enabled=True, create_roles__in=user_roles
+            ),
+            "parent_workflow": parent_workflow,
         }
         return render(request, "workflows/workflow_create.html", context)
 
     # POST
     workflow_type_id = request.POST.get("workflow_type")
-    group_id = request.POST.get("group")
+    parent_workflow_id = request.POST.get("parent_workflow")
+    relationship_type = request.POST.get("relationship_type")
     title = (request.POST.get("title") or "").strip()
     description = (request.POST.get("description") or "").strip()
     priority = request.POST.get("priority") or "medium"
 
-    if not workflow_type_id or not group_id or not title:
-        messages.error(request, "Workflow type, group, and title are required.")
+    if not workflow_type_id or not title:
+        messages.error(request, "Workflow type and title are required.")
         return redirect("workflow_list")
 
     workflow_type = get_object_or_404(WorkflowType, pk=workflow_type_id)
-    group = get_object_or_404(user_groups_qs, pk=group_id)
+
+    # Check if user has a role that can create this specific workflow type
+    if not workflow_type.create_roles.filter(id__in=user_roles).exists():
+        messages.error(
+            request, "You do not have permission to create this type of workflow."
+        )
+        return redirect("workflow_list")
+
+    parent_workflow = None
+    if parent_workflow_id:
+        parent_workflow = get_object_or_404(Workflow, pk=parent_workflow_id)
+        # Check permissions
+        if not parent_workflow.can_user_edit(request.user):
+            messages.error(
+                request,
+                "You do not have permission to create subworkflows for this workflow.",
+            )
+            return redirect("workflow_detail", pk=parent_workflow_id)
+        # Check if parent can have this type
+        if not parent_workflow.can_be_parent_of(workflow_type.name):
+            messages.error(
+                request,
+                f"{parent_workflow.workflow_type.name} cannot have {workflow_type.name} as subworkflow.",
+            )
+            return redirect("workflow_detail", pk=parent_workflow_id)
+        # Require relationship_type for subworkflows
+        if not relationship_type:
+            messages.error(request, "Relationship type is required for subworkflows.")
+            return redirect("workflow_detail", pk=parent_workflow_id)
 
     initial_state = (
         State.objects.filter(workflow_type=workflow_type, is_initial=True)
@@ -273,9 +313,10 @@ def workflow_create(request):
         title=title,
         description=description,
         current_state=initial_state,
-        group=group,
         owner=user,
         priority=priority,
+        parent_workflow=parent_workflow,
+        relationship_type=relationship_type if parent_workflow else "",
     )
 
     messages.success(request, f"Workflow created: {workflow.title}")
@@ -335,6 +376,7 @@ def workflow_detail(request, pk):
         "has_children": workflow.has_sub_workflows,
         "hierarchy_level": workflow.hierarchy_level,
         "related_count": related_count,
+        "can_edit": workflow.can_user_edit(request.user),
     }
 
     return render(request, "workflows/workflow_detail.html", context)
@@ -350,41 +392,31 @@ def workflow_edit(request, pk):
         messages.error(request, "You do not have permission to edit this workflow.")
         return redirect("workflow_detail", pk=pk)
 
-    user_groups_qs = Group.objects.filter(
-        id__in=request.user.memberships.filter(is_active=True).values_list(
-            "group", flat=True
-        )
-    )
-
     if request.method == "GET":
         context = {
             "workflow": workflow,
             "workflow_types": WorkflowType.objects.all(),
-            "groups": user_groups_qs,
         }
         return render(request, "workflows/workflow_edit.html", context)
 
     # POST
     workflow_type_id = request.POST.get("workflow_type")
-    group_id = request.POST.get("group")
     title = (request.POST.get("title") or "").strip()
     description = (request.POST.get("description") or "").strip()
     priority = request.POST.get("priority") or "medium"
     deadline = request.POST.get("deadline")
 
-    if not workflow_type_id or not group_id or not title:
-        messages.error(request, "Workflow type, group, and title are required.")
+    if not workflow_type_id or not title:
+        messages.error(request, "Workflow type and title are required.")
         return redirect("workflow_edit", pk=pk)
 
     workflow_type = get_object_or_404(WorkflowType, pk=workflow_type_id)
-    group = get_object_or_404(user_groups_qs, pk=group_id)
 
     # Update workflow
     workflow.workflow_type = workflow_type
     workflow.title = title
     workflow.description = description
     workflow.priority = priority
-    workflow.group = group
     if deadline:
         workflow.deadline = deadline
     workflow.save()
@@ -542,9 +574,9 @@ def group_detail(request, pk):
     memberships = group.members.filter(is_active=True).select_related("user", "role")
 
     # Get workflows
-    workflows = group.workflows.all().select_related("workflow_type", "current_state")[
-        :10
-    ]
+    workflows = Workflow.objects.filter(workflow_type__group=group).select_related(
+        "workflow_type", "current_state"
+    )[:10]
 
     # Get events
     events = group.events.filter(start_datetime__gte=timezone.now()).order_by(
@@ -580,8 +612,8 @@ def reports(request):
 
     # Get workflows user can view
     workflows = Workflow.objects.filter(
-        Q(group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "group", "owner")
+        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+    ).select_related("workflow_type", "current_state", "owner")
 
     # Workflow statistics
     total_workflows = workflows.count()
@@ -607,7 +639,7 @@ def reports(request):
 
     # By group
     by_group = (
-        workflows.values("group__name")
+        workflows.values("workflow_type__group__name")
         .annotate(count=Count("id"))
         .order_by("-count")[:10]
     )

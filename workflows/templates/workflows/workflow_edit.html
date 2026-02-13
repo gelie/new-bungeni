@@ -41,7 +41,7 @@
                             maxlength="500" />
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-1 gap-6">
 
                         <!-- Workflow Type -->
                         <div class="form-control">
@@ -57,22 +57,6 @@
                                 {% endfor %}
                             </select>
                             <div class="text-xs text-base-content/60 mt-1">The template/type that defines states and transitions</div>
-                        </div>
-
-                        <!-- Group -->
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-semibold">Group</span>
-                                <span class="label-text-alt text-error">*</span>
-                            </label>
-                            <select name="group" class="select select-bordered h-12 w-full" required>
-                                {% for g in groups %}
-                                <option value="{{ g.id }}" {% if g.id == workflow.group.id %}selected{% endif %}>{{ g.name }}</option>
-                                {% empty %}
-                                <option value="" disabled>No groups available</option>
-                                {% endfor %}
-                            </select>
-                            <div class="text-xs text-base-content/60 mt-1">The owning group for this workflow instance</div>
                         </div>
                     </div>
 

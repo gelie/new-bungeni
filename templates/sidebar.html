@@ -34,6 +34,20 @@
           Reports
         </a>
       </li>
+      {% if user.is_authenticated %}
+      <li class="text-lg">
+        <a href="{% url 'logout' %}">
+          {% lucide "log-out" class="w-5 h-5" %}
+          Logout</a>
+      </li>
+      {% else %}
+      <li class="text-lg">
+        <a href="#" onclick="document.getElementById('login-modal').showModal()">
+          {% lucide "log-in" class="w-5 h-5" %}
+          Login</a>
+      </li>
+      {% endif %}
+
       {% if user.is_staff %}
       <li class="menu-title mt-4 text-yellow-400">
         <span>Administration</span>

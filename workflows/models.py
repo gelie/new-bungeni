@@ -311,17 +311,6 @@ class Role(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Permission flags
-    can_create_workflows = models.BooleanField(default=False)  # type: ignore
-    can_edit_workflows = models.BooleanField(default=False)  # type: ignore
-    can_delete_workflows = models.BooleanField(default=False)  # type: ignore
-    can_view_all_workflows = models.BooleanField(default=False)  # type: ignore
-    can_manage_members = models.BooleanField(default=False)  # type: ignore
-    can_create_subworkflows = models.BooleanField(default=False)  # type: ignore
-    can_transition_workflows = models.BooleanField(default=False)  # type: ignore
-    can_manage_workflow_types = models.BooleanField(default=False)  # type: ignore
-    can_manage_states = models.BooleanField(default=False)  # type: ignore
-
     class Meta:
         ordering = ["name"]
 
@@ -383,6 +372,8 @@ class WorkflowType(models.Model):
         help_text="The group that owns all workflows of this type",
     )
 
+    create_roles = models.ManyToManyField(Role, related_name="create_workflow_types")
+
     # JSON schema for workflow-specific fields
     json_schema = models.JSONField(
         default=dict,
@@ -395,6 +386,22 @@ class WorkflowType(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def clean(self):
+        if not self.create_roles.exists():
+            raise ValidationError("Create roles cannot be empty.")
+
+        # Validate that create_roles are in group owner roles
+        if self.pk:  # Only validate if instance exists
+            group_roles = set(self.group_owner_roles())
+            create_role_ids = set(self.create_roles.values_list("id", flat=True))
+            if not create_role_ids.issubset(group_roles):
+                raise ValidationError(
+                    "Create roles must be from roles available in the group."
+                )
+
+    def group_owner_roles(self):
+        return self.group.members.values_list("role", flat=True).distinct()
 
 
 class State(models.Model):
@@ -471,15 +478,19 @@ class Facet(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
 
-    # Permissions
-    allowed_roles = models.ManyToManyField(Role, related_name="facets")
-
-    # What can be done with this facet
-    can_view = models.BooleanField(default=True)  # type: ignore
-    can_edit = models.BooleanField(default=False)  # type: ignore
-    can_delete = models.BooleanField(default=False)  # type: ignore
-    can_create = models.BooleanField(default=False)  # type: ignore
-    can_transition = models.BooleanField(default=False)  # type: ignore
+    # Permissions encapsulated with roles
+    view_roles = models.ManyToManyField(
+        Role, related_name="viewable_facets", blank=True
+    )
+    edit_roles = models.ManyToManyField(
+        Role, related_name="editable_facets", blank=True
+    )
+    delete_roles = models.ManyToManyField(
+        Role, related_name="deletable_facets", blank=True
+    )
+    transition_roles = models.ManyToManyField(
+        Role, related_name="transitionable_facets", blank=True
+    )
 
     class Meta:
         ordering = ["name"]
@@ -519,9 +530,6 @@ class Workflow(models.Model):
     )
 
     # Ownership and assignment
-    group = models.ForeignKey(
-        Group, on_delete=models.CASCADE, related_name="workflows", null=True, blank=True
-    )
     owner = models.ForeignKey(
         User, on_delete=models.PROTECT, related_name="owned_workflows"
     )
@@ -595,7 +603,6 @@ class Workflow(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["workflow_type", "current_state"]),
-            models.Index(fields=["workflow_type__group", "current_state"]),
             models.Index(fields=["deadline"]),
             models.Index(fields=["parent_workflow"]),
         ]
@@ -639,12 +646,6 @@ class Workflow(models.Model):
 
     def can_user_view(self, user):
         """Check if user can view this workflow"""
-        # Check if user has can_view_all_workflows role in any group
-        if user.memberships.filter(
-            role__can_view_all_workflows=True, is_active=True
-        ).exists():
-            return True
-
         # Check if user is in the workflow's group or referred group
         user_groups = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
@@ -653,6 +654,10 @@ class Workflow(models.Model):
         if self.effective_group.id in user_groups or (
             self.referred_to and self.referred_to.id in user_groups
         ):
+            # Owners can always view their own workflows
+            # if self.owner == user:
+            #     return True
+
             # Check facet permissions for current state
             state_facets = self.current_state.facets.all()
             if not state_facets.exists():
@@ -665,20 +670,20 @@ class Workflow(models.Model):
                 is_active=True,
             ).values_list("role", flat=True)
 
-            return state_facets.filter(
-                facet__allowed_roles__in=user_roles, facet__can_view=True
-            ).exists()
+            for state_facet in state_facets:
+                facet = state_facet.facet
+                if (
+                    facet.view_roles.exists()
+                    and facet.view_roles.filter(id__in=user_roles).exists()
+                ):
+                    return True
+
+            return False
 
         return False
 
     def can_user_edit(self, user):
         """Check if user can edit this workflow"""
-        # Check if user has can_edit_workflows role in any group
-        if user.memberships.filter(
-            role__can_edit_workflows=True, is_active=True
-        ).exists():
-            return True
-
         # Check if user is in the workflow's group or referred group
         user_groups = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
@@ -699,20 +704,20 @@ class Workflow(models.Model):
                 is_active=True,
             ).values_list("role", flat=True)
 
-            return state_facets.filter(
-                facet__allowed_roles__in=user_roles, facet__can_edit=True
-            ).exists()
+            for state_facet in state_facets:
+                facet = state_facet.facet
+                if (
+                    facet.edit_roles.exists()
+                    and not facet.edit_roles.filter(id__in=user_roles).exists()
+                ):
+                    return False
+
+            return True
 
         return False
 
     def can_user_delete(self, user):
         """Check if user can delete this workflow"""
-        # Check if user has can_delete_workflows role in any group
-        if user.memberships.filter(
-            role__can_delete_workflows=True, is_active=True
-        ).exists():
-            return True
-
         # Check if user is in the workflow's group or referred group
         user_groups = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
@@ -733,9 +738,15 @@ class Workflow(models.Model):
                 is_active=True,
             ).values_list("role", flat=True)
 
-            return state_facets.filter(
-                facet__allowed_roles__in=user_roles, facet__can_delete=True
-            ).exists()
+            for state_facet in state_facets:
+                facet = state_facet.facet
+                if (
+                    facet.delete_roles.exists()
+                    and not facet.delete_roles.filter(id__in=user_roles).exists()
+                ):
+                    return False
+
+            return True
 
         return False
 
@@ -747,15 +758,15 @@ class Workflow(models.Model):
 
     def clean(self):
         """Validate workflow to prevent circular references"""
+        from django.core.exceptions import ValidationError
+
         super().clean()
 
         if self.parent_workflow:
             # Prevent workflow from being its own ancestor
             if self._would_create_circular_reference(self.parent_workflow):
-                from django.core.exceptions import ValidationError
-
                 raise ValidationError(
-                    "Cannot set parent workflow: this would create a circular reference."
+                    "Circular reference detected in workflow hierarchy."
                 )
 
     def _would_create_circular_reference(self, potential_parent):
@@ -767,14 +778,16 @@ class Workflow(models.Model):
         if potential_parent.id == self.id:
             return True
 
-        # Check if potential parent is already a descendant
-        descendants = self.get_all_descendants()
-        return potential_parent in descendants
+        # Check if potential parent is already a descendant (only for saved instances)
+        if self.pk:
+            descendants = self.get_all_descendants()
+            return potential_parent in descendants
+
+        return False
 
     def save(self, *args, **kwargs):
-        """Override save to run validation and set group"""
+        """Override save to run validation"""
         self.clean()
-        self.group = self.group or self.workflow_type.group
         super().save(*args, **kwargs)
 
     def get_root_workflow(self):
@@ -823,7 +836,6 @@ class Workflow(models.Model):
 
         # Inherit some properties from parent if not specified
         defaults = {
-            "group": self.effective_group,
             "owner": self.owner,
             "priority": self.priority,
         }
@@ -860,7 +872,7 @@ class Workflow(models.Model):
     @property
     def effective_group(self):
         """Get the effective group: workflow's group or type's group"""
-        return self.group or self.workflow_type.group
+        return self.workflow_type.group
 
 
 # ============================================================================

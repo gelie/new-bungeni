@@ -59,6 +59,12 @@
 
                 <!-- Quick Actions -->
                 <div class="flex gap-2">
+                    {% if can_edit %}
+                    <a href="{% url 'workflow_create' %}?parent={{ workflow.pk }}" class="btn btn-outline btn-sm">
+                        {% lucide "plus" class="w-4 h-4 mr-2" %} Create Subworkflow
+                    </a>
+                    {% endif %}
+
                     {% if available_transitions %}
                     <div class="dropdown dropdown-end">
                         <label tabindex="0" class="btn btn-primary">

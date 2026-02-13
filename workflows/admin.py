@@ -82,13 +82,7 @@ class GroupAdmin(MPTTModelAdmin):
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
-    list_display = [
-        "name",
-        "can_create_workflows",
-        "can_edit_workflows",
-        "can_view_all_workflows",
-    ]
-    list_filter = ["can_create_workflows", "can_edit_workflows", "can_delete_workflows"]
+    list_display = ["name", "description"]
     search_fields = ["name"]
 
 
@@ -113,8 +107,9 @@ class GroupMembershipAdmin(admin.ModelAdmin):
 
 @admin.register(WorkflowType)
 class WorkflowTypeAdmin(admin.ModelAdmin):
-    list_display = ["name", "description"]
+    list_display = ["name", "description", "group"]
     search_fields = ["name"]
+    autocomplete_fields = ["group", "create_roles"]
 
 
 @admin.register(State)
@@ -166,31 +161,7 @@ class TransitionAdmin(admin.ModelAdmin):
 class FacetAdmin(admin.ModelAdmin):
     list_display = ["name", "description"]
     search_fields = ["name", "description"]
-    # filter_horizontal = ['roles_can_view', 'roles_can_edit', 'roles_can_delete']
-    fieldsets = (
-        ("Basic Information", {"fields": ("name", "description")}),
-        (
-            "View Permissions",
-            {
-                "fields": ("can_view",),
-                "description": "Roles that can view workflows in states with this facet",
-            },
-        ),
-        (
-            "Edit Permissions",
-            {
-                "fields": ("can_edit",),
-                "description": "Roles that can edit workflows in states with this facet",
-            },
-        ),
-        (
-            "Delete Permissions",
-            {
-                "fields": ("can_delete",),
-                "description": "Roles that can delete workflows in states with this facet",
-            },
-        ),
-    )
+    filter_horizontal = ["view_roles", "edit_roles", "delete_roles", "transition_roles"]
 
 
 @admin.register(StateFacet)
@@ -208,7 +179,6 @@ class WorkflowAdmin(admin.ModelAdmin):
         "parent_workflow",
         "relationship_type",
         "current_state",
-        "group",
         "owner",
         "priority",
         "deadline",
@@ -218,7 +188,6 @@ class WorkflowAdmin(admin.ModelAdmin):
         "workflow_type",
         "current_state",
         "priority",
-        "group__group_type",
         "relationship_type",
         ("parent_workflow", admin.RelatedOnlyFieldListFilter),
     ]
@@ -235,7 +204,7 @@ class WorkflowAdmin(admin.ModelAdmin):
                 "description": "Configure parent-child workflow relationships",
             },
         ),
-        ("Assignment", {"fields": ("group", "owner", "assigned_to", "referred_to")}),
+        ("Assignment", {"fields": ("owner", "assigned_to", "referred_to")}),
         ("State & Priority", {"fields": ("current_state", "priority", "deadline")}),
         ("Data", {"fields": ("data",), "classes": ("collapse",)}),
         (
@@ -253,6 +222,15 @@ class WorkflowAdmin(admin.ModelAdmin):
                 # If editing existing workflow, exclude self and descendants
                 exclude_ids = [obj.id] + [w.id for w in obj.get_all_descendants()]
                 kwargs["queryset"] = Workflow.objects.exclude(id__in=exclude_ids)
+
+        elif db_field.name == "workflow_type":
+            # Only show enabled workflow types where user has create roles
+            user_roles = request.user.memberships.filter(is_active=True).values_list(
+                "role", flat=True
+            )
+            kwargs["queryset"] = WorkflowType.objects.filter(
+                enabled=True, create_roles__in=user_roles
+            )
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
