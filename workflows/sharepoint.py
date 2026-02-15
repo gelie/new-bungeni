@@ -198,9 +198,9 @@ async def get_drive_items(token_data: dict, drive_id: str):
 
 async def get_folder_items(token_data: dict, drive_id: str, folder_id: str):
     """Get all items for a specific folder."""
-    url = (
-        f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}/children"
-    )
+    # Handle root folder case
+    folder_path = "/root" if folder_id == "root" else f"/items/{folder_id}"
+    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}{folder_path}/children"
 
     # Extract access token from the token data
     access_token = token_data.get("access_token")
@@ -237,7 +237,9 @@ async def upload_file(
 
     # For small files (<4MB), use simple upload
     if len(file_content) < 4 * 1024 * 1024:
-        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}:/{filename}:/content"
+        # Handle root folder case
+        folder_path = "/root" if folder_id == "root" else folder_id
+        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items{folder_path}:/{filename}:/content"
         headers["Content-Type"] = "application/octet-stream"
 
         async with httpx.AsyncClient() as client:
@@ -251,7 +253,9 @@ async def upload_file(
                 )
     else:
         # For large files, create upload session
-        upload_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}:/{filename}:/createUploadSession"
+        # Handle root folder case
+        folder_path = "/root" if folder_id == "root" else folder_id
+        upload_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items{folder_path}:/{filename}:/createUploadSession"
 
         async with httpx.AsyncClient() as client:
             try:

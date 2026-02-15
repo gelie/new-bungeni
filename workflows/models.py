@@ -1154,6 +1154,8 @@ class Site(models.Model):
 class SiteMember(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    date_added = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.site.name}"

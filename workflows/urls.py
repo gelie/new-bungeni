@@ -68,4 +68,14 @@ urlpatterns = [
         name="admin_workflow_types",
     ),
     path("manage/groups/", views.group_admin, name="admin_groups"),
+    path(
+        "manage/sharepoint/sites/",
+        views.sharepoint_admin_sites,
+        name="admin_sharepoint_sites",
+    ),
+    path(
+        "manage/sharepoint/members/",
+        views.sharepoint_admin_members,
+        name="admin_sharepoint_members",
+    ),
 ]

@@ -41,7 +41,7 @@
                                 <h3 class="font-semibold text-gray-800">{{ attachment.name }}</h3>
                                 <p class="text-sm text-gray-600">
                                     {% if attachment.size %}{{ attachment.size|filesizeformat }} • {% endif %}
-                                    {{ attachment.type|title }} • 
+                                    {{ attachment.type|title }} •
                                     Uploaded {{ attachment.created_at|date:"M d, Y H:i" }}
                                     {% if attachment.uploaded_by %}by {{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}{% endif %}
                                 </p>
@@ -51,11 +51,11 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <a href="{{ attachment.get_sharepoint_url }}" target="_blank" 
+                            <a href="{{ attachment.get_sharepoint_url }}" target="_blank"
                                class="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded">
                                 <i data-lucide="external-link" class="w-4 h-4"></i>
                             </a>
-                            <button onclick="deleteAttachment({{ attachment.id }})" 
+                            <button onclick="deleteAttachment({{ attachment.id }})"
                                     class="text-red-600 hover:text-red-800 p-2 hover:bg-red-50 rounded">
                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                             </button>
@@ -84,7 +84,7 @@
             </button>
         </div>
 
-        <form id="upload-form" enctype="multipart/form-data" class="space-y-4">
+        <form id="upload-form" enctype="multipart/form-data" class="space-y-4" novalidate>
             <!-- Site Selection -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">SharePoint Site</label>
@@ -103,10 +103,11 @@
 
             <!-- Folder Selection -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Folder</label>
-                <select id="folder-select" name="folder_id" required class="w-full border rounded-lg px-3 py-2" disabled>
-                    <option value="">Select a folder...</option>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Folder (Optional)</label>
+                <select id="folder-select" name="folder_id" class="w-full border rounded-lg px-3 py-2" disabled>
+                    <option value="">Root Folder</option>
                 </select>
+                <p class="text-xs text-gray-500 mt-1">Leave empty to upload to the root directory</p>
             </div>
 
             <!-- File Upload -->
@@ -135,11 +136,11 @@
 
             <!-- Buttons -->
             <div class="flex gap-3 pt-4">
-                <button type="button" onclick="hideUploadModal()" 
+                <button type="button" onclick="hideUploadModal()"
                         class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
                     Cancel
                 </button>
-                <button type="submit" 
+                <button type="submit"
                         class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Upload
                 </button>
@@ -166,7 +167,7 @@ function loadSites() {
             sites = data.sites;
             const siteSelect = document.getElementById('site-select');
             siteSelect.innerHTML = '<option value="">Select a site...</option>';
-            
+
             sites.forEach(site => {
                 if (!site.is_personal_site) {
                     const option = document.createElement('option');
@@ -185,14 +186,17 @@ function loadSites() {
 document.getElementById('site-select').addEventListener('change', function() {
     const siteId = this.value;
     const driveSelect = document.getElementById('drive-select');
-    
+    const folderSelect = document.getElementById('folder-select');
+
     if (siteId) {
         loadDrives(siteId);
+        folderSelect.disabled = true;
+        folderSelect.innerHTML = '<option value="">Root Folder</option>';
     } else {
         driveSelect.disabled = true;
         driveSelect.innerHTML = '<option value="">Select a library...</option>';
-        document.getElementById('folder-select').disabled = true;
-        document.getElementById('folder-select').innerHTML = '<option value="">Select a folder...</option>';
+        folderSelect.disabled = true;
+        folderSelect.innerHTML = '<option value="">Root Folder</option>';
     }
 });
 
@@ -203,14 +207,14 @@ function loadDrives(siteId) {
             drives = data.drives;
             const driveSelect = document.getElementById('drive-select');
             driveSelect.innerHTML = '<option value="">Select a library...</option>';
-            
+
             drives.forEach(drive => {
                 const option = document.createElement('option');
                 option.value = drive.id;
                 option.textContent = drive.name;
                 driveSelect.appendChild(option);
             });
-            
+
             driveSelect.disabled = false;
         })
         .catch(error => {
@@ -222,12 +226,12 @@ function loadDrives(siteId) {
 document.getElementById('drive-select').addEventListener('change', function() {
     const driveId = this.value;
     const folderSelect = document.getElementById('folder-select');
-    
+
     if (driveId) {
         loadFolders(driveId);
     } else {
         folderSelect.disabled = true;
-        folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+        folderSelect.innerHTML = '<option value="">Root Folder</option>';
     }
 });
 
@@ -237,20 +241,31 @@ function loadFolders(driveId) {
         .then(data => {
             folders = data.folders;
             const folderSelect = document.getElementById('folder-select');
-            folderSelect.innerHTML = '<option value="">Select a folder...</option>';
-            
-            folders.forEach(folder => {
-                const option = document.createElement('option');
-                option.value = folder.id;
-                option.textContent = folder.name;
-                folderSelect.appendChild(option);
-            });
-            
-            folderSelect.disabled = false;
+            folderSelect.innerHTML = '<option value="">Root Folder</option>';
+
+            if (folders.length === 0) {
+                // No folders available, keep only root option
+                folderSelect.disabled = false;
+                if (data.message) {
+                    console.log(data.message); // Log message for debugging
+                }
+            } else {
+                // Add folders to the dropdown
+                folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = folder.name;
+                    folderSelect.appendChild(option);
+                });
+                folderSelect.disabled = false;
+            }
         })
         .catch(error => {
             console.error('Error loading folders:', error);
             showError('Failed to load folders');
+            // Still enable the select with root option on error
+            const folderSelect = document.getElementById('folder-select');
+            folderSelect.disabled = false;
         });
 }
 
@@ -262,18 +277,45 @@ function hideUploadModal() {
     document.getElementById('upload-modal').classList.add('hidden');
     document.getElementById('upload-form').reset();
     document.getElementById('upload-progress').classList.add('hidden');
+
+    // Reset folder select to show Root Folder option
+    const folderSelect = document.getElementById('folder-select');
+    folderSelect.innerHTML = '<option value="">Root Folder</option>';
+    folderSelect.disabled = true;
 }
 
 document.getElementById('upload-form').addEventListener('submit', function(e) {
     e.preventDefault();
-    
+
+    // Custom validation
+    const siteSelect = document.getElementById('site-select');
+    const driveSelect = document.getElementById('drive-select');
+    const fileInput = document.querySelector('input[name="file"]');
+
+    if (!siteSelect.value) {
+        showError('Please select a SharePoint site');
+        return;
+    }
+
+    if (!driveSelect.value) {
+        showError('Please select a document library');
+        return;
+    }
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showError('Please select a file to upload');
+        return;
+    }
+
+    // Folder is optional - no validation needed
+
     const formData = new FormData(this);
     const progressBar = document.getElementById('progress-bar');
     const progressText = document.getElementById('progress-text');
     const progressContainer = document.getElementById('upload-progress');
-    
+
     progressContainer.classList.remove('hidden');
-    
+
     fetch('/api/attachments/upload/', {
         method: 'POST',
         body: formData,

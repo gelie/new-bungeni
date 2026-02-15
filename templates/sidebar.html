@@ -77,6 +77,18 @@
         </a>
       </li>
       <li class="text-lg">
+        <a href="{% url 'admin_sharepoint_sites' %}" class="{% if 'manage/sharepoint/sites' in request.path %}menu-active{% endif %}">
+          {% lucide "globe" class="w-5 h-5" %}
+          SharePoint Sites
+        </a>
+      </li>
+      <li class="text-lg">
+        <a href="{% url 'admin_sharepoint_members' %}" class="{% if 'manage/sharepoint/members' in request.path %}menu-active{% endif %}">
+          {% lucide "user-check" class="w-5 h-5" %}
+          Site Members
+        </a>
+      </li>
+      <li class="text-lg">
         <a href="/admin/">
           {% lucide "settings" class="w-5 h-5" %}
           Admin Panel

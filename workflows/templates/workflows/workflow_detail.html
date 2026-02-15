@@ -60,8 +60,8 @@
                 <!-- Quick Actions -->
                 <div class="flex gap-2">
                     {% if can_edit %}
-                    <a href="{% url 'workflow_create' %}?parent={{ workflow.pk }}" class="btn btn-outline btn-sm">
-                        {% lucide "plus" class="w-4 h-4 mr-2" %} Create Subworkflow
+                    <a href="{% url 'workflow_create' %}?parent={{ workflow.pk }}" class="btn bg-gray-600 text-white">
+                        {% lucide "plus" class="w-4 h-4" %} Create Subworkflow
                     </a>
                     {% endif %}
 
@@ -104,7 +104,7 @@
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-0">
             <!-- Tab Navigation -->
-            <div class="tabs tabs-bordered bg-base-100 px-6 pt-4">
+            <div class="tabs tabs-bordered bg-base-100">
                 <a class="tab tab-active" data-tab="overview">
                     {% lucide "info" class="w-4 h-4 mr-2" %}
                     Overview
@@ -752,7 +752,7 @@
                     driveSelect.disabled = true;
                     driveSelect.innerHTML = '<option value="">Select a library...</option>';
                     document.getElementById('folder-select').disabled = true;
-                    document.getElementById('folder-select').innerHTML = '<option value="">Select a folder...</option>';
+                    document.getElementById('folder-select').innerHTML = '<option value="">Root Folder</option>';
                 }
             });
         }
@@ -767,7 +767,7 @@
                     loadFolders(driveId);
                 } else {
                     folderSelect.disabled = true;
-                    folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+                    folderSelect.innerHTML = '<option value="">Root Folder</option>';
                 }
             });
         }
@@ -776,6 +776,28 @@
         if (uploadForm) {
             uploadForm.addEventListener('submit', function (e) {
                 e.preventDefault();
+
+                // Custom validation
+                const siteSelect = document.getElementById('site-select');
+                const driveSelect = document.getElementById('drive-select');
+                const fileInput = document.querySelector('input[name="file"]');
+
+                if (!siteSelect.value) {
+                    showError('Please select a SharePoint site');
+                    return;
+                }
+
+                if (!driveSelect.value) {
+                    showError('Please select a document library');
+                    return;
+                }
+
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    showError('Please select a file to upload');
+                    return;
+                }
+
+                // Folder is optional - no validation needed
 
                 const formData = new FormData(this);
                 const progressBar = document.getElementById('progress-bar');
@@ -920,20 +942,29 @@
                 }
 
                 folders = data.folders;
-                folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+                folderSelect.innerHTML = '<option value="">Root Folder</option>';
 
-                folders.forEach(folder => {
-                    const option = document.createElement('option');
-                    option.value = folder.id;
-                    option.textContent = folder.name;
-                    folderSelect.appendChild(option);
-                });
-
-                folderSelect.disabled = false;
+                if (folders.length === 0) {
+                    // No folders available, keep only root option
+                    folderSelect.disabled = false;
+                    if (data.message) {
+                        console.log(data.message);
+                    }
+                } else {
+                    // Add folders to the dropdown
+                    folders.forEach(folder => {
+                        const option = document.createElement('option');
+                        option.value = folder.id;
+                        option.textContent = folder.name;
+                        folderSelect.appendChild(option);
+                    });
+                    folderSelect.disabled = false;
+                }
             })
             .catch(error => {
                 console.error('Error loading folders:', error);
-                folderSelect.innerHTML = '<option value="">Error loading folders</option>';
+                folderSelect.innerHTML = '<option value="">Root Folder</option>';
+                folderSelect.disabled = false;
             });
     }
 
@@ -947,6 +978,14 @@
         if (uploadForm) {
             uploadForm.reset();
         }
+
+        // Reset folder select to show Root Folder option
+        const folderSelect = document.getElementById('folder-select');
+        if (folderSelect) {
+            folderSelect.innerHTML = '<option value="">Root Folder</option>';
+            folderSelect.disabled = true;
+        }
+
         const uploadProgress = document.getElementById('upload-progress');
         if (uploadProgress) {
             uploadProgress.classList.add('hidden');
@@ -1012,9 +1051,10 @@
         document.getElementById('sharepoint-drive-select').disabled = true;
         document.getElementById('sharepoint-folder-select').value = '';
         document.getElementById('sharepoint-folder-select').disabled = true;
+        document.getElementById('sharepoint-folder-select').innerHTML = '<option value="">Root Folder</option>';
         document.getElementById('sharepoint-files-list').innerHTML = `
             <p class="text-center text-base-content/50 py-8">
-                📁 Select a folder to view files
+                📁 Select a folder or leave empty to view root files
             </p>
         `;
         document.getElementById('sharepoint-select-btn').disabled = true;
@@ -1056,6 +1096,10 @@
         if (!siteId) {
             driveSelect.disabled = true;
             driveSelect.innerHTML = '<option value="">Select a library...</option>';
+            // Reset folder select
+            const folderSelect = document.getElementById('sharepoint-folder-select');
+            folderSelect.disabled = true;
+            folderSelect.innerHTML = '<option value="">Root Folder</option>';
             return;
         }
 
@@ -1092,7 +1136,7 @@
 
         if (!driveId) {
             folderSelect.disabled = true;
-            folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+            folderSelect.innerHTML = '<option value="">Root Folder</option>';
             return;
         }
 
@@ -1106,20 +1150,29 @@
                     throw new Error(data.error);
                 }
 
-                folderSelect.innerHTML = '<option value="">Select a folder...</option>';
+                folderSelect.innerHTML = '<option value="">Root Folder</option>';
 
-                data.folders.forEach(folder => {
-                    const option = document.createElement('option');
-                    option.value = folder.id;
-                    option.textContent = folder.name;
-                    folderSelect.appendChild(option);
-                });
-
-                folderSelect.disabled = false;
+                if (data.folders.length === 0) {
+                    // No folders available, keep only root option
+                    folderSelect.disabled = false;
+                    if (data.message) {
+                        console.log(data.message);
+                    }
+                } else {
+                    // Add folders to the dropdown
+                    data.folders.forEach(folder => {
+                        const option = document.createElement('option');
+                        option.value = folder.id;
+                        option.textContent = folder.name;
+                        folderSelect.appendChild(option);
+                    });
+                    folderSelect.disabled = false;
+                }
             })
             .catch(error => {
                 console.error('Error loading folders:', error);
-                folderSelect.innerHTML = '<option value="">Error loading folders</option>';
+                folderSelect.innerHTML = '<option value="">Root Folder</option>';
+                folderSelect.disabled = false;
             });
     }
 
@@ -1128,10 +1181,10 @@
         const driveId = document.getElementById('sharepoint-drive-select').value;
         const filesList = document.getElementById('sharepoint-files-list');
 
-        if (!folderId) {
+        if (!driveId) {
             filesList.innerHTML = `
                 <p class="text-center text-base-content/50 py-8">
-                    📁 Select a folder to view files
+                    📁 Select a document library to view files
                 </p>
             `;
             return;
@@ -1143,7 +1196,9 @@
             </p>
         `;
 
-        fetch(`/api/sharepoint/folders/${folderId}/items/?drive_id=${driveId}`)
+        // Use 'root' as folderId when no folder is selected
+        const targetFolderId = folderId || 'root';
+        fetch(`/api/sharepoint/folders/${targetFolderId}/items/?drive_id=${driveId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -1153,9 +1208,10 @@
                 sharepointFiles = data.files || [];
 
                 if (sharepointFiles.length === 0) {
+                    const folderName = folderId ? 'this folder' : 'the root directory';
                     filesList.innerHTML = `
                         <p class="text-center text-base-content/50 py-8">
-                            📄 No files in this folder
+                            📄 No files in ${folderName}
                         </p>
                     `;
                     return;
@@ -1283,7 +1339,7 @@
             </button>
         </div>
 
-        <form id="upload-form" enctype="multipart/form-data" class="space-y-4">
+        <form id="upload-form" enctype="multipart/form-data" class="space-y-4" novalidate>
             <!-- Site Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">SharePoint Site</label>
@@ -1302,10 +1358,11 @@
 
             <!-- Folder Selection -->
             <div>
-                <label class="block text-sm font-medium mb-1">Folder</label>
-                <select id="folder-select" name="folder_id" required class="select select-bordered w-full" disabled>
-                    <option value="">Select a folder...</option>
+                <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
+                <select id="folder-select" name="folder_id" class="select select-bordered w-full" disabled>
+                    <option value="">Root Folder</option>
                 </select>
+                <p class="text-xs text-base-content/50 mt-1">Leave empty to upload to the root directory</p>
             </div>
 
             <!-- File Upload -->
@@ -1380,10 +1437,11 @@
 
             <!-- Folder Selection -->
             <div>
-                <label class="block text-sm font-medium mb-1">Folder</label>
+                <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
                 <select id="sharepoint-folder-select" onchange="loadSharepointFiles()" class="select select-bordered w-full" disabled>
-                    <option value="">Select a folder...</option>
+                    <option value="">Root Folder</option>
                 </select>
+                <p class="text-xs text-base-content/50 mt-1">Leave empty to view root files</p>
             </div>
         </div>
 

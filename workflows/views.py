@@ -23,6 +23,7 @@ from .models import (
     SharePointFolder,
     SharePointToken,
     Site,
+    SiteMember,
     State,
     Transition,
     User,
@@ -731,8 +732,9 @@ def sharepoint_test(request):
 
 
 @require_http_methods(["GET"])
+@login_required
 def sharepoint_sites(request):
-    """Get all SharePoint sites accessible to the application."""
+    """Get SharePoint sites where the current user is a member."""
     try:
         # First try to get token
         print("Attempting to get SharePoint token...")
@@ -747,11 +749,19 @@ def sharepoint_sites(request):
 
         print("Sites data received:", sites_data)
 
-        # Update local database with sites
+        # Get site IDs where current user is a member
+        user_member_sites = SiteMember.objects.filter(user=request.user).values_list(
+            "site__site_id", flat=True
+        )
+
+        # Update local database with sites and filter for user's memberships
         sites = []
         for site_info in sites_data.get("value", []):
+            site_id = site_info["id"]
+
+            # Update or create site in database
             site, created = Site.objects.update_or_create(
-                site_id=site_info["id"],
+                site_id=site_id,
                 defaults={
                     "name": site_info.get(
                         "displayName", site_info.get("name", "Unknown")
@@ -760,14 +770,17 @@ def sharepoint_sites(request):
                     "is_personal_site": site_info.get("isPersonalSite", False),
                 },
             )
-            sites.append(
-                {
-                    "id": site.site_id,
-                    "name": site.name,
-                    "url": site.url,
-                    "is_personal_site": site.is_personal_site,
-                }
-            )
+
+            # Only include sites where user is a member
+            if site_id in user_member_sites:
+                sites.append(
+                    {
+                        "id": site.site_id,
+                        "name": site.name,
+                        "url": site.url,
+                        "is_personal_site": site.is_personal_site,
+                    }
+                )
 
         return JsonResponse({"sites": sites})
 
@@ -780,9 +793,19 @@ def sharepoint_sites(request):
 
 
 @require_http_methods(["GET"])
+@login_required
 def sharepoint_site_drives(request, site_id):
     """Get all drives for a specific SharePoint site."""
     try:
+        # Check if user is a member of this site
+        if not SiteMember.objects.filter(
+            user=request.user, site__site_id=site_id
+        ).exists():
+            return JsonResponse(
+                {"error": "Access denied: You are not a member of this site"},
+                status=403,
+            )
+
         token_data = get_application_token()
 
         # Run async function in sync context
@@ -811,6 +834,7 @@ def sharepoint_site_drives(request, site_id):
 
 
 @require_http_methods(["GET"])
+@login_required
 def sharepoint_drive_folders(request, drive_id):
     """Get root folders for a specific drive."""
     try:
@@ -835,19 +859,41 @@ def sharepoint_drive_folders(request, drive_id):
                     }
                 )
 
-        return JsonResponse({"folders": folders})
+        # Create response with appropriate messaging
+        response_data = {"folders": folders}
+
+        if not folders:
+            response_data["message"] = (
+                "No folders in the root directory. You can select files directly from the root folder."
+            )
+            response_data["show_root_files"] = (
+                True  # Flag to indicate UI should show root files option
+            )
+        else:
+            response_data["message"] = (
+                f"Found {len(folders)} folder(s) in the root directory"
+            )
+            response_data["show_root_files"] = True  # Still allow root file access
+
+        return JsonResponse(response_data)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
 
 @require_http_methods(["GET"])
+@login_required
 def sharepoint_folder_items(request, folder_id):
-    """Get items in a specific SharePoint folder."""
+    """Get items in a specific SharePoint folder or root folder."""
     try:
         # Get drive_id from query parameter or fetch from folder info
         drive_id = request.GET.get("drive_id")
         if not drive_id:
+            # For root folder, we can't get drive_id from folder since it doesn't exist in DB
+            if folder_id == "root":
+                return JsonResponse(
+                    {"error": "drive_id parameter required for root folder"}, status=400
+                )
             # Try to get drive_id from the folder itself
             folder = SharePointFolder.objects.filter(folder_id=folder_id).first()
             if folder:
@@ -896,14 +942,129 @@ def sharepoint_folder_items(request, folder_id):
                     }
                 )
 
-        return JsonResponse({"files": files, "folders": folders})
+        # Create response with appropriate messaging
+        response_data = {"files": files, "folders": folders}
+
+        # Add message about folder location
+        if folder_id == "root":
+            response_data["folder_info"] = {"name": "Root Folder", "is_root": True}
+        else:
+            # Try to get folder name from the items data or database
+            folder_name = "Unknown Folder"
+            if folder_id != "root":
+                folder = SharePointFolder.objects.filter(folder_id=folder_id).first()
+                if folder:
+                    folder_name = folder.get_full_path()
+            response_data["folder_info"] = {"name": folder_name, "is_root": False}
+
+        # Add message if no files or folders
+        if not files and not folders:
+            if folder_id == "root":
+                response_data["message"] = "No files or folders in the root directory"
+            else:
+                response_data["message"] = "No files or folders in this directory"
+
+        return JsonResponse(response_data)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
 
-@require_http_methods(["POST"])
-@csrf_exempt
+@login_required
+def sharepoint_admin_sites(request):
+    """SharePoint administration - manage SharePoint sites"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    sites = Site.objects.all().select_related().order_by("name")
+
+    search = request.GET.get("search")
+    is_personal = request.GET.get("is_personal")
+
+    if search:
+        sites = sites.filter(
+            Q(name__icontains=search)
+            | Q(url__icontains=search)
+            | Q(site_id__icontains=search)
+        )
+    if is_personal:
+        sites = sites.filter(is_personal_site=is_personal == "true")
+
+    # Get member counts for each site
+    sites_with_counts = []
+    team_sites_count = 0
+    personal_sites_count = 0
+
+    for site in sites:
+        member_count = SiteMember.objects.filter(site=site).count()
+        site_data = {"site": site, "member_count": member_count}
+        sites_with_counts.append(site_data)
+
+        if site.is_personal_site:
+            personal_sites_count += 1
+        else:
+            team_sites_count += 1
+
+    context = {
+        "sites_with_counts": sites_with_counts,
+        "team_sites_count": team_sites_count,
+        "personal_sites_count": personal_sites_count,
+    }
+
+    return render(request, "workflows/admin/sharepoint_sites.html", context)
+
+
+@login_required
+def sharepoint_admin_members(request):
+    """SharePoint administration - manage site memberships"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    site_members = (
+        SiteMember.objects.all()
+        .select_related("site", "user")
+        .order_by("site__name", "user__username")
+    )
+
+    search = request.GET.get("search")
+    site_filter = request.GET.get("site")
+
+    if search:
+        site_members = site_members.filter(
+            Q(user__username__icontains=search)
+            | Q(user__first_name__icontains=search)
+            | Q(user__last_name__icontains=search)
+            | Q(site__name__icontains=search)
+        )
+    if site_filter:
+        site_members = site_members.filter(site__site_id=site_filter)
+
+    # Get all sites for filter dropdown
+    sites = Site.objects.all().order_by("name")
+
+    # Calculate statistics
+    unique_users_count = len(set(member.user_id for member in site_members))
+    team_sites_count = sum(
+        1 for member in site_members if not member.site.is_personal_site
+    )
+    personal_sites_count = sum(
+        1 for member in site_members if member.site.is_personal_site
+    )
+
+    context = {
+        "site_members": site_members,
+        "sites": sites,
+        "unique_users_count": unique_users_count,
+        "team_sites_count": team_sites_count,
+        "personal_sites_count": personal_sites_count,
+    }
+
+    return render(request, "workflows/admin/sharepoint_members.html", context)
+
+
+@login_required
 def attachment_link_sharepoint(request):
     """Link an existing SharePoint file as an attachment."""
     try:
@@ -918,6 +1079,15 @@ def attachment_link_sharepoint(request):
         if not all([file_id, site_id, drive_id]):
             return JsonResponse(
                 {"error": "file_id, site_id, and drive_id required"}, status=400
+            )
+
+        # Check if user is a member of this site
+        if not SiteMember.objects.filter(
+            user=request.user, site__site_id=site_id
+        ).exists():
+            return JsonResponse(
+                {"error": "Access denied: You are not a member of this site"},
+                status=403,
             )
 
         # Get SharePoint objects
@@ -1009,10 +1179,8 @@ def attachment_upload(request):
         attachment_type = request.POST.get("type", "document")
         workflow_id = request.POST.get("workflow_id")
 
-        if not all([site_id, drive_id, folder_id]):
-            return JsonResponse(
-                {"error": "site_id, drive_id, and folder_id required"}, status=400
-            )
+        if not all([site_id, drive_id]):
+            return JsonResponse({"error": "site_id and drive_id required"}, status=400)
 
         # Get SharePoint objects
         site = Site.objects.get(site_id=site_id)
@@ -1026,8 +1194,13 @@ def attachment_upload(request):
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+
+        # Use root folder if no folder_id provided
+        target_folder_id = folder_id if folder_id else "root"
         upload_result = loop.run_until_complete(
-            upload_file(token_data, drive_id, folder_id, file_obj.name, file_content)
+            upload_file(
+                token_data, drive_id, target_folder_id, file_obj.name, file_content
+            )
         )
         loop.close()
 

@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Site Members Administration - BUNGENI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- Breadcrumb -->
+  <div class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'dashboard' %}" class="text-primary">Dashboard</a></li>
+      <li><a href="{% url 'admin_sharepoint_sites' %}" class="text-primary">SharePoint Sites</a></li>
+      <li>Site Members</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "user-check" class="w-8 h-8" %}
+        Site Members
+      </h1>
+      <p class="text-base-content/70 mt-1">Manage user access to SharePoint sites</p>
+    </div>
+    <button onclick="showAddMemberModal()" class="btn btn-primary gap-2">
+      {% lucide "user-plus" class="w-5 h-5" %}
+      Add Member
+    </button>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="card bg-base-100 shadow-sm mb-6">
+    <div class="card-body p-4">
+      <form method="get" class="flex items-center gap-4">
+        <div class="form-control flex-1">
+          <div class="input-group flex items-center gap-2">
+            <span class="bg-base-200">
+              {% lucide "search" class="w-5 h-5" %}
+            </span>
+            <input type="text" name="search" placeholder="Search by username, name, or site..."
+                   value="{{ request.GET.search }}" class="input input-bordered flex-grow" />
+          </div>
+        </div>
+
+        <select name="site" class="select select-bordered w-64">
+          <option value="">All Sites</option>
+          {% for site in sites %}
+            <option value="{{ site.site_id }}" {% if request.GET.site == site.site_id %}selected{% endif %}>
+              {{ site.name }}
+            </option>
+          {% endfor %}
+        </select>
+
+        <button type="submit" class="btn btn-outline">
+          {% lucide "filter" class="w-5 h-5" %}
+          Filter
+        </button>
+
+        {% if request.GET.search or request.GET.site %}
+          <a href="{% url 'admin_sharepoint_members' %}" class="btn btn-ghost">
+            {% lucide "x" class="w-5 h-5" %}
+            Clear
+          </a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- Members Table -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-0">
+      {% if site_members %}
+        <div class="overflow-x-auto">
+          <table class="table table-zebra">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Site</th>
+                <th>Site Type</th>
+                <th>Added Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for member in site_members %}
+                <tr onclick="window.open('{{ member.site.url }}', '_blank')" class="cursor-pointer hover:bg-base-200">
+                  <td>
+                    <div class="flex items-center gap-3">
+                      <div class="avatar placeholder">
+                        <div class="bg-neutral text-neutral-content rounded-full w-10">
+                          <span class="text-sm">
+                            {{ member.user.first_name.0|default:member.user.username.0|upper }}{{ member.user.last_name.0|default:'' }}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="font-medium">
+                          {{ member.user.get_full_name|default:member.user.username }}
+                        </div>
+                        <div class="text-sm text-base-content/70">
+                          {{ member.user.username }}
+                          {% if member.user.email %}
+                            • {{ member.user.email }}
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="flex items-center gap-2">
+                      {% if member.site.is_personal_site %}
+                        {% lucide "user" class="w-4 h-4 text-blue-500" %}
+                      {% else %}
+                        {% lucide "building" class="w-4 h-4 text-green-500" %}
+                      {% endif %}
+                      <div>
+                        <div class="font-medium">{{ member.site.name }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    {% if member.site.is_personal_site %}
+                      <span class="badge badge-info">Personal</span>
+                    {% else %}
+                      <span class="badge badge-success">Team</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="text-sm">{{ member.date_added|default:"Unknown" }}</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-center py-12">
+          {% lucide "user-check" class="w-12 h-12 mx-auto mb-4 text-base-content/30" %}
+          <h3 class="text-lg font-semibold mb-2">No site members found</h3>
+          <p class="text-base-content/70 mb-4">
+            {% if request.GET.search or request.GET.site %}
+              No members match your current filters. Try adjusting your search criteria.
+            {% else %}
+              No users have been assigned to SharePoint sites yet.
+            {% endif %}
+          </p>
+          {% if not request.GET.search and not request.GET.site %}
+            <button onclick="showAddMemberModal()" class="btn btn-primary">
+              {% lucide "user-plus" class="w-5 h-5" %}
+              Add First Member
+            </button>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+    <div class="stat bg-base-100 shadow-sm rounded-lg">
+      <div class="stat-figure text-primary">
+        {% lucide "user-check" class="w-8 h-8" %}
+      </div>
+      <div class="stat-title">Total Memberships</div>
+      <div class="stat-value text-primary">{{ site_members|length }}</div>
+    </div>
+
+    <div class="stat bg-base-100 shadow-sm rounded-lg">
+      <div class="stat-figure text-success">
+        {% lucide "users" class="w-8 h-8" %}
+      </div>
+      <div class="stat-title">Unique Users</div>
+      <div class="stat-value text-success">{{ unique_users_count }}</div>
+    </div>
+
+    <div class="stat bg-base-100 shadow-sm rounded-lg">
+      <div class="stat-figure text-info">
+        {% lucide "building" class="w-8 h-8" %}
+      </div>
+      <div class="stat-title">Team Sites</div>
+      <div class="stat-value text-info">{{ team_sites_count }}</div>
+    </div>
+
+    <div class="stat bg-base-100 shadow-sm rounded-lg">
+      <div class="stat-figure text-warning">
+        {% lucide "user" class="w-8 h-8" %}
+      </div>
+      <div class="stat-title">Personal Sites</div>
+      <div class="stat-value text-warning">{{ personal_sites_count }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div id="add-member-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg mb-4">Add Site Member</h3>
+    <form id="add-member-form" class="space-y-4">
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">User</span>
+        </label>
+        <select id="user-select" name="user_id" class="select select-bordered w-full" required>
+          <option value="">Select a user...</option>
+        </select>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Site</span>
+        </label>
+        <select id="site-select" name="site_id" class="select select-bordered w-full" required>
+          <option value="">Select a site...</option>
+          {% for site in sites %}
+            <option value="{{ site.site_id }}">{{ site.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="modal-action">
+        <button type="button" onclick="hideAddMemberModal()" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Member</button>
+      </div>
+    </form>
+  </div>
+  <div class="modal-backdrop" onclick="hideAddMemberModal()"></div>
+</div>
+
+<script>
+function showAddMemberModal() {
+  document.getElementById('add-member-modal').showModal();
+  loadUsers();
+}
+
+function hideAddMemberModal() {
+  document.getElementById('add-member-modal').close();
+  document.getElementById('add-member-form').reset();
+}
+
+function loadUsers() {
+  fetch('/api/users/')
+    .then(response => response.json())
+    .then(data => {
+      const userSelect = document.getElementById('user-select');
+      userSelect.innerHTML = '<option value="">Select a user...</option>';
+
+      data.users.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.textContent = `${user.first_name} ${user.last_name} (${user.username})`;
+        userSelect.appendChild(option);
+      });
+    })
+    .catch(error => {
+      console.error('Error loading users:', error);
+    });
+}
+
+document.getElementById('add-member-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const formData = new FormData(this);
+
+  fetch('/api/sharepoint/members/', {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-CSRFToken': getCookie('csrftoken')
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      hideAddMemberModal();
+      location.reload();
+    } else {
+      alert(data.error || 'Failed to add member');
+    }
+  })
+  .catch(error => {
+    console.error('Error adding member:', error);
+    alert('Failed to add member');
+  });
+});
+
+function removeMember(memberId) {
+  if (confirm('Are you sure you want to remove this member from the site?')) {
+    fetch(`/api/sharepoint/members/${memberId}/`, {
+      method: 'DELETE',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken')
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert(data.error || 'Failed to remove member');
+      }
+    })
+    .catch(error => {
+      console.error('Error removing member:', error);
+      alert('Failed to remove member');
+    });
+  }
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+</script>
+{% endblock %}

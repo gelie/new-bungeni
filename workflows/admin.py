@@ -374,6 +374,7 @@ class SiteMemberAdmin(admin.ModelAdmin):
         "user__first_name",
         "user__last_name",
     ]
+    autocomplete_fields = ["site", "user"]
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("site", "user")
