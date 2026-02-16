@@ -8,7 +8,6 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 
 """
 
-import logging
 from pathlib import Path
 
 import ldap
@@ -60,9 +59,9 @@ AUTH_LDAP_AUTHORIZE_ALL_USERS = False
 AUTH_LDAP_CACHE_TIMEOUT = 3600
 
 # LDAP Logging for debugging
-logger = logging.getLogger("django_auth_ldap")
-logger.addHandler(logging.StreamHandler())
-logger.setLevel(logging.DEBUG)
+# logger = logging.getLogger("django_auth_ldap")
+# logger.addHandler(logging.StreamHandler())
+# logger.setLevel(logging.DEBUG)
 
 # Check if LDAP is properly configured
 # if not AUTH_LDAP_SERVER_URI or not AUTH_LDAP_BIND_DN:
@@ -220,3 +219,29 @@ SHAREPOINT_SCOPE = "https://graph.microsoft.com/.default"
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
+
+# Basic logging configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,  # ← very important!
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+        "file": {
+            "class": "logging.FileHandler",
+            "filename": "general.log",
+        },
+    },
+    "loggers": {
+        "": {  # ← root logger = catch-all
+            "handlers": ["file"],
+            "level": "INFO",  # or 'DEBUG' if you want even more
+        },
+        "django": {  # optional – keep Django quieter
+            "level": "WARNING",
+            "handlers": ["file"],
+            "propagate": False,
+        },
+    },
+}

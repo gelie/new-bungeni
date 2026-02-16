@@ -1,0 +1,1 @@
+HTTP Request: GET https://graph.microsoft.com/v1.0/sites/getAllSites?top=5000&count=true&filter=isPersonalSite%20ne%20true%20AND%20name%20ne%20null&orderby=displayName,name "HTTP/1.1 200 OK"
