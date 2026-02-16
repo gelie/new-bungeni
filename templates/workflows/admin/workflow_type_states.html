@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Workflow States - {{ workflow_type.name }} - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "circle-dot" class="w-8 h-8" %}
+        Manage Workflow States
+      </h1>
+      <p class="text-base-content/70 mt-1">
+        Configure states for workflow type: <strong>{{ workflow_type.name }}</strong>
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{% url 'admin_workflow_type_edit' workflow_type.pk %}" class="btn btn-ghost">
+        {% lucide "arrow-left" class="w-4 h-4" %}
+        Back to Workflow Type
+      </a>
+    </div>
+  </div>
+
+  <!-- States List -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Current States</h3>
+        <button class="btn btn-primary btn-sm" onclick="openAddStateModal()">
+          {% lucide "plus" class="w-4 h-4" %}
+          Add State
+        </button>
+      </div>
+
+      {% if states %}
+      <div class="overflow-x-auto">
+        <table class="table w-full">
+          <thead>
+            <tr class="bg-base-200">
+              <th>Name</th>
+              <th>Description</th>
+              <th>Order</th>
+              <th>Initial State</th>
+              <th>Final State</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for state in states %}
+            <tr class="hover">
+              <td>
+                <div class="font-semibold">{{ state.name }}</div>
+                <div class="text-sm text-base-content/70">{{ state.slug }}</div>
+              </td>
+              <td>
+                <p class="text-sm">{{ state.description|default:"No description" }}</p>
+              </td>
+              <td>
+                <span class="badge badge-outline">{{ state.order }}</span>
+              </td>
+              <td>
+                {% if state.is_initial %}
+                <span class="badge badge-success badge-sm">Yes</span>
+                {% else %}
+                <span class="badge badge-ghost badge-sm">No</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if state.is_terminal %}
+                <span class="badge badge-warning badge-sm">Yes</span>
+                {% else %}
+                <span class="badge badge-ghost badge-sm">No</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <button class="btn btn-ghost btn-sm" onclick="editState('{{ state.pk }}')">
+                    {% lucide "pencil" class="w-4 h-4" %}
+                  </button>
+                  <button class="btn btn-ghost btn-sm text-error" onclick="deleteState('{{ state.pk }}')">
+                    {% lucide "trash-2" class="w-4 h-4" %}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-8 text-base-content/70">
+        {% lucide "circle-dot" class="w-12 h-12 mx-auto mb-4 opacity-50" %}
+        <p class="text-lg font-medium mb-2">No states configured</p>
+        <p class="text-sm mb-4">Create your first state to define the workflow process</p>
+        <button class="btn btn-primary" onclick="openAddStateModal()">
+          {% lucide "plus" class="w-4 h-4" %}
+          Add First State
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Help Section -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h3 class="card-title text-lg flex items-center gap-2">
+        {% lucide "circle-help" class="w-5 h-5" %}
+        About Workflow States
+      </h3>
+
+      <div class="text-sm space-y-3 mt-4">
+        <div>
+          <p class="font-semibold mb-2">What are Workflow States?</p>
+          <p class="text-base-content/70">States represent the different stages a workflow can go through during its
+            lifecycle. Examples include "Draft", "Under Review", "Approved", "Rejected", etc.</p>
+        </div>
+
+        <div>
+          <p class="font-semibold mb-2">Initial State</p>
+          <p class="text-base-content/70">Each workflow type must have one initial state. When a new workflow is
+            created, it automatically starts in this state.</p>
+        </div>
+
+        <div>
+          <p class="font-semibold mb-2">Order</p>
+          <p class="text-base-content/70">The order field helps organize states logically. This is especially useful for
+            reporting and displaying workflow progress.</p>
+        </div>
+
+        <div class="divider my-2"></div>
+
+        <p class="text-xs text-base-content/70">
+          <strong>Note:</strong> After configuring states, you can define transitions that control how workflows move
+          between these states.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit State Modal -->
+<div id="stateModal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg" id="modalTitle">Add Workflow State</h3>
+
+    <form id="stateForm" class="space-y-4 mt-4">
+      <input type="hidden" id="stateId" name="stateId">
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-medium">State Name *</span>
+        </label>
+        <input type="text" id="stateName" name="name" class="input input-bordered w-full" required>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-medium">Description</span>
+        </label>
+        <textarea id="stateDescription" name="description" class="textarea textarea-bordered w-full"
+          rows="3"></textarea>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-medium">Order</span>
+        </label>
+        <input type="number" id="stateOrder" name="order" class="input input-bordered w-full" min="0" value="0">
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text font-medium">Initial State</span>
+          <input type="checkbox" id="stateIsInitial" name="is_initial" class="checkbox checkbox-primary">
+        </label>
+        <label class="label">
+          <span class="label-text-alt text-base-content/70">New workflows will start in this state</span>
+        </label>
+      </div>
+
+      <div class="form-control">
+        <label class="label cursor-pointer">
+          <span class="label-text font-medium">Final State</span>
+          <input type="checkbox" id="stateIsTerminal" name="is_terminal" class="checkbox checkbox-primary">
+        </label>
+        <label class="label">
+          <span class="label-text-alt text-base-content/70">Workflows end when they reach this state</span>
+        </label>
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost" onclick="closeStateModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveState()">Save State</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openAddStateModal() {
+    document.getElementById('modalTitle').textContent = 'Add Workflow State';
+    document.getElementById('stateForm').reset();
+    document.getElementById('stateId').value = '';
+    document.getElementById('stateModal').classList.add('modal-open');
+  }
+
+  function editState(stateId) {
+    // Fetch state data via AJAX
+    fetch(`/manage/workflow-types/{{ workflow_type.pk }}/states/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: `action=get_state&state_id=${stateId}`
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('modalTitle').textContent = 'Edit Workflow State';
+          document.getElementById('stateId').value = data.state.id;
+          document.getElementById('stateName').value = data.state.name;
+          document.getElementById('stateDescription').value = data.state.description || '';
+          document.getElementById('stateOrder').value = data.state.order;
+          document.getElementById('stateIsInitial').checked = data.state.is_initial;
+          document.getElementById('stateIsTerminal').checked = data.state.is_terminal;
+          document.getElementById('stateModal').classList.add('modal-open');
+        } else {
+          alert('Error loading state: ' + data.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading state data');
+      });
+  }
+
+  function closeStateModal() {
+    document.getElementById('stateModal').classList.remove('modal-open');
+  }
+
+  function saveState() {
+    const form = document.getElementById('stateForm');
+    const formData = new FormData(form);
+    const stateId = document.getElementById('stateId').value;
+
+    // Add action to form data
+    const action = stateId ? 'edit' : 'create';
+    formData.append('action', action);
+
+    // Make sure state_id is properly set for edit actions
+    if (stateId) {
+      formData.set('state_id', stateId);
+    }
+
+    // Explicitly include checkbox values (unchecked checkboxes aren't sent in form data)
+    const isInitial = document.getElementById('stateIsInitial').checked;
+    const isTerminal = document.getElementById('stateIsTerminal').checked;
+
+    // Remove existing checkbox values and add explicit ones
+    formData.delete('is_initial');
+    formData.delete('is_terminal');
+    formData.append('is_initial', isInitial ? 'on' : '');
+    formData.append('is_terminal', isTerminal ? 'on' : '');
+
+    // Convert FormData to URL-encoded string
+    const urlEncodedData = new URLSearchParams(formData).toString();
+
+    // Debug: Log the data being sent
+    console.log('Sending data:', urlEncodedData);
+    console.log('Action:', action);
+    console.log('State ID:', stateId);
+    console.log('is_initial:', isInitial);
+    console.log('is_terminal:', isTerminal);
+
+    fetch(`/manage/workflow-types/{{ workflow_type.pk }}/states/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: urlEncodedData
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+          // Reload the page to show the updated data
+          window.location.reload();
+        } else {
+          alert('Error saving state: ' + data.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving state');
+      });
+  }
+
+  function deleteState(stateId) {
+    if (confirm('Are you sure you want to delete this state? This action cannot be undone.')) {
+      fetch(`/manage/workflow-types/{{ workflow_type.pk }}/states/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: `action=delete&state_id=${stateId}`
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Reload the page to show the updated data
+            window.location.reload();
+          } else {
+            alert('Error deleting state: ' + data.error);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error deleting state');
+        });
+    }
+  }
+
+  // Helper function to get CSRF token
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+
+{% endblock %}

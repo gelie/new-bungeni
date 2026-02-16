@@ -5,6 +5,7 @@ import httpx
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -261,6 +262,20 @@ def workflow_create(request):
 
     workflow_type = get_object_or_404(WorkflowType, pk=workflow_type_id)
 
+    # Parse JSON data from optional fields
+    workflow_data_str = request.POST.get("workflow_data", "{}")
+    try:
+        workflow_data = (
+            json.loads(workflow_data_str) if workflow_data_str.strip() else {}
+        )
+        # Validate against workflow type schema if it exists
+        if workflow_type.json_schema:
+            # Basic validation - ensure it's a dict
+            if not isinstance(workflow_data, dict):
+                workflow_data = {}
+    except (json.JSONDecodeError, ValueError):
+        workflow_data = {}
+
     # Check if user has a role that can create this specific workflow type
     if not workflow_type.create_roles.filter(id__in=user_roles).exists():
         messages.error(
@@ -318,6 +333,7 @@ def workflow_create(request):
         priority=priority,
         parent_workflow=parent_workflow,
         relationship_type=relationship_type if parent_workflow else "",
+        data=workflow_data,
     )
 
     messages.success(request, f"Workflow created: {workflow.title}")
@@ -413,11 +429,26 @@ def workflow_edit(request, pk):
 
     workflow_type = get_object_or_404(WorkflowType, pk=workflow_type_id)
 
+    # Parse JSON data from optional fields
+    workflow_data_str = request.POST.get("workflow_data", "{}")
+    try:
+        workflow_data = (
+            json.loads(workflow_data_str) if workflow_data_str.strip() else {}
+        )
+        # Validate against workflow type schema if it exists
+        if workflow_type.json_schema:
+            # Basic validation - ensure it's a dict
+            if not isinstance(workflow_data, dict):
+                workflow_data = {}
+    except (json.JSONDecodeError, ValueError):
+        workflow_data = {}
+
     # Update workflow
     workflow.workflow_type = workflow_type
     workflow.title = title
     workflow.description = description
     workflow.priority = priority
+    workflow.data = workflow_data
     if deadline:
         workflow.deadline = deadline
     workflow.save()
@@ -1406,6 +1437,292 @@ def user_admin_workflow_types(request):
 
 
 @login_required
+def workflow_type_create(request):
+    """Create a new workflow type template"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        description = request.POST.get("description", "").strip()
+        group_id = request.POST.get("group")  # This comes from the hidden field
+        enabled = request.POST.get("enabled") == "on"
+        create_roles_str = request.POST.get("create_roles", "")
+        json_schema_str = request.POST.get("json_schema", "{}")
+
+        # Parse comma-separated roles from dropdown
+        create_roles = (
+            [
+                role_id.strip()
+                for role_id in create_roles_str.split(",")
+                if role_id.strip()
+            ]
+            if create_roles_str
+            else []
+        )
+
+        # Parse JSON schema
+
+        try:
+            json_schema = json.loads(json_schema_str) if json_schema_str.strip() else {}
+            # Validate JSON schema structure
+            if not isinstance(json_schema, dict):
+                json_schema = {}
+        except (json.JSONDecodeError, ValueError):
+            json_schema = {}
+
+        # Validation
+        errors = []
+        if not name:
+            errors.append("Template name is required.")
+        elif len(name) > 100:
+            errors.append("Template name cannot exceed 100 characters.")
+
+        if not group_id:
+            errors.append(
+                "Owner group is required. Please select a valid group from the dropdown."
+            )
+
+        if not create_roles:
+            errors.append("At least one create role must be selected.")
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+        else:
+            try:
+                group = Group.objects.get(id=group_id)
+
+                # Check if workflow type with this name already exists
+                if WorkflowType.objects.filter(name__iexact=name).exists():
+                    messages.error(
+                        request,
+                        f"A workflow template with the name '{name}' already exists.",
+                    )
+                else:
+                    workflow_type = WorkflowType.objects.create(
+                        name=name,
+                        description=description,
+                        group=group,
+                        enabled=enabled,
+                        json_schema=json_schema,
+                    )
+                    workflow_type.create_roles.set(create_roles)
+
+                    # Validate the workflow type
+                    try:
+                        workflow_type.clean()
+                        workflow_type.save()
+                        messages.success(
+                            request, f"Workflow template '{name}' created successfully."
+                        )
+                        return redirect("admin_workflow_types")
+                    except ValidationError as e:
+                        workflow_type.delete()
+                        for error in e.messages:
+                            messages.error(request, error)
+
+            except Group.DoesNotExist:
+                messages.error(
+                    request,
+                    "Selected group does not exist. Please select a valid group.",
+                )
+            except Exception as e:
+                messages.error(request, f"Error creating workflow template: {str(e)}")
+
+    groups = Group.objects.all()
+    roles = Role.objects.all()
+
+    # Create a mapping of group IDs to available roles
+    group_roles = {}
+    for group in groups:
+        # Get unique roles available in this group through memberships
+        available_roles = group.members.values_list("role__id", "role__name").distinct()
+        group_roles[str(group.id)] = [
+            {"id": role_id, "name": role_name} for role_id, role_name in available_roles
+        ]
+
+    context = {
+        "groups": groups,
+        "roles": roles,
+        "group_roles": group_roles,
+    }
+
+    return render(request, "workflows/admin/workflow_type_create.html", context)
+
+
+@login_required
+def workflow_type_edit(request, pk):
+    """Edit an existing workflow type template"""
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
+    workflow_type = get_object_or_404(WorkflowType, pk=pk)
+
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+        description = request.POST.get("description", "").strip()
+        group_id = request.POST.get("group")
+        enabled = request.POST.get("enabled") == "on"
+        create_roles_str = request.POST.get("create_roles", "")
+        json_schema_str = request.POST.get("json_schema", "{}")
+
+        # Parse comma-separated roles from dropdown
+        create_roles = (
+            [
+                role_id.strip()
+                for role_id in create_roles_str.split(",")
+                if role_id.strip()
+            ]
+            if create_roles_str
+            else []
+        )
+
+        # Parse JSON schema
+
+        try:
+            json_schema = json.loads(json_schema_str) if json_schema_str.strip() else {}
+            # Validate JSON schema structure
+            if not isinstance(json_schema, dict):
+                json_schema = {}
+        except (json.JSONDecodeError, ValueError):
+            json_schema = {}
+
+        # Validation
+        errors = []
+        if not name:
+            errors.append("Template name is required.")
+        elif len(name) > 100:
+            errors.append("Template name cannot exceed 100 characters.")
+
+        if not group_id:
+            errors.append(
+                "Owner group is required. Please select a valid group from the dropdown."
+            )
+
+        if not create_roles:
+            errors.append("At least one create role must be selected.")
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+        else:
+            try:
+                group = Group.objects.get(id=group_id)
+
+                # Check if workflow type with this name already exists (excluding current)
+                if (
+                    WorkflowType.objects.filter(name__iexact=name)
+                    .exclude(pk=workflow_type.pk)
+                    .exists()
+                ):
+                    messages.error(
+                        request,
+                        f"A workflow template with the name '{name}' already exists.",
+                    )
+                else:
+                    # Update workflow type
+                    workflow_type.name = name
+                    workflow_type.description = description
+                    workflow_type.group = group
+                    workflow_type.enabled = enabled
+                    workflow_type.json_schema = json_schema
+                    workflow_type.save()
+                    workflow_type.create_roles.set(create_roles)
+
+                    # Validate the workflow type
+                    try:
+                        workflow_type.clean()
+                        workflow_type.save()
+                        messages.success(
+                            request, f"Workflow template '{name}' updated successfully."
+                        )
+                        return redirect("admin_workflow_types")
+                    except ValidationError as e:
+                        for error in e.messages:
+                            messages.error(request, error)
+
+            except Group.DoesNotExist:
+                messages.error(
+                    request,
+                    "Selected group does not exist. Please select a valid group.",
+                )
+            except Exception as e:
+                messages.error(request, f"Error updating workflow template: {str(e)}")
+
+    groups = Group.objects.all()
+    roles = Role.objects.all()
+
+    # Create a mapping of group IDs to available roles
+    group_roles = {}
+    for group in groups:
+        # Get unique roles available in this group through memberships
+        available_roles = group.members.values_list("role__id", "role__name").distinct()
+        group_roles[str(group.id)] = [
+            {"id": role_id, "name": role_name} for role_id, role_name in available_roles
+        ]
+
+    # Prepare existing fields data for the form
+    existing_fields = []
+    if workflow_type.json_schema and isinstance(workflow_type.json_schema, dict):
+        properties = workflow_type.json_schema.get("properties", {})
+        required_fields = workflow_type.json_schema.get("required", [])
+
+        for field_name, field_config in properties.items():
+            field_data = {
+                "name": field_name,
+                "label": field_config.get("title", ""),
+                "type": get_field_type_from_schema(field_config),
+                "required": field_name in required_fields,
+                "help_text": field_config.get("description", ""),
+                "options": ", ".join(field_config.get("enum", []))
+                if field_config.get("enum")
+                else "",
+            }
+            existing_fields.append(field_data)
+
+    context = {
+        "workflow_type": workflow_type,
+        "groups": groups,
+        "roles": roles,
+        "group_roles": json.dumps(group_roles),
+        "existing_fields": json.dumps(existing_fields),
+        "is_edit": True,
+    }
+
+    return render(request, "workflows/admin/workflow_type_edit.html", context)
+
+
+def get_field_type_from_schema(field_config):
+    """Convert JSON schema field type to form field type"""
+    schema_type = field_config.get("type", "string")
+
+    if schema_type == "boolean":
+        return "checkbox"
+    elif schema_type == "number":
+        return "number"
+    elif field_config.get("enum"):
+        return "select"
+    elif "date" in field_config.get("title", "").lower():
+        if "time" in field_config.get("title", "").lower():
+            return "datetime"
+        return "date"
+    elif "email" in field_config.get("title", "").lower():
+        return "email"
+    elif "url" in field_config.get("title", "").lower():
+        return "url"
+    elif (
+        "text" in field_config.get("title", "").lower()
+        or "description" in field_config.get("title", "").lower()
+    ):
+        return "textarea"
+    else:
+        return "text"
+
+
+@login_required
 def group_admin(request):
     """Group administration - manage groups and their hierarchies"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -1429,6 +1746,428 @@ def group_admin(request):
     }
 
     return render(request, "workflows/admin/group_admin.html", context)
+
+
+@login_required
+def workflow_type_states(request, pk):
+    """Manage workflow states for a workflow type"""
+    workflow_type = get_object_or_404(WorkflowType, pk=pk)
+
+    # Check permissions - user should be admin or have appropriate roles
+    if not request.user.is_staff:
+        messages.error(request, "You do not have permission to manage workflow states.")
+        return redirect("admin_workflow_types")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        try:
+            if action == "create":
+                name = request.POST.get("name", "").strip()
+                description = request.POST.get("description", "").strip()
+                order = request.POST.get("order", 0)
+                is_initial = request.POST.get("is_initial") == "on"
+                is_terminal = request.POST.get("is_terminal") == "on"
+
+                if not name:
+                    return JsonResponse(
+                        {"success": False, "error": "State name is required"}
+                    )
+
+                # If this is set as initial, unset all other initial states
+                if is_initial:
+                    State.objects.filter(
+                        workflow_type=workflow_type, is_initial=True
+                    ).update(is_initial=False)
+
+                # If this is set as terminal, unset all other terminal states
+                if is_terminal:
+                    State.objects.filter(
+                        workflow_type=workflow_type, is_terminal=True
+                    ).update(is_terminal=False)
+
+                state = State.objects.create(
+                    workflow_type=workflow_type,
+                    name=name,
+                    description=description,
+                    order=int(order),
+                    is_initial=is_initial,
+                    is_terminal=is_terminal,
+                )
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "state": {
+                            "id": state.pk,
+                            "name": state.name,
+                            "description": state.description,
+                            "order": state.order,
+                            "is_initial": state.is_initial,
+                            "is_terminal": state.is_terminal,
+                        },
+                    }
+                )
+
+            elif action == "get_state":
+                state_id = request.POST.get("state_id")
+                print(f"DEBUG GET_STATE: Received state_id: {state_id}")
+                print(f"DEBUG GET_STATE: workflow_type.pk: {workflow_type.pk}")
+
+                # First check if state exists at all
+                try:
+                    state_check = State.objects.get(pk=state_id)
+                    print(
+                        f"DEBUG GET_STATE: Found state with ID {state_id}: {state_check.name}"
+                    )
+                    print(
+                        f"DEBUG GET_STATE: State's workflow_type: {state_check.workflow_type.pk}"
+                    )
+                except State.DoesNotExist:
+                    print(f"DEBUG GET_STATE: No state found with ID {state_id}")
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": f"No state found with ID {state_id}",
+                        }
+                    )
+
+                state = get_object_or_404(
+                    State, pk=state_id, workflow_type=workflow_type
+                )
+                print("DEBUG GET_STATE: Successfully retrieved state for workflow type")
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "state": {
+                            "id": state.pk,
+                            "name": state.name,
+                            "description": state.description,
+                            "order": state.order,
+                            "is_initial": state.is_initial,
+                            "is_terminal": state.is_terminal,
+                        },
+                    }
+                )
+
+            elif action == "edit":
+                state_id = request.POST.get("state_id")
+                print(f"DEBUG: Received state_id: {state_id}")
+                print(f"DEBUG: workflow_type.pk: {workflow_type.pk}")
+                print(f"DEBUG: workflow_type.name: {workflow_type.name}")
+
+                # First check if state exists at all
+                try:
+                    state_check = State.objects.get(pk=state_id)
+                    print(f"DEBUG: Found state with ID {state_id}: {state_check.name}")
+                    print(
+                        f"DEBUG: State's workflow_type: {state_check.workflow_type.pk}"
+                    )
+                except State.DoesNotExist:
+                    print(f"DEBUG: No state found with ID {state_id}")
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": f"No state found with ID {state_id}",
+                        }
+                    )
+
+                state = get_object_or_404(
+                    State, pk=state_id, workflow_type=workflow_type
+                )
+                print("DEBUG: Successfully retrieved state for workflow type")
+
+                name = request.POST.get("name", "").strip()
+                description = request.POST.get("description", "").strip()
+                order = request.POST.get("order", 0)
+                is_initial = request.POST.get("is_initial") == "on"
+                is_terminal = request.POST.get("is_terminal") == "on"
+
+                # Debug logging
+                print(
+                    f"Edit state - ID: {state_id}, Name: {name}, is_initial: {is_initial}, is_terminal: {is_terminal}"
+                )
+
+                if not name:
+                    return JsonResponse(
+                        {"success": False, "error": "State name is required"}
+                    )
+
+                # If this is set as initial, unset all other initial states
+                if is_initial and not state.is_initial:
+                    State.objects.filter(
+                        workflow_type=workflow_type, is_initial=True
+                    ).update(is_initial=False)
+
+                # If this is set as terminal, unset all other terminal states
+                if is_terminal and not state.is_terminal:
+                    State.objects.filter(
+                        workflow_type=workflow_type, is_terminal=True
+                    ).update(is_terminal=False)
+
+                state.name = name
+                state.description = description
+                state.order = int(order)
+                state.is_initial = is_initial
+                state.is_terminal = is_terminal
+
+                try:
+                    state.save()
+                    print(f"State saved successfully: {state.name}")
+                except Exception as e:
+                    print(f"Error saving state: {str(e)}")
+                    return JsonResponse(
+                        {"success": False, "error": f"Error saving state: {str(e)}"}
+                    )
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "state": {
+                            "id": state.pk,
+                            "name": state.name,
+                            "description": state.description,
+                            "order": state.order,
+                            "is_initial": state.is_initial,
+                            "is_terminal": state.is_terminal,
+                        },
+                    }
+                )
+
+            elif action == "delete":
+                state_id = request.POST.get("state_id")
+                state = get_object_or_404(
+                    State, pk=state_id, workflow_type=workflow_type
+                )
+
+                # Check if state is being used by any transitions
+                transition_count = Transition.objects.filter(
+                    Q(from_state=state) | Q(to_state=state)
+                ).count()
+
+                if transition_count > 0:
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": f"Cannot delete state: it is used by {transition_count} transition(s)",
+                        }
+                    )
+
+                state.delete()
+                return JsonResponse({"success": True})
+
+        except Exception as e:
+            print(f"Unexpected error in workflow_type_states: {str(e)}")
+            return JsonResponse(
+                {"success": False, "error": f"Unexpected error: {str(e)}"}
+            )
+
+    # GET request
+    states = State.objects.filter(workflow_type=workflow_type).order_by("order", "name")
+
+    context = {
+        "workflow_type": workflow_type,
+        "states": states,
+    }
+
+    return render(request, "workflows/admin/workflow_type_states.html", context)
+
+
+@login_required
+def workflow_type_transitions(request, pk):
+    """Manage workflow transitions for a workflow type"""
+    workflow_type = get_object_or_404(WorkflowType, pk=pk)
+
+    # Check permissions - user should be admin or have appropriate roles
+    if not request.user.is_staff:
+        messages.error(
+            request, "You do not have permission to manage workflow transitions."
+        )
+        return redirect("admin_workflow_types")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        try:
+            if action == "create":
+                name = request.POST.get("name", "").strip()
+                from_state_id = request.POST.get("from_state")
+                to_state_id = request.POST.get("to_state")
+                role_ids = request.POST.getlist("roles")
+
+                if not name:
+                    return JsonResponse(
+                        {"success": False, "error": "Transition name is required"}
+                    )
+
+                if not from_state_id or not to_state_id:
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "Both from and to states are required",
+                        }
+                    )
+
+                if from_state_id == to_state_id:
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "From and to states cannot be the same",
+                        }
+                    )
+
+                from_state = get_object_or_404(
+                    State, pk=from_state_id, workflow_type=workflow_type
+                )
+                to_state = get_object_or_404(
+                    State, pk=to_state_id, workflow_type=workflow_type
+                )
+
+                transition = Transition.objects.create(
+                    workflow_type=workflow_type,
+                    name=name,
+                    from_state=from_state,
+                    to_state=to_state,
+                )
+
+                # Add allowed roles
+                if role_ids:
+                    roles = Role.objects.filter(id__in=role_ids)
+                    transition.allowed_roles.set(roles)
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "transition": {
+                            "id": transition.pk,
+                            "name": transition.name,
+                            "from_state": transition.from_state.name,
+                            "to_state": transition.to_state.name,
+                            "roles": [
+                                role.name for role in transition.allowed_roles.all()
+                            ],
+                        },
+                    }
+                )
+
+            elif action == "get_transition":
+                transition_id = request.POST.get("transition_id")
+                transition = get_object_or_404(
+                    Transition, pk=transition_id, workflow_type=workflow_type
+                )
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "transition": {
+                            "id": transition.pk,
+                            "name": transition.name,
+                            "from_state": transition.from_state.pk,
+                            "to_state": transition.to_state.pk,
+                            "roles": [
+                                role.pk for role in transition.allowed_roles.all()
+                            ],
+                        },
+                    }
+                )
+
+            elif action == "edit":
+                transition_id = request.POST.get("transition_id")
+                transition = get_object_or_404(
+                    Transition, pk=transition_id, workflow_type=workflow_type
+                )
+
+                name = request.POST.get("name", "").strip()
+                from_state_id = request.POST.get("from_state")
+                to_state_id = request.POST.get("to_state")
+                role_ids = request.POST.getlist("roles")
+
+                if not name:
+                    return JsonResponse(
+                        {"success": False, "error": "Transition name is required"}
+                    )
+
+                if not from_state_id or not to_state_id:
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "Both from and to states are required",
+                        }
+                    )
+
+                if from_state_id == to_state_id:
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": "From and to states cannot be the same",
+                        }
+                    )
+
+                from_state = get_object_or_404(
+                    State, pk=from_state_id, workflow_type=workflow_type
+                )
+                to_state = get_object_or_404(
+                    State, pk=to_state_id, workflow_type=workflow_type
+                )
+
+                transition.name = name
+                transition.from_state = from_state
+                transition.to_state = to_state
+                transition.save()
+
+                # Update allowed roles
+                if role_ids:
+                    roles = Role.objects.filter(id__in=role_ids)
+                    transition.allowed_roles.set(roles)
+                else:
+                    transition.allowed_roles.clear()
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "transition": {
+                            "id": transition.pk,
+                            "name": transition.name,
+                            "from_state": transition.from_state.name,
+                            "to_state": transition.to_state.name,
+                            "roles": [
+                                role.name for role in transition.allowed_roles.all()
+                            ],
+                        },
+                    }
+                )
+
+            elif action == "delete":
+                transition_id = request.POST.get("transition_id")
+                transition = get_object_or_404(
+                    Transition, pk=transition_id, workflow_type=workflow_type
+                )
+
+                transition.delete()
+                return JsonResponse({"success": True})
+
+        except Exception as e:
+            print(f"Error in workflow_type_transitions: {str(e)}")
+            return JsonResponse({"success": False, "error": f"Error: {str(e)}"})
+
+    # GET request
+    transitions = Transition.objects.filter(workflow_type=workflow_type).order_by(
+        "name"
+    )
+    states = State.objects.filter(workflow_type=workflow_type).order_by("order", "name")
+
+    # Get available roles from group owner
+    available_roles = Role.objects.filter(id__in=workflow_type.group_owner_roles())
+
+    context = {
+        "workflow_type": workflow_type,
+        "transitions": transitions,
+        "states": states,
+        "available_roles": available_roles,
+    }
+
+    return render(request, "workflows/admin/workflow_type_transitions.html", context)
 
 
 @login_required

@@ -39,16 +39,16 @@
               {% lucide "search" class="w-5 h-5" %}
             </span>
             <input type="text" name="search" placeholder="Search by username, name, or site..."
-                   value="{{ request.GET.search }}" class="input input-bordered flex-grow" />
+              value="{{ request.GET.search }}" class="input input-bordered flex-grow" />
           </div>
         </div>
 
         <select name="site" class="select select-bordered w-64">
           <option value="">All Sites</option>
           {% for site in sites %}
-            <option value="{{ site.site_id }}" {% if request.GET.site == site.site_id %}selected{% endif %}>
-              {{ site.name }}
-            </option>
+          <option value="{{ site.site_id }}" {% if request.GET.site == site.site_id %}selected{% endif %}>
+            {{ site.name }}
+          </option>
           {% endfor %}
         </select>
 
@@ -58,10 +58,10 @@
         </button>
 
         {% if request.GET.search or request.GET.site %}
-          <a href="{% url 'admin_sharepoint_members' %}" class="btn btn-ghost">
-            {% lucide "x" class="w-5 h-5" %}
-            Clear
-          </a>
+        <a href="{% url 'admin_sharepoint_members' %}" class="btn btn-ghost">
+          {% lucide "x" class="w-5 h-5" %}
+          Clear
+        </a>
         {% endif %}
       </form>
     </div>
@@ -71,86 +71,86 @@
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body p-0">
       {% if site_members %}
-        <div class="overflow-x-auto">
-          <table class="table table-zebra">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Site</th>
-                <th>Site Type</th>
-                <th>Added Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for member in site_members %}
-                <tr onclick="window.open('{{ member.site.url }}', '_blank')" class="cursor-pointer hover:bg-base-200">
-                  <td>
-                    <div class="flex items-center gap-3">
-                      <div class="avatar placeholder">
-                        <div class="bg-neutral text-neutral-content rounded-full w-10">
-                          <span class="text-sm">
-                            {{ member.user.first_name.0|default:member.user.username.0|upper }}{{ member.user.last_name.0|default:'' }}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <div class="font-medium">
-                          {{ member.user.get_full_name|default:member.user.username }}
-                        </div>
-                        <div class="text-sm text-base-content/70">
-                          {{ member.user.username }}
-                          {% if member.user.email %}
-                            • {{ member.user.email }}
-                          {% endif %}
-                        </div>
-                      </div>
+      <div class="overflow-x-auto">
+        <table class="table table-zebra">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Site</th>
+              <th>Site Type</th>
+              <th>Added Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in site_members %}
+            <tr onclick="window.open('{{ member.site.url }}', '_blank')" class="cursor-pointer hover:bg-base-200">
+              <td>
+                <div class="flex items-center gap-3">
+                  <div class="avatar placeholder">
+                    <div class="flex items-center justify-center bg-neutral text-neutral-content rounded-full w-10">
+                      <span class="text-sm">
+                        {{ member.user.first_name.0|default:member.user.username.0|upper }}{{ member.user.last_name.0|default:'' }}
+                      </span>
                     </div>
-                  </td>
-                  <td>
-                    <div class="flex items-center gap-2">
-                      {% if member.site.is_personal_site %}
-                        {% lucide "user" class="w-4 h-4 text-blue-500" %}
-                      {% else %}
-                        {% lucide "building" class="w-4 h-4 text-green-500" %}
+                  </div>
+                  <div>
+                    <div class="font-medium">
+                      {{ member.user.get_full_name|default:member.user.username }}
+                    </div>
+                    <div class="text-sm text-base-content/70">
+                      {{ member.user.username }}
+                      {% if member.user.email %}
+                      • {{ member.user.email }}
                       {% endif %}
-                      <div>
-                        <div class="font-medium">{{ member.site.name }}</div>
-                      </div>
                     </div>
-                  </td>
-                  <td>
-                    {% if member.site.is_personal_site %}
-                      <span class="badge badge-info">Personal</span>
-                    {% else %}
-                      <span class="badge badge-success">Team</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <span class="text-sm">{{ member.date_added|default:"Unknown" }}</span>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  {% if member.site.is_personal_site %}
+                  {% lucide "user" class="w-4 h-4 text-blue-500" %}
+                  {% else %}
+                  {% lucide "building" class="w-4 h-4 text-green-500" %}
+                  {% endif %}
+                  <div>
+                    <div class="font-medium">{{ member.site.name }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                {% if member.site.is_personal_site %}
+                <span class="badge badge-info">Personal</span>
+                {% else %}
+                <span class="badge badge-success">Team</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="text-sm">{{ member.date_added|default:"Unknown" }}</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       {% else %}
-        <div class="text-center py-12">
-          {% lucide "user-check" class="w-12 h-12 mx-auto mb-4 text-base-content/30" %}
-          <h3 class="text-lg font-semibold mb-2">No site members found</h3>
-          <p class="text-base-content/70 mb-4">
-            {% if request.GET.search or request.GET.site %}
-              No members match your current filters. Try adjusting your search criteria.
-            {% else %}
-              No users have been assigned to SharePoint sites yet.
-            {% endif %}
-          </p>
-          {% if not request.GET.search and not request.GET.site %}
-            <button onclick="showAddMemberModal()" class="btn btn-primary">
-              {% lucide "user-plus" class="w-5 h-5" %}
-              Add First Member
-            </button>
+      <div class="text-center py-12">
+        {% lucide "user-check" class="w-12 h-12 mx-auto mb-4 text-base-content/30" %}
+        <h3 class="text-lg font-semibold mb-2">No site members found</h3>
+        <p class="text-base-content/70 mb-4">
+          {% if request.GET.search or request.GET.site %}
+          No members match your current filters. Try adjusting your search criteria.
+          {% else %}
+          No users have been assigned to SharePoint sites yet.
           {% endif %}
-        </div>
+        </p>
+        {% if not request.GET.search and not request.GET.site %}
+        <button onclick="showAddMemberModal()" class="btn btn-primary">
+          {% lucide "user-plus" class="w-5 h-5" %}
+          Add First Member
+        </button>
+        {% endif %}
+      </div>
       {% endif %}
     </div>
   </div>
@@ -212,7 +212,7 @@
         <select id="site-select" name="site_id" class="select select-bordered w-full" required>
           <option value="">Select a site...</option>
           {% for site in sites %}
-            <option value="{{ site.site_id }}">{{ site.name }}</option>
+          <option value="{{ site.site_id }}">{{ site.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -227,98 +227,98 @@
 </div>
 
 <script>
-function showAddMemberModal() {
-  document.getElementById('add-member-modal').showModal();
-  loadUsers();
-}
+  function showAddMemberModal() {
+    document.getElementById('add-member-modal').showModal();
+    loadUsers();
+  }
 
-function hideAddMemberModal() {
-  document.getElementById('add-member-modal').close();
-  document.getElementById('add-member-form').reset();
-}
+  function hideAddMemberModal() {
+    document.getElementById('add-member-modal').close();
+    document.getElementById('add-member-form').reset();
+  }
 
-function loadUsers() {
-  fetch('/api/users/')
-    .then(response => response.json())
-    .then(data => {
-      const userSelect = document.getElementById('user-select');
-      userSelect.innerHTML = '<option value="">Select a user...</option>';
+  function loadUsers() {
+    fetch('/api/users/')
+      .then(response => response.json())
+      .then(data => {
+        const userSelect = document.getElementById('user-select');
+        userSelect.innerHTML = '<option value="">Select a user...</option>';
 
-      data.users.forEach(user => {
-        const option = document.createElement('option');
-        option.value = user.id;
-        option.textContent = `${user.first_name} ${user.last_name} (${user.username})`;
-        userSelect.appendChild(option);
+        data.users.forEach(user => {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = `${user.first_name} ${user.last_name} (${user.username})`;
+          userSelect.appendChild(option);
+        });
+      })
+      .catch(error => {
+        console.error('Error loading users:', error);
       });
-    })
-    .catch(error => {
-      console.error('Error loading users:', error);
-    });
-}
+  }
 
-document.getElementById('add-member-form').addEventListener('submit', function(e) {
-  e.preventDefault();
+  document.getElementById('add-member-form').addEventListener('submit', function (e) {
+    e.preventDefault();
 
-  const formData = new FormData(this);
+    const formData = new FormData(this);
 
-  fetch('/api/sharepoint/members/', {
-    method: 'POST',
-    body: formData,
-    headers: {
-      'X-CSRFToken': getCookie('csrftoken')
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      hideAddMemberModal();
-      location.reload();
-    } else {
-      alert(data.error || 'Failed to add member');
-    }
-  })
-  .catch(error => {
-    console.error('Error adding member:', error);
-    alert('Failed to add member');
-  });
-});
-
-function removeMember(memberId) {
-  if (confirm('Are you sure you want to remove this member from the site?')) {
-    fetch(`/api/sharepoint/members/${memberId}/`, {
-      method: 'DELETE',
+    fetch('/api/sharepoint/members/', {
+      method: 'POST',
+      body: formData,
       headers: {
         'X-CSRFToken': getCookie('csrftoken')
       }
     })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        location.reload();
-      } else {
-        alert(data.error || 'Failed to remove member');
-      }
-    })
-    .catch(error => {
-      console.error('Error removing member:', error);
-      alert('Failed to remove member');
-    });
-  }
-}
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          hideAddMemberModal();
+          location.reload();
+        } else {
+          alert(data.error || 'Failed to add member');
+        }
+      })
+      .catch(error => {
+        console.error('Error adding member:', error);
+        alert('Failed to add member');
+      });
+  });
 
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
+  function removeMember(memberId) {
+    if (confirm('Are you sure you want to remove this member from the site?')) {
+      fetch(`/api/sharepoint/members/${memberId}/`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken')
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            location.reload();
+          } else {
+            alert(data.error || 'Failed to remove member');
+          }
+        })
+        .catch(error => {
+          console.error('Error removing member:', error);
+          alert('Failed to remove member');
+        });
     }
   }
-  return cookieValue;
-}
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
 </script>
 {% endblock %}

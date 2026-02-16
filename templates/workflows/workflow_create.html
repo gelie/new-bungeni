@@ -1,0 +1,359 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Workflow - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "circle-plus" class="w-8 h-8" %}
+        Create New Workflow
+      </h1>
+      <p class="text-base-content/70 mt-1">Start a new workflow process</p>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <form method="post" class="space-y-6" id="workflow-create-form">
+        {% csrf_token %}
+
+        <!-- Basic Information -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold flex items-center gap-2">
+            {% lucide "info" class="w-5 h-5" %}
+            Basic Information
+          </h3>
+
+          <!-- Workflow Type -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Workflow Type *</span>
+              <span class="label-text-alt text-base-content/70">Required</span>
+            </label>
+            <select name="workflow_type" id="workflow-type-select" class="select select-bordered w-full" required>
+              <option value="">Select a workflow type...</option>
+              {% for wt in workflow_types %}
+              <option value="{{ wt.pk }}" data-json-schema='{{ wt.json_schema|safe }}'>
+                {{ wt.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Title -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Title *</span>
+              <span class="label-text-alt text-base-content/70">Required</span>
+            </label>
+            <input type="text" name="title" class="input input-bordered w-full" placeholder="Enter workflow title..."
+              required />
+          </div>
+
+          <!-- Description -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Description</span>
+              <span class="label-text-alt text-base-content/70">Optional</span>
+            </label>
+            <textarea name="description" class="textarea textarea-bordered w-full" rows="3"
+              placeholder="Describe the purpose and scope of this workflow..."></textarea>
+          </div>
+
+          <!-- Priority -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Priority</span>
+            </label>
+            <select name="priority" class="select select-bordered w-full">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+
+          <!-- Deadline -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Deadline</span>
+              <span class="label-text-alt text-base-content/70">Optional</span>
+            </label>
+            <input type="datetime-local" name="deadline" class="input input-bordered w-full" />
+          </div>
+        </div>
+
+        <!-- Parent Workflow (if applicable) -->
+        {% if parent_workflow %}
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold flex items-center gap-2">
+            {% lucide "git-branch" class="w-5 h-5" %}
+            Parent Workflow
+          </h3>
+
+          <div class="alert alert-info">
+            <div class="flex items-center gap-2">
+              {% lucide "info" class="w-4 h-4" %}
+              <span>
+                Creating this workflow as a sub-workflow of: <strong>{{ parent_workflow.title }}</strong>
+              </span>
+            </div>
+          </div>
+
+          <input type="hidden" name="parent_workflow" value="{{ parent_workflow.pk }}" />
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Relationship Type *</span>
+              <span class="label-text-alt text-base-content/70">Required for sub-workflows</span>
+            </label>
+            <select name="relationship_type" class="select select-bordered w-full" required>
+              <option value="">Select relationship type...</option>
+              <option value="amendment">Amendment</option>
+              <option value="supplement">Supplement</option>
+              <option value="correction">Correction/Erratum</option>
+            </select>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Dynamic Fields (Optional Fields) -->
+        <div id="dynamic-fields-section" class="space-y-4" style="display: none;">
+          <h3 class="text-lg font-semibold flex items-center gap-2">
+            {% lucide "settings" class="w-5 h-5" %}
+            Additional Information
+          </h3>
+          <p class="text-sm text-base-content/70">Please provide the following information for this workflow type</p>
+
+          <div id="dynamic-fields-container" class="space-y-4">
+            <!-- Dynamic fields will be inserted here -->
+          </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex items-center justify-between pt-6 border-t border-base-300">
+          <a href="{% url 'workflow_list' %}" class="btn btn-ghost">
+            {% lucide "x" class="w-4 h-4" %}
+            Cancel
+          </a>
+          <div class="flex items-center gap-3">
+            <button type="reset" class="btn btn-ghost">
+              {% lucide "refresh-cw" class="w-4 h-4" %}
+              Reset
+            </button>
+            <button type="submit" class="btn btn-primary">
+              {% lucide "check" class="w-4 h-4" %}
+              Create Workflow
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const workflowTypeSelect = document.getElementById('workflow-type-select');
+    const dynamicFieldsSection = document.getElementById('dynamic-fields-section');
+    const dynamicFieldsContainer = document.getElementById('dynamic-fields-container');
+    const form = document.getElementById('workflow-create-form');
+
+    // Hidden input for JSON data
+    const workflowDataInput = document.createElement('input');
+    workflowDataInput.type = 'hidden';
+    workflowDataInput.name = 'workflow_data';
+    workflowDataInput.id = 'workflow-data-input';
+    form.appendChild(workflowDataInput);
+
+    function createFieldElement(fieldName, fieldConfig) {
+      const fieldDiv = document.createElement('div');
+      fieldDiv.className = 'form-control';
+
+      const isRequired = fieldConfig.required ? 'required' : '';
+      const requiredText = fieldConfig.required ? ' *' : '';
+      const requiredLabel = fieldConfig.required ? '<span class="label-text-alt text-error">Required</span>' :
+        '<span class="label-text-alt text-base-content/70">Optional</span>';
+
+      let fieldHtml = '';
+
+      switch (fieldConfig.type) {
+        case 'string':
+          if (fieldConfig.enum) {
+            // Dropdown/select
+            fieldHtml = `
+            <label class="label">
+              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+              ${requiredLabel}
+            </label>
+            <select name="field_${fieldName}" class="select select-bordered w-full" ${isRequired}>
+              <option value="">Select an option...</option>
+              ${fieldConfig.enum.map(option => `<option value="${option}">${option}</option>`).join('')}
+            </select>
+          `;
+          } else if (fieldConfig.title && fieldConfig.title.toLowerCase().includes('email')) {
+            // Email field
+            fieldHtml = `
+            <label class="label">
+              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+              ${requiredLabel}
+            </label>
+            <input type="email" name="field_${fieldName}" class="input input-bordered w-full"
+                   placeholder="Enter email address..." ${isRequired} />
+          `;
+          } else if (fieldConfig.title && (fieldConfig.title.toLowerCase().includes('url') || fieldConfig.title
+              .toLowerCase().includes('link'))) {
+            // URL field
+            fieldHtml = `
+            <label class="label">
+              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+              ${requiredLabel}
+            </label>
+            <input type="url" name="field_${fieldName}" class="input input-bordered w-full"
+                   placeholder="Enter URL..." ${isRequired} />
+          `;
+          } else {
+            // Check if it's a long text field
+            const isLongText = fieldConfig.title && (
+              fieldConfig.title.toLowerCase().includes('description') ||
+              fieldConfig.title.toLowerCase().includes('details') ||
+              fieldConfig.title.toLowerCase().includes('notes')
+            );
+
+            if (isLongText) {
+              fieldHtml = `
+              <label class="label">
+                <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+                ${requiredLabel}
+              </label>
+              <textarea name="field_${fieldName}" class="textarea textarea-bordered w-full" rows="4"
+                        placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired}></textarea>
+            `;
+            } else {
+              fieldHtml = `
+              <label class="label">
+                <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+                ${requiredLabel}
+              </label>
+              <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
+                     placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
+            `;
+            }
+          }
+          break;
+
+        case 'number':
+          fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+            ${requiredLabel}
+          </label>
+          <input type="number" name="field_${fieldName}" class="input input-bordered w-full"
+                 placeholder="Enter number..." ${isRequired} />
+        `;
+          break;
+
+        case 'boolean':
+          fieldHtml = `
+          <label class="label cursor-pointer">
+            <span class="label-text font-medium">${fieldConfig.title}</span>
+            <input type="checkbox" name="field_${fieldName}" class="checkbox checkbox-primary" />
+          </label>
+        `;
+          break;
+
+        default:
+          fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+            ${requiredLabel}
+          </label>
+          <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
+                 placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
+        `;
+      }
+
+      if (fieldConfig.description) {
+        fieldHtml += `
+        <label class="label">
+          <span class="label-text-alt text-base-content/70">${fieldConfig.description}</span>
+        </label>
+      `;
+      }
+
+      fieldDiv.innerHTML = fieldHtml;
+      return fieldDiv;
+    }
+
+    function updateDynamicFields() {
+      const selectedOption = workflowTypeSelect.options[workflowTypeSelect.selectedIndex];
+      const jsonSchema = selectedOption.getAttribute('data-json-schema');
+
+      // Clear existing fields
+      dynamicFieldsContainer.innerHTML = '';
+
+      if (jsonSchema && jsonSchema !== 'null' && jsonSchema !== '{}') {
+        try {
+          const schema = JSON.parse(jsonSchema);
+          const properties = schema.properties || {};
+          const required = schema.required || [];
+
+          // Mark required fields
+          Object.keys(properties).forEach(fieldName => {
+            properties[fieldName].required = required.includes(fieldName);
+          });
+
+          // Create field elements
+          Object.entries(properties).forEach(([fieldName, fieldConfig]) => {
+            const fieldElement = createFieldElement(fieldName, fieldConfig);
+            dynamicFieldsContainer.appendChild(fieldElement);
+          });
+
+          // Show the section
+          dynamicFieldsSection.style.display = 'block';
+
+        } catch (e) {
+          console.error('Error parsing JSON schema:', e);
+          dynamicFieldsSection.style.display = 'none';
+        }
+      } else {
+        // Hide the section if no schema
+        dynamicFieldsSection.style.display = 'none';
+      }
+    }
+
+    // Form submission handler to collect dynamic field data
+    form.addEventListener('submit', function (e) {
+      const workflowData = {};
+      const dynamicFields = dynamicFieldsContainer.querySelectorAll('[name^="field_"]');
+
+      dynamicFields.forEach(field => {
+        const fieldName = field.name.replace('field_', '');
+
+        if (field.type === 'checkbox') {
+          workflowData[fieldName] = field.checked;
+        } else if (field.type === 'number') {
+          workflowData[fieldName] = field.value ? parseFloat(field.value) : null;
+        } else {
+          workflowData[fieldName] = field.value;
+        }
+      });
+
+      workflowDataInput.value = JSON.stringify(workflowData);
+    });
+
+    // Update fields when workflow type changes
+    workflowTypeSelect.addEventListener('change', updateDynamicFields);
+
+    // Initialize with first selection if already selected
+    if (workflowTypeSelect.value) {
+      updateDynamicFields();
+    }
+  });
+</script>
+
+{% endblock %}

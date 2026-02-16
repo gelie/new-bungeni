@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Workflow Transitions - {{ workflow_type.name }} - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "arrow-right-left" class="w-8 h-8" %}
+        Manage Workflow Transitions
+      </h1>
+      <p class="text-base-content/70 mt-1">
+        Configure transitions for workflow type: <strong>{{ workflow_type.name }}</strong>
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{% url 'admin_workflow_type_edit' workflow_type.pk %}" class="btn btn-ghost">
+        {% lucide "arrow-left" class="w-4 h-4" %}
+        Back to Workflow Type
+      </a>
+      <a href="{% url 'admin_workflow_type_states' workflow_type.pk %}" class="btn btn-outline">
+        {% lucide "circle-dot" class="w-4 h-4" %}
+        Manage States
+      </a>
+    </div>
+  </div>
+
+  <!-- Transitions List -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Current Transitions</h3>
+        <button class="btn btn-primary btn-sm" onclick="openAddTransitionModal()">
+          {% lucide "plus" class="w-4 h-4" %}
+          Add Transition
+        </button>
+      </div>
+
+      {% if transitions %}
+      <div class="overflow-x-auto">
+        <table class="table w-full">
+          <thead>
+            <tr class="bg-base-200">
+              <th>Name</th>
+              <th>From State</th>
+              <th>To State</th>
+              <th>Required Roles</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for transition in transitions %}
+            <tr class="hover">
+              <td>
+                <div class="font-semibold">{{ transition.name }}</div>
+                <div class="text-sm text-base-content/70">{{ transition.slug }}</div>
+              </td>
+              <td>
+                <span class="badge badge-outline">{{ transition.from_state.name }}</span>
+              </td>
+              <td>
+                <span class="badge badge-outline">{{ transition.to_state.name }}</span>
+              </td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  {% for role in transition.allowed_roles.all %}
+                  <span class="badge badge-ghost badge-sm">{{ role.name }}</span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <button class="btn btn-ghost btn-sm" onclick="editTransition('{{ transition.pk }}')">
+                    {% lucide "pencil" class="w-4 h-4" %}
+                  </button>
+                  <button class="btn btn-ghost btn-sm text-error" onclick="deleteTransition('{{ transition.pk }}')">
+                    {% lucide "trash-2" class="w-4 h-4" %}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-8 text-base-content/70">
+        {% lucide "arrow-right-left" class="w-12 h-12 mx-auto mb-4 opacity-50" %}
+        <p class="text-lg font-medium mb-2">No transitions configured</p>
+        <p class="text-sm mb-4">Create transitions to define how workflows move between states</p>
+        <button class="btn btn-primary" onclick="openAddTransitionModal()">
+          {% lucide "plus" class="w-4 h-4" %}
+          Add First Transition
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- States Overview -->
+  {% if states %}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h3 class="text-lg font-semibold mb-4">Available States</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for state in states %}
+        <div class="card bg-base-200 border border-base-300">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="font-medium">{{ state.name }}</h4>
+              {% if state.is_initial %}
+              <span class="badge badge-success badge-xs">Initial</span>
+              {% endif %}
+            </div>
+            <p class="text-sm text-base-content/70">{{ state.description|default:"No description" }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Help Section -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h3 class="card-title text-lg flex items-center gap-2">
+        {% lucide "circle-help" class="w-5 h-5" %}
+        About Workflow Transitions
+      </h3>
+
+      <div class="text-sm space-y-3 mt-4">
+        <div>
+          <p class="font-semibold mb-2">What are Workflow Transitions?</p>
+          <p class="text-base-content/70">Transitions define how workflows can move from one state to another. Each
+            transition specifies a source state, destination state, and which roles can execute it.</p>
+        </div>
+
+        <div>
+          <p class="font-semibold mb-2">Required Roles</p>
+          <p class="text-base-content/70">Each transition can specify which user roles are required to execute it. Only
+            users with these roles can perform the transition.</p>
+        </div>
+
+        <div>
+          <p class="font-semibold mb-2">Workflow Flow</p>
+          <p class="text-base-content/70">Transitions create the workflow process flow. By defining which states can
+            transition to others, you control the complete lifecycle of a workflow.</p>
+        </div>
+
+        <div class="divider my-2"></div>
+
+        <p class="text-xs text-base-content/70">
+          <strong>Note:</strong> Make sure you have configured states before creating transitions. Each transition must
+          connect two existing states.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Transition Modal -->
+<div id="transitionModal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg" id="modalTitle">Add Workflow Transition</h3>
+
+    <form id="transitionForm" class="space-y-4 mt-4">
+      <input type="hidden" id="transitionId" name="transitionId">
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-medium">Transition Name *</span>
+        </label>
+        <input type="text" id="transitionName" name="name" class="input input-bordered w-full" required>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">From State *</span>
+          </label>
+          <select id="fromState" name="from_state" class="select select-bordered w-full" required>
+            <option value="">Select state...</option>
+            {% for state in states %}
+            <option value="{{ state.pk }}">{{ state.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">To State *</span>
+          </label>
+          <select id="toState" name="to_state" class="select select-bordered w-full" required>
+            <option value="">Select state...</option>
+            {% for state in states %}
+            <option value="{{ state.pk }}">{{ state.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-medium">Required Roles</span>
+        </label>
+        <div class="space-y-2 max-h-32 overflow-y-auto border border-base-300 rounded-lg p-2">
+          {% if available_roles %}
+          {% for role in available_roles %}
+          <label class="flex items-center gap-2 cursor-pointer hover:bg-base-200 p-1 rounded">
+            <input type="checkbox" name="roles" value="{{ role.pk }}" class="checkbox checkbox-sm">
+            <span class="text-sm">{{ role.name }}</span>
+          </label>
+          {% endfor %}
+          {% else %}
+          <p class="text-sm text-base-content/70 p-2">No roles available. Please configure roles for the workflow type's
+            group.</p>
+          {% endif %}
+        </div>
+        <label class="label">
+          <span class="label-text-alt text-base-content/70">Select roles that can perform this transition</span>
+        </label>
+      </div>
+    </form>
+
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost" onclick="closeTransitionModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveTransition()">Save Transition</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openAddTransitionModal() {
+    document.getElementById('modalTitle').textContent = 'Add Workflow Transition';
+    document.getElementById('transitionForm').reset();
+    document.getElementById('transitionId').value = '';
+    document.getElementById('transitionModal').classList.add('modal-open');
+  }
+
+  function editTransition(transitionId) {
+    // Fetch transition data via AJAX
+    fetch(`/manage/workflow-types/{{ workflow_type.pk }}/transitions/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: `action=get_transition&transition_id=${transitionId}`
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('modalTitle').textContent = 'Edit Workflow Transition';
+          document.getElementById('transitionId').value = data.transition.id;
+          document.getElementById('transitionName').value = data.transition.name;
+          document.getElementById('fromState').value = data.transition.from_state;
+          document.getElementById('toState').value = data.transition.to_state;
+
+          // Clear all role checkboxes first
+          const roleCheckboxes = document.querySelectorAll('input[name="roles"]');
+          roleCheckboxes.forEach(checkbox => checkbox.checked = false);
+
+          // Check the roles that are assigned to this transition
+          data.transition.roles.forEach(roleId => {
+            const checkbox = document.querySelector(`input[name="roles"][value="${roleId}"]`);
+            if (checkbox) {
+              checkbox.checked = true;
+            }
+          });
+
+          document.getElementById('transitionModal').classList.add('modal-open');
+        } else {
+          alert('Error loading transition: ' + data.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading transition data');
+      });
+  }
+
+  function closeTransitionModal() {
+    document.getElementById('transitionModal').classList.remove('modal-open');
+  }
+
+  function saveTransition() {
+    const form = document.getElementById('transitionForm');
+    const formData = new FormData(form);
+    const transitionId = document.getElementById('transitionId').value;
+
+    // Add action to form data
+    const action = transitionId ? 'edit' : 'create';
+    formData.append('action', action);
+
+    // Make sure transition_id is properly set for edit actions
+    if (transitionId) {
+      formData.set('transition_id', transitionId);
+    }
+
+    // Convert FormData to URL-encoded string
+    const urlEncodedData = new URLSearchParams(formData).toString();
+
+    // Debug: Log the data being sent
+    console.log('Saving transition:', Object.fromEntries(formData));
+    console.log('Action:', action);
+    console.log('Transition ID:', transitionId);
+
+    fetch(`/manage/workflow-types/{{ workflow_type.pk }}/transitions/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: urlEncodedData
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+          // Reload the page to show the updated data
+          window.location.reload();
+        } else {
+          alert('Error saving transition: ' + data.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving transition');
+      });
+  }
+
+  function deleteTransition(transitionId) {
+    if (confirm('Are you sure you want to delete this transition? This action cannot be undone.')) {
+      fetch(`/manage/workflow-types/{{ workflow_type.pk }}/transitions/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: `action=delete&transition_id=${transitionId}`
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('Response data:', data);
+          if (data.success) {
+            // Reload the page to show the updated data
+            window.location.reload();
+          } else {
+            alert('Error deleting transition: ' + data.error);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error deleting transition');
+        });
+    }
+  }
+
+  // Helper function to get CSRF token
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+</script>
+
+{% endblock %}

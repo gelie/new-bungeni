@@ -530,10 +530,81 @@ class Command(BaseCommand):
         if role_name in self._role_cache:
             return self._role_cache[role_name]
 
+        # Enhanced role descriptions
+        role_descriptions = {
+            # ICT/Technical Roles
+            "Desktop Technician": "Provides technical support for desktop computers and user workstations",
+            "Website Administrator": "Manages and maintains organizational websites and web applications",
+            "Service Desk Operator": "Handles IT service desk operations and user support requests",
+            "Service Desk Supervisor": "Supervises service desk operations and support team",
+            "ECM Analyst Programmer": "Enterprise Content Management analyst and programmer",
+            "Training Officer": "Conducts training programs and skill development sessions",
+            "Systems Administrator": "Manages server systems and IT infrastructure",
+            "Network Administrator": "Maintains network infrastructure and connectivity",
+            "Database Administrator": "Manages database systems and data integrity",
+            "IT Support Technician": "Provides technical support and troubleshooting",
+            "Software Developer": "Develops and maintains software applications",
+            "Business Analyst": "Analyzes business processes and requirements",
+            "Project Manager": "Manages projects and project teams",
+            # Administrative Roles
+            "Administrative Officer": "Handles administrative tasks and office coordination",
+            "Executive Assistant": "Provides high-level administrative support to executives",
+            "Office Manager": "Manages office operations and administrative staff",
+            "Receptionist": "Handles front desk operations and visitor management",
+            "Personal Assistant": "Provides personal assistance to senior staff",
+            # Finance Roles
+            "Financial Officer": "Manages financial operations and budgeting",
+            "Accountant": "Handles accounting and financial reporting",
+            "Budget Analyst": "Analyzes budget requirements and financial planning",
+            "Financial Controller": "Oversees financial controls and compliance",
+            # HR Roles
+            "HR Officer": "Handles human resources operations and employee relations",
+            "HR Manager": "Manages HR department and strategic HR functions",
+            "Training Coordinator": "Coordinates training programs and development initiatives",
+            "Recruitment Officer": "Handles recruitment and hiring processes",
+            # Legal/Compliance Roles
+            "Legal Advisor": "Provides legal advice and guidance",
+            "Compliance Officer": "Ensures regulatory compliance and risk management",
+            "Parliamentary Counsel": "Provides legal counsel for parliamentary matters",
+            # Communications Roles
+            "Communications Officer": "Manages internal and external communications",
+            "Media Liaison": "Handles media relations and communications",
+            "Public Relations Officer": "Manages public relations and outreach",
+            # Security Roles
+            "Security Officer": "Maintains security and safety protocols",
+            "Protection Officer": "Provides security protection for personnel and facilities",
+            # Management Roles
+            "Director": "Senior management position with strategic responsibilities",
+            "Deputy Director": "Assists director in management and operations",
+            "Manager": "Manages departmental operations and staff",
+            "Team Leader": "Leads team operations and coordinates team activities",
+            "Supervisor": "Supervises staff and operational activities",
+            "Coordinator": "Coordinates activities and resources across teams",
+            # Research/Policy Roles
+            "Researcher": "Conducts research and analysis",
+            "Policy Analyst": "Analyzes and develops policy recommendations",
+            "Advisor": "Provides expert advice and consultation",
+            "Consultant": "Provides specialized consulting services",
+            # Parliamentary Roles
+            "Clerk": "Provides clerical support for parliamentary proceedings",
+            "Table Clerk": "Manages parliamentary table and proceedings documentation",
+            "Committee Clerk": "Provides clerical support for committee operations",
+            "Hansard Reporter": "Records and transcribes parliamentary proceedings",
+            "Interpreter": "Provides interpretation services for parliamentary proceedings",
+            "Translator": "Translates documents and communications",
+            # Facilities/Maintenance
+            "Facilities Manager": "Manages facilities and building operations",
+            "Maintenance Officer": "Handles maintenance and repairs",
+            "Cleaner": "Maintains cleanliness and hygiene of facilities",
+            "Groundskeeper": "Maintains grounds and outdoor facilities",
+        }
+
+        description = role_descriptions.get(role_name, f"Role for {role_name}")
+
         role, created = Role.objects.get_or_create(
             name=role_name,
             defaults={
-                "description": role_name,
+                "description": description,
             },
         )
         if created:
@@ -1019,6 +1090,75 @@ class Command(BaseCommand):
         target_group = None
         role = None
 
+        # Comprehensive position to role mapping
+        position_to_role_mapping = {
+            # ICT/Technical Roles
+            "Desktop Technician": "Desktop Technician",
+            "Website Administrator": "Website Administrator",
+            "Service Desk Operator": "Service Desk Operator",
+            "Service Desk Supervisor": "Service Desk Supervisor",
+            "ECM Analyst Programmer": "ECM Analyst Programmer",
+            "Training Officer": "Training Officer",
+            "Systems Administrator": "Systems Administrator",
+            "Network Administrator": "Network Administrator",
+            "Database Administrator": "Database Administrator",
+            "IT Support Technician": "IT Support Technician",
+            "Software Developer": "Software Developer",
+            "Business Analyst": "Business Analyst",
+            "Project Manager": "Project Manager",
+            # Administrative Roles
+            "Administrative Officer": "Administrative Officer",
+            "Executive Assistant": "Executive Assistant",
+            "Office Manager": "Office Manager",
+            "Receptionist": "Receptionist",
+            "Personal Assistant": "Personal Assistant",
+            # Finance Roles
+            "Financial Officer": "Financial Officer",
+            "Accountant": "Accountant",
+            "Budget Analyst": "Budget Analyst",
+            "Financial Controller": "Financial Controller",
+            # HR Roles
+            "HR Officer": "HR Officer",
+            "HR Manager": "HR Manager",
+            "Training Coordinator": "Training Coordinator",
+            "Recruitment Officer": "Recruitment Officer",
+            # Legal/Compliance Roles
+            "Legal Advisor": "Legal Advisor",
+            "Compliance Officer": "Compliance Officer",
+            "Parliamentary Counsel": "Parliamentary Counsel",
+            # Communications Roles
+            "Communications Officer": "Communications Officer",
+            "Media Liaison": "Media Liaison",
+            "Public Relations Officer": "Public Relations Officer",
+            # Security Roles
+            "Security Officer": "Security Officer",
+            "Protection Officer": "Protection Officer",
+            # Management Roles
+            "Director": "Director",
+            "Deputy Director": "Deputy Director",
+            "Manager": "Manager",
+            "Team Leader": "Team Leader",
+            "Supervisor": "Supervisor",
+            "Coordinator": "Coordinator",
+            # Research/Policy Roles
+            "Researcher": "Researcher",
+            "Policy Analyst": "Policy Analyst",
+            "Advisor": "Advisor",
+            "Consultant": "Consultant",
+            # Parliamentary Roles
+            "Clerk": "Clerk",
+            "Table Clerk": "Table Clerk",
+            "Committee Clerk": "Committee Clerk",
+            "Hansard Reporter": "Hansard Reporter",
+            "Interpreter": "Interpreter",
+            "Translator": "Translator",
+            # Facilities/Maintenance
+            "Facilities Manager": "Facilities Manager",
+            "Maintenance Officer": "Maintenance Officer",
+            "Cleaner": "Cleaner",
+            "Groundskeeper": "Groundskeeper",
+        }
+
         if employeetype == "Member":
             # Determine house based on position description
             member_house = (
@@ -1040,9 +1180,36 @@ class Command(BaseCommand):
                 role = roles["mp"]
                 self.stats["warnings"] += 1
         else:
-            # Staff member
+            # Staff member - use enhanced role mapping
             target_group = groups["staff_group"]
-            role = roles["staff"]
+
+            # Try to find specific role based on position description
+            normalized_position = positiondesc.strip().title()
+            specific_role_name = position_to_role_mapping.get(normalized_position)
+
+            if specific_role_name:
+                # Create or get the specific role
+                role = self.ensure_role_exists(specific_role_name)
+                self.logger.info(
+                    f"🎯 Mapped position '{positiondesc}' to specific role '{specific_role_name}' for {user.username}"
+                )
+            else:
+                # Use generic staff role for unmapped positions
+                role = roles["staff"]
+                self.logger.info(
+                    f"📝 Using generic staff role for unmapped position '{positiondesc}' for {user.username}"
+                )
+                # Log unmapped positions for future reference
+                if positiondesc.strip() and positiondesc.strip() not in getattr(
+                    self, "_unmapped_positions", set()
+                ):
+                    self._unmapped_positions = getattr(
+                        self, "_unmapped_positions", set()
+                    )
+                    self._unmapped_positions.add(positiondesc.strip())
+                    self.logger.info(
+                        f"🔍 Unmapped position detected: '{positiondesc}' - consider adding to role mapping"
+                    )
 
         if target_group and role:
             # Check if membership already exists using prefetched cache
@@ -1257,16 +1424,47 @@ class Command(BaseCommand):
             self.logger.info(f"   • Users deactivated: {self.stats['disabled_users']}")
             self.logger.info(f"   • New memberships: {self.stats['new_memberships']}")
             self.logger.info(
-                f"   • Updated memberships: {self.stats['updated_memberships']}"
+                f"   • Memberships updated: {self.stats['updated_memberships']}"
             )
             self.logger.info(
-                f"   • Deactivated memberships: {self.stats['deactivated_memberships']}"
+                f"   • Memberships deactivated: {self.stats['deactivated_memberships']}"
             )
             self.logger.info(f"   • New roles created: {self.stats['new_roles']}")
             self.logger.info(f"   • New groups created: {self.stats['new_groups']}")
-            self.logger.info(
-                f"   • Fixed password hashes: {self.stats['fixed_passwords']}"
-            )
+            self.logger.info(f"   • Errors: {self.stats['errors']}")
+            self.logger.info(f"   • Warnings: {self.stats['warnings']}")
+
+            # Report unmapped positions for future reference
+            unmapped_positions = getattr(self, "_unmapped_positions", set())
+            if unmapped_positions:
+                self.logger.info("")
+                self.logger.info("🔍 UNMAPPED POSITIONS DETECTED:")
+                self.logger.info(
+                    "   Consider adding these positions to the role mapping:"
+                )
+                for position in sorted(unmapped_positions):
+                    self.logger.info(f"   • '{position}'")
+                self.logger.info("")
+                self.logger.info(
+                    "💡 To add these positions, update the position_to_role_mapping"
+                )
+                self.logger.info(
+                    "   dictionary in the handle_group_memberships method."
+                )
+            else:
+                self.logger.info("")
+                self.logger.info("✅ All positions were successfully mapped to roles!")
+
+            self.logger.info("")
+            self.logger.info("⏱️  Performance Metrics:")
+            if self.stats["start_time"] and self.stats["end_time"]:
+                duration = self.stats["end_time"] - self.stats["start_time"]
+                self.logger.info(f"   • Total duration: {duration:.2f} seconds")
+                self.logger.info(
+                    f"   • Users per second: {self.stats['oracle_users_fetched'] / max(duration, 0.001):.1f}"
+                )
+
+            self.logger.info("=" * 60)
             self.logger.info("")
             self.logger.info("⚠️  Issues:")
             self.logger.info(f"   • Errors encountered: {self.stats['errors']}")

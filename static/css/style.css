@@ -71,6 +71,17 @@ body {
     color: white;
 }
 
+.navbar {
+    /* background-color: #b3995d; */
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url("/static/assets/BGs3_top_header.png");
+    background-blend-mode: screen;
+    /* padding: 8px 0; */
+    z-index: 1;
+}
+
 .btn-primary {
     background: var(--parliament-green);
     border-color: var(--parliament-green);
@@ -138,4 +149,5 @@ body {
     /* background-color: var(--parliament-green) !important; */
     color: var(--parliament-white) !important;
 }
+
 /* This will be handled by JavaScript to set dynamic background colors */

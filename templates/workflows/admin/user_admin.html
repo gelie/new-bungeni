@@ -36,16 +36,18 @@
           <div class="input-group flex items-center gap-2">
             <span class="bg-base-200">
               {% lucide "search" class="w-5 h-5" %}
-              </span>
-              <input type="text" name="search" placeholder="Search users by name, username, email, constituency, or party..."
-                   value="{{ request.GET.search }}" class="input input-bordered flex-grow" />
-                      </div>
+            </span>
+            <input type="text" name="search"
+              placeholder="Search users by name, username, email, constituency, or party..."
+              value="{{ request.GET.search }}" class="input input-bordered flex-grow" />
+          </div>
         </div>
 
         <select name="employee_type" class="select select-bordered w-48">
           <option value="">All Employee Types</option>
           {% for value, label in employee_types %}
-          <option value="{{ value }}" {% if request.GET.employee_type == value %}selected{% endif %}>{{ label }}</option>
+          <option value="{{ value }}" {% if request.GET.employee_type == value %}selected{% endif %}>{{ label }}
+          </option>
           {% endfor %}
         </select>
 
@@ -84,7 +86,7 @@
               <td>
                 <div class="flex items-center gap-3">
                   <div class="avatar placeholder">
-                    <div class="bg-primary text-primary-content rounded-full w-10">
+                    <div class="flex items-center justify-center bg-primary text-primary-content rounded-full w-10 ">
                       <span class="text-sm">{{ user.first_name.0 }}{{ user.last_name.0 }}</span>
                     </div>
                   </div>

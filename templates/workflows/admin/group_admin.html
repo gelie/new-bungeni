@@ -38,14 +38,15 @@
               {% lucide "search" class="w-5 h-5" %}
             </span>
             <input type="text" name="search" placeholder="Search groups by name or description..."
-                   value="{{ request.GET.search }}" class="input input-bordered w-full" />
+              value="{{ request.GET.search }}" class="input input-bordered w-full" />
           </div>
         </div>
 
         <select name="group_type" class="select select-bordered w-48">
           <option value="">All Group Types</option>
           <option value="committee" {% if request.GET.group_type == 'committee' %}selected{% endif %}>Committee</option>
-          <option value="department" {% if request.GET.group_type == 'department' %}selected{% endif %}>Department</option>
+          <option value="department" {% if request.GET.group_type == 'department' %}selected{% endif %}>Department
+          </option>
           <option value="assembly" {% if request.GET.group_type == 'assembly' %}selected{% endif %}>Assembly</option>
         </select>
 
@@ -74,18 +75,20 @@
           </thead>
           <tbody>
             {% for group in groups %}
-            <tr class="hover">
+            <tr class="hover cursor-pointer" data-url="{% url 'group_detail' group.pk %}"
+              onclick="window.location.href=this.dataset.url">
               <td>
                 <div class="flex items-center gap-3">
                   <div class="avatar placeholder">
-                    <div class="bg-primary text-primary-content rounded-lg w-10">
+                    <div class="flex items-center justify-center bg-primary text-primary-content rounded-lg w-10">
                       {% lucide "users" class="w-5 h-5" %}
                     </div>
                   </div>
                   <div>
                     <div class="font-semibold">{{ group.name }}</div>
                     {% if group.description %}
-                    <div class="text-sm text-base-content/70 truncate max-w-xs">{{ group.description|truncatewords:10 }}</div>
+                    <div class="text-sm text-base-content/70 truncate max-w-xs">{{ group.description|truncatewords:10 }}
+                    </div>
                     {% endif %}
                   </div>
                 </div>
@@ -117,10 +120,7 @@
                 </div>
               </td>
               <td>
-                <div class="flex gap-2">
-                  <button class="btn btn-ghost btn-sm btn-square" title="View">
-                    {% lucide "eye" class="w-4 h-4" %}
-                  </button>
+                <div class="flex gap-2" onclick="event.stopPropagation()">
                   <button class="btn btn-ghost btn-sm btn-square" title="Edit">
                     {% lucide "pencil" class="w-4 h-4" %}
                   </button>
