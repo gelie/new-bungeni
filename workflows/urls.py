@@ -35,8 +35,19 @@ urlpatterns = [
     # Groups
     path("groups/", views.group_list, name="group_list"),
     path("groups/<int:pk>/", views.group_detail, name="group_detail"),
+    # Notifications
+    path("notifications/", views.notifications_json, name="notifications_json"),
+    path(
+        "notifications/mark-read/",
+        views.notifications_mark_read,
+        name="notifications_mark_read",
+    ),
     # Reports
     path("reports/", views.reports, name="reports"),
+    path("reports/export/csv/", views.reports_export_csv, name="reports_export_csv"),
+    path(
+        "reports/export/excel/", views.reports_export_excel, name="reports_export_excel"
+    ),
     # SharePoint API endpoints
     path("api/sharepoint/sites/", views.sharepoint_sites, name="sharepoint_sites"),
     path("api/sharepoint/test/", views.sharepoint_test, name="sharepoint_test"),

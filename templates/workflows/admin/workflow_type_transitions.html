@@ -47,6 +47,7 @@
               <th>From State</th>
               <th>To State</th>
               <th>Required Roles</th>
+              <th>Notify Roles</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -67,6 +68,15 @@
                 <div class="flex flex-wrap gap-1">
                   {% for role in transition.allowed_roles.all %}
                   <span class="badge badge-ghost badge-sm">{{ role.name }}</span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  {% for role in transition.notify_roles.all %}
+                  <span class="badge badge-info badge-sm">{{ role.name }}</span>
+                  {% empty %}
+                  <span class="text-xs text-base-content/40">—</span>
                   {% endfor %}
                 </div>
               </td>
@@ -223,6 +233,30 @@
           <span class="label-text-alt text-base-content/70">Select roles that can perform this transition</span>
         </label>
       </div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-medium flex items-center gap-1">
+            {% lucide "bell" class="w-4 h-4" %}
+            Email Alert Roles
+          </span>
+        </label>
+        <div class="space-y-2 max-h-32 overflow-y-auto border border-base-300 rounded-lg p-2">
+          {% if available_roles %}
+          {% for role in available_roles %}
+          <label class="flex items-center gap-2 cursor-pointer hover:bg-base-200 p-1 rounded">
+            <input type="checkbox" name="notify_roles" value="{{ role.pk }}" class="checkbox checkbox-sm checkbox-info">
+            <span class="text-sm">{{ role.name }}</span>
+          </label>
+          {% endfor %}
+          {% else %}
+          <p class="text-sm text-base-content/70 p-2">No roles available.</p>
+          {% endif %}
+        </div>
+        <label class="label">
+          <span class="label-text-alt text-base-content/70">Members with these roles will receive an email when this transition occurs</span>
+        </label>
+      </div>
     </form>
 
     <div class="modal-action">
@@ -260,15 +294,19 @@
           document.getElementById('toState').value = data.transition.to_state;
 
           // Clear all role checkboxes first
-          const roleCheckboxes = document.querySelectorAll('input[name="roles"]');
-          roleCheckboxes.forEach(checkbox => checkbox.checked = false);
+          document.querySelectorAll('input[name="roles"]').forEach(cb => cb.checked = false);
+          document.querySelectorAll('input[name="notify_roles"]').forEach(cb => cb.checked = false);
 
           // Check the roles that are assigned to this transition
           data.transition.roles.forEach(roleId => {
             const checkbox = document.querySelector(`input[name="roles"][value="${roleId}"]`);
-            if (checkbox) {
-              checkbox.checked = true;
-            }
+            if (checkbox) checkbox.checked = true;
+          });
+
+          // Check the notify_roles
+          (data.transition.notify_roles || []).forEach(roleId => {
+            const checkbox = document.querySelector(`input[name="notify_roles"][value="${roleId}"]`);
+            if (checkbox) checkbox.checked = true;
           });
 
           document.getElementById('transitionModal').classList.add('modal-open');

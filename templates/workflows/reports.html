@@ -16,15 +16,15 @@
                 Export
             </label>
             <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
-                <li><a>
-                        {% lucide "file-text" class="w-4 h-4" %} Export as PDF
-                    </a></li>
-                <li><a>
-                        {% lucide "table" class="w-4 h-4" %} Export as Excel
-                    </a></li>
-                <li><a>
-                        {% lucide "file-json" class="w-4 h-4" %} Export as CSV
-                    </a></li>
+                <li><a onclick="window.print(); return false;" href="#">
+                    {% lucide "file-text" class="w-4 h-4" %} Export as PDF
+                </a></li>
+                <li><a href="{% url 'reports_export_excel' %}">
+                    {% lucide "table" class="w-4 h-4" %} Export as Excel
+                </a></li>
+                <li><a href="{% url 'reports_export_csv' %}">
+                    {% lucide "file" class="w-4 h-4" %} Export as CSV
+                </a></li>
             </ul>
         </div>
     </div>

@@ -7,7 +7,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -21,6 +21,7 @@ from .models import (
     EventType,
     Group,
     GroupMembership,
+    Notification,
     Role,
     SharePointFolder,
     SharePointToken,
@@ -500,15 +501,67 @@ def workflow_edit(request, pk):
     except (json.JSONDecodeError, ValueError):
         workflow_data = {}
 
+    # Capture old values before saving for notification diffing
+    old_assigned_to = workflow.assigned_to
+    old_referred_to = workflow.referred_to
+
+    assigned_to_id = request.POST.get("assigned_to") or None
+    referred_to_id = request.POST.get("referred_to") or None
+
+    new_assigned_to = None
+    if assigned_to_id:
+        try:
+            new_assigned_to = User.objects.get(pk=assigned_to_id)
+        except User.DoesNotExist:
+            pass
+
+    new_referred_to = None
+    if referred_to_id:
+        try:
+            new_referred_to = Group.objects.get(pk=referred_to_id)
+        except Group.DoesNotExist:
+            pass
+
     # Update workflow
     workflow.workflow_type = workflow_type
     workflow.title = title
     workflow.description = description
     workflow.priority = priority
     workflow.data = workflow_data
+    workflow.assigned_to = new_assigned_to
+    workflow.referred_to = new_referred_to
     if deadline:
         workflow.deadline = deadline
     workflow.save()
+
+    actor = request.user.get_full_name() or request.user.username
+
+    # Notify newly assigned user
+    if new_assigned_to and new_assigned_to != old_assigned_to:
+        _create_notification(
+            user=new_assigned_to,
+            verb=Notification.VERB_ASSIGNED,
+            title=f"Workflow assigned to you: '{workflow.title}'",
+            message=f"{actor} assigned '{workflow.title}' to you.",
+            workflow=workflow,
+        )
+
+    # Notify members of newly referred-to group
+    if new_referred_to and new_referred_to != old_referred_to:
+        referred_roles = (
+            new_referred_to.members.filter(is_active=True)
+            .values_list("role", flat=True)
+            .distinct()
+        )
+        _notify_group_members(
+            group=new_referred_to,
+            roles=referred_roles,
+            verb=Notification.VERB_REFERRED,
+            title=f"Workflow referred to your group: '{workflow.title}'",
+            message=f"{actor} referred '{workflow.title}' to {new_referred_to.name}.",
+            workflow=workflow,
+            exclude_user=request.user,
+        )
 
     messages.success(request, f"Workflow updated: {workflow.title}")
     return redirect("workflow_detail", pk=workflow.pk)
@@ -536,11 +589,13 @@ def workflow_transition(request, pk, transition_id):
             messages.error(request, "A comment is required for this transition.")
             return redirect("workflow_detail", pk=pk)
 
+        from_state = workflow.current_state
+
         # Log the transition
         WorkflowTransitionLog.objects.create(
             workflow=workflow,
             transition=transition,
-            from_state=workflow.current_state,
+            from_state=from_state,
             to_state=transition.to_state,
             user=request.user,
             comment=comment,
@@ -549,6 +604,80 @@ def workflow_transition(request, pk, transition_id):
         # Update workflow state
         workflow.current_state = transition.to_state
         workflow.save()
+
+        # Always notify the workflow owner (unless they triggered it)
+        if workflow.owner != request.user:
+            _create_notification(
+                user=workflow.owner,
+                verb=Notification.VERB_TRANSITION,
+                title=f"{workflow.workflow_type.name}: '{workflow.title}' → {transition.to_state.name}",
+                message=(
+                    f"{request.user.get_full_name() or request.user.username} moved "
+                    f"'{workflow.title}' from {from_state.name} to {transition.to_state.name}."
+                ),
+                workflow=workflow,
+            )
+
+        # Also notify assigned user if different from owner and actor
+        if workflow.assigned_to and workflow.assigned_to not in (
+            workflow.owner,
+            request.user,
+        ):
+            _create_notification(
+                user=workflow.assigned_to,
+                verb=Notification.VERB_TRANSITION,
+                title=f"{workflow.workflow_type.name}: '{workflow.title}' → {transition.to_state.name}",
+                message=(
+                    f"{request.user.get_full_name() or request.user.username} moved "
+                    f"'{workflow.title}' from {from_state.name} to {transition.to_state.name}."
+                ),
+                workflow=workflow,
+            )
+
+        # Enqueue email alerts + in-app notifications for notify_roles members
+        notify_roles = transition.notify_roles.all()
+        if notify_roles.exists():
+            from .tasks import send_transition_alert
+
+            group = workflow.workflow_type.group
+            recipient_emails = list(
+                group.members.filter(role__in=notify_roles, is_active=True)
+                .exclude(user__email="")
+                .values_list("user__email", flat=True)
+                .distinct()
+            )
+
+            site_url = f"{request.scheme}://{request.get_host()}"
+            triggered_by = request.user.get_full_name() or request.user.username
+
+            send_transition_alert.enqueue(
+                workflow_id=workflow.pk,
+                workflow_title=workflow.title,
+                workflow_type_name=workflow.workflow_type.name,
+                transition_name=transition.name,
+                from_state_name=from_state.name,
+                to_state_name=transition.to_state.name,
+                triggered_by=triggered_by,
+                recipient_emails=recipient_emails,
+                site_url=site_url,
+            )
+
+            # In-app notifications for the same notify_roles members
+            notif_title = f"{workflow.workflow_type.name}: '{workflow.title}' → {transition.to_state.name}"
+            notif_message = (
+                f"{triggered_by} moved '{workflow.title}' from "
+                f"{from_state.name} to {transition.to_state.name} "
+                f"via '{transition.name}'."
+            )
+            _notify_group_members(
+                group=group,
+                roles=notify_roles,
+                verb=Notification.VERB_TRANSITION,
+                title=notif_title,
+                message=notif_message,
+                workflow=workflow,
+                exclude_user=request.user,
+            )
 
         messages.success(
             request, f"Workflow transitioned to {transition.to_state.name}"
@@ -781,6 +910,294 @@ def reports(request):
     return render(request, "workflows/reports.html", context)
 
 
+@login_required
+def reports_export_csv(request):
+    """Export workflow report data as CSV"""
+    import csv
+
+    user = request.user
+    user_groups = user.memberships.filter(is_active=True).values_list(
+        "group", flat=True
+    )
+    workflows = Workflow.objects.filter(
+        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+    ).select_related("workflow_type", "current_state", "owner")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="workflows_report.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            "ID",
+            "Title",
+            "Type",
+            "State",
+            "Priority",
+            "Owner",
+            "Group",
+            "Created",
+            "Deadline",
+            "Overdue",
+        ]
+    )
+
+    now = timezone.now()
+    for wf in workflows:
+        is_overdue = (
+            wf.deadline and wf.deadline < now and not wf.current_state.is_terminal
+        )
+        writer.writerow(
+            [
+                wf.pk,
+                wf.title,
+                wf.workflow_type.name,
+                wf.current_state.name,
+                wf.get_priority_display()
+                if hasattr(wf, "get_priority_display")
+                else wf.priority,
+                wf.owner.get_full_name() or wf.owner.username,
+                wf.workflow_type.group.name,
+                wf.created_at.strftime("%Y-%m-%d %H:%M"),
+                wf.deadline.strftime("%Y-%m-%d %H:%M") if wf.deadline else "",
+                "Yes" if is_overdue else "No",
+            ]
+        )
+
+    return response
+
+
+@login_required
+def reports_export_excel(request):
+    """Export workflow report data as Excel (.xlsx)"""
+    import io
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    user = request.user
+    user_groups = user.memberships.filter(is_active=True).values_list(
+        "group", flat=True
+    )
+    workflows = Workflow.objects.filter(
+        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+    ).select_related("workflow_type", "current_state", "owner")
+
+    wb = Workbook()
+
+    # ── Summary sheet ──────────────────────────────────────────────────────────
+    ws_summary = wb.active
+    ws_summary.title = "Summary"
+
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(
+        start_color="1F4E79", end_color="1F4E79", fill_type="solid"
+    )
+
+    now = timezone.now()
+    total = workflows.count()
+    active = workflows.filter(current_state__is_terminal=False).count()
+    completed = workflows.filter(current_state__is_terminal=True).count()
+    overdue = workflows.filter(
+        deadline__lt=now, current_state__is_terminal=False
+    ).count()
+
+    summary_rows = [
+        ["Metric", "Value"],
+        ["Total Workflows", total],
+        ["Active", active],
+        ["Completed", completed],
+        ["Overdue", overdue],
+        ["Report Generated", now.strftime("%Y-%m-%d %H:%M")],
+    ]
+    for row in summary_rows:
+        ws_summary.append(row)
+
+    for cell in ws_summary[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    ws_summary.column_dimensions["A"].width = 25
+    ws_summary.column_dimensions["B"].width = 20
+
+    # ── Workflows sheet ────────────────────────────────────────────────────────
+    ws = wb.create_sheet("Workflows")
+    headers = [
+        "ID",
+        "Title",
+        "Type",
+        "State",
+        "Priority",
+        "Owner",
+        "Group",
+        "Created",
+        "Deadline",
+        "Overdue",
+    ]
+    ws.append(headers)
+
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    for wf in workflows:
+        is_overdue = (
+            wf.deadline and wf.deadline < now and not wf.current_state.is_terminal
+        )
+        ws.append(
+            [
+                wf.pk,
+                wf.title,
+                wf.workflow_type.name,
+                wf.current_state.name,
+                wf.priority.capitalize(),
+                wf.owner.get_full_name() or wf.owner.username,
+                wf.workflow_type.group.name,
+                wf.created_at.replace(tzinfo=None),
+                wf.deadline.replace(tzinfo=None) if wf.deadline else "",
+                "Yes" if is_overdue else "No",
+            ]
+        )
+
+    # Auto-width columns
+    for col_idx, _ in enumerate(headers, 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = max(
+            (
+                len(str(ws.cell(row=r, column=col_idx).value or ""))
+                for r in range(1, ws.max_row + 1)
+            ),
+            default=10,
+        )
+        ws.column_dimensions[col_letter].width = min(max_len + 4, 50)
+
+    # ── By Type sheet ──────────────────────────────────────────────────────────
+    ws_type = wb.create_sheet("By Type")
+    ws_type.append(["Workflow Type", "Count"])
+    for cell in ws_type[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+    by_type = (
+        workflows.values("workflow_type__name")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    for row in by_type:
+        ws_type.append([row["workflow_type__name"], row["count"]])
+    ws_type.column_dimensions["A"].width = 30
+    ws_type.column_dimensions["B"].width = 10
+
+    # ── By State sheet ─────────────────────────────────────────────────────────
+    ws_state = wb.create_sheet("By State")
+    ws_state.append(["State", "Count"])
+    for cell in ws_state[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+    by_state = (
+        workflows.values("current_state__name")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    for row in by_state:
+        ws_state.append([row["current_state__name"], row["count"]])
+    ws_state.column_dimensions["A"].width = 30
+    ws_state.column_dimensions["B"].width = 10
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="workflows_report.xlsx"'
+    return response
+
+
+# ============================================================================
+# NOTIFICATION VIEWS
+# ============================================================================
+
+
+def _create_notification(user, verb, title, message, workflow=None):
+    """Create a single in-app notification for a user."""
+    Notification.objects.create(
+        user=user,
+        verb=verb,
+        title=title,
+        message=message,
+        workflow=workflow,
+    )
+
+
+def _notify_group_members(
+    group, roles, verb, title, message, workflow=None, exclude_user=None
+):
+    """
+    Create notifications for all active group members whose role is in `roles`.
+    Optionally exclude the user who triggered the action.
+    """
+    qs = group.members.filter(role__in=roles, is_active=True).select_related("user")
+    if exclude_user:
+        qs = qs.exclude(user=exclude_user)
+    seen = set()
+    for membership in qs:
+        if membership.user_id not in seen:
+            seen.add(membership.user_id)
+            _create_notification(membership.user, verb, title, message, workflow)
+
+
+def notifications_json(request):
+    """Return the current user's unread notifications as JSON for the navbar."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"unread_count": 0, "notifications": []}, status=200)
+    try:
+        notifs = (
+            Notification.objects.filter(user=request.user)
+            .select_related("workflow")
+            .order_by("-created_at")[:30]
+        )
+        unread_count = Notification.objects.filter(
+            user=request.user, is_read=False
+        ).count()
+
+        data = [
+            {
+                "id": n.pk,
+                "verb": n.verb,
+                "title": n.title,
+                "message": n.message,
+                "is_read": n.is_read,
+                "created_at": n.created_at.isoformat(),
+                "workflow_id": n.workflow_id,
+                "workflow_title": n.workflow.title if n.workflow else None,
+            }
+            for n in notifs
+        ]
+        return JsonResponse({"unread_count": unread_count, "notifications": data})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_http_methods(["POST"])
+def notifications_mark_read(request):
+    """Mark one or all notifications as read."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False}, status=200)
+    notif_id = request.POST.get("id")
+    if notif_id:
+        Notification.objects.filter(user=request.user, pk=notif_id).update(is_read=True)
+    else:
+        Notification.objects.filter(user=request.user, is_read=False).update(
+            is_read=True
+        )
+    return JsonResponse({"ok": True})
+
+
 # ============================================================================
 # SHAREPOINT API VIEWS
 # ============================================================================
@@ -835,7 +1252,7 @@ def sharepoint_sites(request):
         sites_data = loop.run_until_complete(get_all_sites(token_data))
         loop.close()
 
-        print("Sites data received:", sites_data)
+        # print("Sites data received:", sites_data)
 
         # Get site IDs where current user is a member
         user_member_sites = SiteMember.objects.filter(user=request.user).values_list(
@@ -2090,8 +2507,11 @@ def workflow_type_transitions(request, pk):
 
                 # Add allowed roles
                 if role_ids:
-                    roles = Role.objects.filter(id__in=role_ids)
-                    transition.allowed_roles.set(roles)
+                    transition.allowed_roles.set(Role.objects.filter(id__in=role_ids))
+
+                # Add notify roles
+                notify_role_ids = request.POST.getlist("notify_roles")
+                transition.notify_roles.set(Role.objects.filter(id__in=notify_role_ids))
 
                 return JsonResponse(
                     {
@@ -2101,8 +2521,9 @@ def workflow_type_transitions(request, pk):
                             "name": transition.name,
                             "from_state": transition.from_state.name,
                             "to_state": transition.to_state.name,
-                            "roles": [
-                                role.name for role in transition.allowed_roles.all()
+                            "roles": [r.name for r in transition.allowed_roles.all()],
+                            "notify_roles": [
+                                r.name for r in transition.notify_roles.all()
                             ],
                         },
                     }
@@ -2122,8 +2543,9 @@ def workflow_type_transitions(request, pk):
                             "name": transition.name,
                             "from_state": transition.from_state.pk,
                             "to_state": transition.to_state.pk,
-                            "roles": [
-                                role.pk for role in transition.allowed_roles.all()
+                            "roles": [r.pk for r in transition.allowed_roles.all()],
+                            "notify_roles": [
+                                r.pk for r in transition.notify_roles.all()
                             ],
                         },
                     }
@@ -2174,11 +2596,11 @@ def workflow_type_transitions(request, pk):
                 transition.save()
 
                 # Update allowed roles
-                if role_ids:
-                    roles = Role.objects.filter(id__in=role_ids)
-                    transition.allowed_roles.set(roles)
-                else:
-                    transition.allowed_roles.clear()
+                transition.allowed_roles.set(Role.objects.filter(id__in=role_ids))
+
+                # Update notify roles
+                notify_role_ids = request.POST.getlist("notify_roles")
+                transition.notify_roles.set(Role.objects.filter(id__in=notify_role_ids))
 
                 return JsonResponse(
                     {
@@ -2188,8 +2610,9 @@ def workflow_type_transitions(request, pk):
                             "name": transition.name,
                             "from_state": transition.from_state.name,
                             "to_state": transition.to_state.name,
-                            "roles": [
-                                role.name for role in transition.allowed_roles.all()
+                            "roles": [r.name for r in transition.allowed_roles.all()],
+                            "notify_roles": [
+                                r.name for r in transition.notify_roles.all()
                             ],
                         },
                     }

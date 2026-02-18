@@ -138,7 +138,7 @@ class TransitionAdmin(admin.ModelAdmin):
     ]
     list_filter = ["workflow_type", "requires_comment"]
     search_fields = ["name"]
-    filter_horizontal = ["allowed_roles"]
+    filter_horizontal = ["allowed_roles", "notify_roles"]
     autocomplete_fields = ["from_state", "to_state"]
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):

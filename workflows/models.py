@@ -457,6 +457,14 @@ class Transition(models.Model):
     # Permissions
     allowed_roles = models.ManyToManyField(Role, related_name="allowed_transitions")
 
+    # Email alert roles - members with these roles will be notified on this transition
+    notify_roles = models.ManyToManyField(
+        Role,
+        related_name="notified_transitions",
+        blank=True,
+        help_text="Group members with these roles will receive an email alert when this transition occurs",
+    )
+
     # Transition properties
     requires_comment = models.BooleanField(default=False)  # type: ignore
     order = models.IntegerField(default=0)  # type: ignore
@@ -1078,14 +1086,38 @@ class Notification(models.Model):
     Notifications for users about workflow changes, deadlines, etc.
     """
 
+    VERB_TRANSITION = "transition"
+    VERB_ASSIGNED = "assigned"
+    VERB_REFERRED = "referred"
+    VERB_COMMENT = "comment"
+
+    VERB_CHOICES = [
+        (VERB_TRANSITION, "Transition"),
+        (VERB_ASSIGNED, "Assigned"),
+        (VERB_REFERRED, "Referred"),
+        (VERB_COMMENT, "Comment"),
+    ]
+
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="notifications"
     )
 
+    verb = models.CharField(
+        max_length=20, choices=VERB_CHOICES, default=VERB_TRANSITION
+    )
     title = models.CharField(max_length=255)
     message = models.TextField()
 
-    # Link to related object
+    # Direct link to the related workflow
+    workflow = models.ForeignKey(
+        "Workflow",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
+
+    # Generic FK kept for backward compatibility / other object types
     content_type = models.ForeignKey(
         ContentType, on_delete=models.CASCADE, null=True, blank=True
     )
@@ -1097,6 +1129,9 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_read"]),
+        ]
 
     def __str__(self):
         return f"Notification for {self.user}: {self.title}"

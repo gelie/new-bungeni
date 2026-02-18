@@ -32,24 +32,135 @@
     {% if user.is_authenticated %}
 
     <!-- Notifications -->
-    <div class="dropdown dropdown-end">
-      <label tabindex="0" class="btn btn-ghost btn-circle">
+    <div class="dropdown dropdown-end" id="notif-dropdown">
+      <label tabindex="0" class="btn btn-ghost btn-circle" onclick="loadNotifications()">
         <div class="indicator">
-          <span>{% lucide "bell" class="w-5 h-5" %}</span>
-          <span class="badge badge-xs badge-error indicator-item">3</span>
+          {% lucide "bell" class="w-5 h-5" %}
+          <span id="notif-badge" class="badge badge-xs badge-error indicator-item" style="display:none"></span>
         </div>
       </label>
-      <div tabindex="0" class="mt-3 card card-sm dropdown-content w-80 bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h3 class="font-bold text-lg">Notifications</h3>
-          <div class="space-y-2">
-            <div class="alert alert-info text-sm">
-              <span>New workflow assigned to you</span>
-            </div>
+      <div tabindex="0" class="mt-3 card card-sm dropdown-content w-96 bg-base-100 shadow-xl z-50">
+        <div class="card-body p-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="font-bold text-lg">Notifications</h3>
+            <button class="btn btn-ghost btn-xs" onclick="markAllRead()">Mark all read</button>
+          </div>
+          <div id="notif-list" class="space-y-2 max-h-96 overflow-y-auto">
+            <p class="text-sm text-base-content/50 text-center py-4">Loading…</p>
           </div>
         </div>
       </div>
     </div>
+
+    <script>
+    const NOTIF_URL = "{% url 'notifications_json' %}";
+    const MARK_READ_URL = "{% url 'notifications_mark_read' %}";
+    const CSRF = "{{ csrf_token }}";
+
+    const VERB_ICON = {
+      transition: `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-info flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>`,
+      assigned:   `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-success flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+      referred:   `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-warning flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>`,
+      comment:    `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-secondary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    };
+
+    function timeAgo(iso) {
+      const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+      if (diff < 60) return `${diff}s ago`;
+      if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+      return `${Math.floor(diff/86400)}d ago`;
+    }
+
+    function loadNotifications() {
+      fetch(NOTIF_URL, {headers: {"X-Requested-With": "XMLHttpRequest"}})
+        .then(r => r.json())
+        .then(data => {
+          const badge = document.getElementById("notif-badge");
+          if (data.unread_count > 0) {
+            badge.textContent = data.unread_count > 99 ? "99+" : data.unread_count;
+            badge.style.display = "";
+          } else {
+            badge.style.display = "none";
+          }
+
+          const list = document.getElementById("notif-list");
+          if (!data.notifications.length) {
+            list.innerHTML = `<p class="text-sm text-base-content/50 text-center py-4">No notifications</p>`;
+            return;
+          }
+
+          list.innerHTML = data.notifications.map(n => {
+            const icon = VERB_ICON[n.verb] || VERB_ICON.transition;
+            const bg = n.is_read ? "" : "bg-base-200";
+            const href = n.workflow_id ? `/workflows/${n.workflow_id}/` : "#";
+            return `
+              <a href="${href}" onclick="markRead(${n.id}, event, '${href}')"
+                 class="flex gap-3 items-start p-2 rounded-lg hover:bg-base-300 cursor-pointer ${bg}">
+                <div class="mt-0.5">${icon}</div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium leading-snug truncate">${n.title}</p>
+                  <p class="text-xs text-base-content/60 mt-0.5 line-clamp-2">${n.message}</p>
+                  <p class="text-xs text-base-content/40 mt-1">${timeAgo(n.created_at)}</p>
+                </div>
+                ${!n.is_read ? '<span class="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5"></span>' : ''}
+              </a>`;
+          }).join("");
+        })
+        .catch(err => {
+          document.getElementById("notif-list").innerHTML =
+            `<p class="text-sm text-error text-center py-4">Failed to load notifications.</p>`;
+        });
+    }
+
+    function markRead(id, event, href) {
+      event.preventDefault();
+      fetch(MARK_READ_URL, {
+        method: "POST",
+        headers: {"X-CSRFToken": CSRF, "Content-Type": "application/x-www-form-urlencoded"},
+        body: `id=${id}`
+      }).then(() => {
+        const badge = document.getElementById("notif-badge");
+        const current = parseInt(badge.textContent) || 0;
+        if (current > 1) { badge.textContent = current - 1; }
+        else { badge.style.display = "none"; }
+      }).finally(() => {
+        if (href && href !== "#") window.location.href = href;
+      });
+    }
+
+    function markAllRead() {
+      fetch(MARK_READ_URL, {
+        method: "POST",
+        headers: {"X-CSRFToken": CSRF, "Content-Type": "application/x-www-form-urlencoded"},
+        body: ""
+      }).then(() => {
+        document.getElementById("notif-badge").style.display = "none";
+        loadNotifications();
+      });
+    }
+
+    // Poll unread count every 60s to keep badge fresh
+    function pollUnreadCount() {
+      fetch(NOTIF_URL, {headers: {"X-Requested-With": "XMLHttpRequest"}})
+        .then(r => r.json())
+        .then(data => {
+          const badge = document.getElementById("notif-badge");
+          if (data.unread_count > 0) {
+            badge.textContent = data.unread_count > 99 ? "99+" : data.unread_count;
+            badge.style.display = "";
+          } else {
+            badge.style.display = "none";
+          }
+        }).catch(() => {});
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      pollUnreadCount();
+      loadNotifications();
+    });
+    setInterval(pollUnreadCount, 60000);
+    </script>
 
     <!-- User Menu -->
     <div class="dropdown dropdown-end">

@@ -53,7 +53,7 @@ def get_application_token():
             print(f"Response status: {response.status_code}")
 
             if response.status_code >= 400:
-                print(f"Response body: {response.text}")
+                # print(f"Response body: {response.text}")
                 raise Exception(f"HTTP {response.status_code}: {response.text}")
 
             token_data = response.json()
@@ -81,15 +81,15 @@ def get_application_token():
 
         except httpx.HTTPStatusError as e:
             print(f"HTTP status error in token request: {str(e)}")
-            print(f"Response body: {e.response.text}")
+            # print(f"Response body: {e.response.text}")
             raise Exception(
                 f"Token request failed with HTTP error: {str(e)}, response: {e.response.text}"
             )
         except httpx.HTTPError as e:
-            print(f"HTTP error in token request: {str(e)}")
+            # print(f"HTTP error in token request: {str(e)}")
             raise Exception(f"Token request failed with HTTP error: {str(e)}")
         except Exception as e:
-            print(f"General error in token request: {str(e)}")
+            # print(f"General error in token request: {str(e)}")
             raise Exception(f"Unexpected error in token request: {str(e)}")
 
 
