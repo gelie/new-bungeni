@@ -189,12 +189,12 @@
                                 Ownership
                             </h3>
                             <div class="bg-base-200 rounded-lg p-4 space-y-4">
-                                <div>
-                                    <div class="text-sm text-base-content/70 mb-2">Group</div>
-                                    <div class="font-semibold">{{ workflow.group.name }}</div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Group</span>
+                                    <span class="font-semibold">{{ workflow.workflow_type.group.name }}</span>
                                 </div>
-                                <div>
-                                    <div class="text-sm text-base-content/70 mb-2">Owner</div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Owner</span>
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-primary text-primary-content rounded-full w-8">
@@ -205,8 +205,8 @@
                                     </div>
                                 </div>
                                 {% if workflow.assigned_to %}
-                                <div>
-                                    <div class="text-sm text-base-content/70 mb-2">Assigned To</div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Assigned To</span>
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-secondary text-secondary-content rounded-full w-8">
@@ -372,11 +372,21 @@
                                     </div>
                                 </div>
                                 <div class="flex-1">
-                                    <div class="font-semibold text-sm mb-1">
-                                        {{ comment.user.get_full_name|default:comment.user.username }}
-                                        <span class="text-xs text-base-content/60 font-normal ml-2">
-                                            {{ comment.created_at|timesince }} ago
-                                        </span>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <div class="font-semibold text-sm">
+                                            {{ comment.user.get_full_name|default:comment.user.username }}
+                                            <span class="text-xs text-base-content/60 font-normal ml-2">
+                                                {{ comment.created_at|timesince }} ago
+                                            </span>
+                                        </div>
+                                        {% if comment.user == request.user %}
+                                        <form method="post" action="{% url 'comment_delete' workflow.pk comment.pk %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-ghost btn-xs text-error" title="Delete comment">
+                                                {% lucide "trash-2" class="w-4 h-4" %}
+                                            </button>
+                                        </form>
+                                        {% endif %}
                                     </div>
                                     <div class="text-sm">{{ comment.text }}</div>
                                 </div>
@@ -394,7 +404,7 @@
 
                         <!-- Add Comment Form -->
                         <div class="border-t pt-6">
-                            <form method="post" class="flex gap-3">
+                            <form method="post" action="{% url 'workflow_detail' workflow.pk %}" class="flex gap-3">
                                 {% csrf_token %}
                                 <div class="avatar avatar-placeholder">
                                     <div class="bg-primary text-primary-content rounded-full w-10">

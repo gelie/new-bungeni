@@ -9,9 +9,9 @@
     <div>
       <h1 class="text-3xl font-bold flex items-center gap-2">
         {% lucide "circle-plus" class="w-8 h-8" %}
-        Create New Workflow
+        Create a {% if preselected_type_name %}{{ preselected_type_name|title }} Workflow{% else %}New Workflow{% endif %}
       </h1>
-      <p class="text-base-content/70 mt-1">Start a new workflow process</p>
+      <p class="text-base-content/70 mt-1">{% if preselected_type_name %}Start a new {{ preselected_type_name|lower }} process{% else %}Start a new workflow process{% endif %}</p>
     </div>
   </div>
 
@@ -27,22 +27,6 @@
             {% lucide "info" class="w-5 h-5" %}
             Basic Information
           </h3>
-
-          <!-- Workflow Type -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Workflow Type *</span>
-              <span class="label-text-alt text-base-content/70">Required</span>
-            </label>
-            <select name="workflow_type" id="workflow-type-select" class="select select-bordered w-full" required>
-              <option value="">Select a workflow type...</option>
-              {% for wt in workflow_types %}
-              <option value="{{ wt.pk }}" data-json-schema='{{ wt.json_schema|safe }}'>
-                {{ wt.name }}
-              </option>
-              {% endfor %}
-            </select>
-          </div>
 
           <!-- Title -->
           <div class="form-control">
@@ -64,26 +48,46 @@
               placeholder="Describe the purpose and scope of this workflow..."></textarea>
           </div>
 
-          <!-- Priority -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Priority</span>
-            </label>
-            <select name="priority" class="select select-bordered w-full">
-              <option value="low">Low</option>
-              <option value="medium" selected>Medium</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </div>
+          <!-- Workflow Type / Priority / Deadline row -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          <!-- Deadline -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Deadline</span>
-              <span class="label-text-alt text-base-content/70">Optional</span>
-            </label>
-            <input type="datetime-local" name="deadline" class="input input-bordered w-full" />
+            <!-- Workflow Type (read-only display) -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Workflow Type *</span>
+                <span class="label-text-alt text-base-content/70">Required</span>
+              </label>
+              <select id="workflow-type-select" class="select select-bordered w-full" {% if preselected_type %}disabled{% endif %}>
+                <option value="">Select a workflow type...</option>
+                {% for wt in workflow_types %}
+                <option value="{{ wt.pk }}" {% if preselected_type == wt.pk|stringformat:"s" %}selected{% endif %}>{{ wt.name }}</option>
+                {% endfor %}
+              </select>
+              <input type="hidden" name="workflow_type" value="{{ preselected_type }}" />
+            </div>
+
+            <!-- Priority -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Priority</span>
+              </label>
+              <select name="priority" class="select select-bordered w-full">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+
+            <!-- Deadline -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Deadline</span>
+                <span class="label-text-alt text-base-content/70">Optional</span>
+              </label>
+              <input type="datetime-local" name="deadline" class="input input-bordered w-full" />
+            </div>
+
           </div>
         </div>
 
@@ -133,6 +137,9 @@
             <!-- Dynamic fields will be inserted here -->
           </div>
         </div>
+
+        <!-- Workflow type JSON schemas for JS -->
+        {{ workflow_type_schemas|json_script:"workflow-type-schemas" }}
 
         <!-- Form Actions -->
         <div class="flex items-center justify-between pt-6 border-t border-base-300">
@@ -290,40 +297,29 @@
     }
 
     function updateDynamicFields() {
-      const selectedOption = workflowTypeSelect.options[workflowTypeSelect.selectedIndex];
-      const jsonSchema = selectedOption.getAttribute('data-json-schema');
+      const typeId = workflowTypeSelect.value;
 
-      // Clear existing fields
       dynamicFieldsContainer.innerHTML = '';
 
-      if (jsonSchema && jsonSchema !== 'null' && jsonSchema !== '{}') {
-        try {
-          const schema = JSON.parse(jsonSchema);
-          const properties = schema.properties || {};
-          const required = schema.required || [];
+      const allSchemas = JSON.parse(document.getElementById('workflow-type-schemas').textContent || '{}');
+      const schema = typeId ? (allSchemas[typeId] || null) : null;
+      const properties = schema && schema.properties ? schema.properties : {};
+      const required = schema && schema.required ? schema.required : [];
 
-          // Mark required fields
-          Object.keys(properties).forEach(fieldName => {
-            properties[fieldName].required = required.includes(fieldName);
-          });
-
-          // Create field elements
-          Object.entries(properties).forEach(([fieldName, fieldConfig]) => {
-            const fieldElement = createFieldElement(fieldName, fieldConfig);
-            dynamicFieldsContainer.appendChild(fieldElement);
-          });
-
-          // Show the section
-          dynamicFieldsSection.style.display = 'block';
-
-        } catch (e) {
-          console.error('Error parsing JSON schema:', e);
-          dynamicFieldsSection.style.display = 'none';
-        }
-      } else {
-        // Hide the section if no schema
+      if (Object.keys(properties).length === 0) {
         dynamicFieldsSection.style.display = 'none';
+        return;
       }
+
+      Object.keys(properties).forEach(fieldName => {
+        properties[fieldName].required = required.includes(fieldName);
+      });
+
+      Object.entries(properties).forEach(([fieldName, fieldConfig]) => {
+        dynamicFieldsContainer.appendChild(createFieldElement(fieldName, fieldConfig));
+      });
+
+      dynamicFieldsSection.style.display = 'block';
     }
 
     // Form submission handler to collect dynamic field data
@@ -349,7 +345,7 @@
     // Update fields when workflow type changes
     workflowTypeSelect.addEventListener('change', updateDynamicFields);
 
-    // Initialize with first selection if already selected
+    // Trigger dynamic fields immediately if a type is pre-selected
     if (workflowTypeSelect.value) {
       updateDynamicFields();
     }

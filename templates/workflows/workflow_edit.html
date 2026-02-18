@@ -101,10 +101,21 @@
                                 name="deadline"
                                 class="input input-bordered h-12 w-full"
                                 {% if workflow.deadline %}value="{{ workflow.deadline|date:'Y-m-d\TH:i' }}" {% endif %} />
-                            <div class="text-xs text-base-content/60 mt-1">Note: Backend integration pending</div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Custom Fields Section -->
+                <div id="dynamic-fields-section" class="space-y-4" style="display:none;">
+                    <h2 class="text-lg font-semibold text-base-content/80 border-b border-base-200 pb-2 flex items-center gap-2">
+                        {% lucide "settings" class="w-5 h-5" %}
+                        Additional Information
+                    </h2>
+                    <div id="dynamic-fields-container" class="space-y-4"></div>
+                </div>
+
+                {{ workflow_type_schemas|json_script:"workflow-type-schemas" }}
+                {{ existing_data|json_script:"existing-workflow-data" }}
 
                 <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
                     <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-ghost">Cancel</a>
@@ -130,4 +141,132 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.querySelector('form');
+  const dynamicFieldsSection = document.getElementById('dynamic-fields-section');
+  const dynamicFieldsContainer = document.getElementById('dynamic-fields-container');
+
+  const allSchemas = JSON.parse(document.getElementById('workflow-type-schemas').textContent || '{}');
+  const existingData = JSON.parse(document.getElementById('existing-workflow-data').textContent || '{}');
+
+  const workflowTypeSelect = document.querySelector('select[name="workflow_type"]');
+  const typeId = workflowTypeSelect ? workflowTypeSelect.value : '';
+
+  const workflowDataInput = document.createElement('input');
+  workflowDataInput.type = 'hidden';
+  workflowDataInput.name = 'workflow_data';
+  form.appendChild(workflowDataInput);
+
+  function renderFields(typeId) {
+    dynamicFieldsContainer.innerHTML = '';
+    const schema = typeId ? (allSchemas[typeId] || null) : null;
+    const properties = schema && schema.properties ? schema.properties : {};
+    const required = schema && schema.required ? schema.required : [];
+
+    if (Object.keys(properties).length === 0) {
+      dynamicFieldsSection.style.display = 'none';
+      return;
+    }
+
+    Object.entries(properties).forEach(([fieldName, fieldConfig]) => {
+      fieldConfig.required = required.includes(fieldName);
+      const existingValue = existingData[fieldName] !== undefined ? existingData[fieldName] : '';
+
+      const fieldDiv = document.createElement('div');
+      fieldDiv.className = 'form-control';
+
+      const isRequired = fieldConfig.required ? 'required' : '';
+      const requiredText = fieldConfig.required ? ' *' : '';
+      const optionalLabel = fieldConfig.required
+        ? '<span class="label-text-alt text-error">Required</span>'
+        : '<span class="label-text-alt text-base-content/70">Optional</span>';
+
+      let fieldHtml = '';
+      const type = fieldConfig.type || 'string';
+
+      if (type === 'boolean') {
+        fieldHtml = `
+          <label class="label cursor-pointer">
+            <span class="label-text font-medium">${fieldConfig.title || fieldName}</span>
+            <input type="checkbox" name="field_${fieldName}" class="checkbox checkbox-primary" ${existingValue ? 'checked' : ''} />
+          </label>`;
+      } else if (type === 'number') {
+        fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
+            ${optionalLabel}
+          </label>
+          <input type="number" name="field_${fieldName}" class="input input-bordered w-full"
+                 value="${existingValue}" ${isRequired} />`;
+      } else if (fieldConfig.enum) {
+        const options = fieldConfig.enum.map(o =>
+          `<option value="${o}" ${existingValue === o ? 'selected' : ''}>${o}</option>`
+        ).join('');
+        fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
+            ${optionalLabel}
+          </label>
+          <select name="field_${fieldName}" class="select select-bordered w-full" ${isRequired}>
+            <option value="">Select an option...</option>
+            ${options}
+          </select>`;
+      } else {
+        const title = (fieldConfig.title || fieldName).toLowerCase();
+        const isLong = title.includes('description') || title.includes('details') || title.includes('notes');
+        if (isLong) {
+          fieldHtml = `
+            <label class="label">
+              <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
+              ${optionalLabel}
+            </label>
+            <textarea name="field_${fieldName}" class="textarea textarea-bordered w-full" rows="4" ${isRequired}>${existingValue}</textarea>`;
+        } else {
+          fieldHtml = `
+            <label class="label">
+              <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
+              ${optionalLabel}
+            </label>
+            <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
+                   value="${existingValue}" ${isRequired} />`;
+        }
+      }
+
+      if (fieldConfig.description) {
+        fieldHtml += `<label class="label"><span class="label-text-alt text-base-content/70">${fieldConfig.description}</span></label>`;
+      }
+
+      fieldDiv.innerHTML = fieldHtml;
+      dynamicFieldsContainer.appendChild(fieldDiv);
+    });
+
+    dynamicFieldsSection.style.display = 'block';
+  }
+
+  renderFields(typeId);
+
+  if (workflowTypeSelect) {
+    workflowTypeSelect.addEventListener('change', function () {
+      renderFields(this.value);
+    });
+  }
+
+  form.addEventListener('submit', function () {
+    const workflowData = {};
+    dynamicFieldsContainer.querySelectorAll('[name^="field_"]').forEach(field => {
+      const fieldName = field.name.replace('field_', '');
+      if (field.type === 'checkbox') {
+        workflowData[fieldName] = field.checked;
+      } else if (field.type === 'number') {
+        workflowData[fieldName] = field.value ? parseFloat(field.value) : null;
+      } else {
+        workflowData[fieldName] = field.value;
+      }
+    });
+    workflowDataInput.value = JSON.stringify(workflowData);
+  });
+});
+</script>
 {% endblock %}

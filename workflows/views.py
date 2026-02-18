@@ -15,6 +15,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import (
     Attachment,
+    Comment,
     Drive,
     Event,
     EventType,
@@ -192,11 +193,18 @@ def workflow_list(request):
     states = State.objects.all()
     groups = Group.objects.filter(id__in=user_groups)
 
+    # Workflow types the user can create
+    user_roles = user.memberships.filter(is_active=True).values_list("role", flat=True)
+    creatable_workflow_types = WorkflowType.objects.filter(
+        enabled=True, create_roles__in=user_roles
+    ).distinct()
+
     context = {
         "workflows": workflows,
         "workflow_types": workflow_types,
         "states": states,
         "groups": groups,
+        "creatable_workflow_types": creatable_workflow_types,
     }
 
     return render(request, "workflows/workflow_list.html", context)
@@ -219,9 +227,11 @@ def workflow_create(request):
 
     # Only allow users with roles that can create at least one enabled workflow type
     user_roles = user.memberships.filter(is_active=True).values_list("role", flat=True)
-    can_create = WorkflowType.objects.filter(
-        enabled=True, create_roles__in=user_roles
-    ).exists()
+    can_create = (
+        WorkflowType.objects.filter(enabled=True, create_roles__in=user_roles)
+        .distinct()
+        .exists()
+    )
     if not can_create:
         messages.error(request, "You do not have permission to create workflows.")
         return redirect("workflow_list")
@@ -240,11 +250,29 @@ def workflow_create(request):
                 return redirect("workflow_detail", pk=parent_id)
 
         # Filter workflow types to only enabled ones where user has create roles
+        workflow_types = WorkflowType.objects.filter(
+            enabled=True, create_roles__in=user_roles
+        ).distinct()
+
+        # Build schema map keyed by str(pk) for JS lookup
+        workflow_type_schemas = {
+            str(wt.pk): wt.json_schema for wt in workflow_types if wt.json_schema
+        }
+
+        # Pre-select workflow type if passed via ?type= query param
+        preselected_type = request.GET.get("type", "")
+        preselected_type_name = ""
+        if preselected_type:
+            preselected_type_name = next(
+                (wt.name for wt in workflow_types if str(wt.pk) == preselected_type), ""
+            )
+
         context = {
-            "workflow_types": WorkflowType.objects.filter(
-                enabled=True, create_roles__in=user_roles
-            ),
+            "workflow_types": workflow_types,
             "parent_workflow": parent_workflow,
+            "workflow_type_schemas": workflow_type_schemas,
+            "preselected_type": preselected_type,
+            "preselected_type_name": preselected_type_name,
         }
         return render(request, "workflows/workflow_create.html", context)
 
@@ -350,6 +378,15 @@ def workflow_detail(request, pk):
         messages.error(request, "You do not have permission to view this workflow.")
         return redirect("workflow_list")
 
+    if request.method == "POST":
+        text = (request.POST.get("comment") or "").strip()
+        if text:
+            Comment.objects.create(workflow=workflow, user=request.user, text=text)
+            messages.success(request, "Comment added.")
+        else:
+            messages.error(request, "Comment cannot be empty.")
+        return redirect("workflow_detail", pk=pk)
+
     # Get available transitions for this user
     available_transitions = workflow.get_available_transitions(request.user)
 
@@ -400,6 +437,17 @@ def workflow_detail(request, pk):
 
 
 @login_required
+def comment_delete(request, pk, comment_pk):
+    comment = get_object_or_404(Comment, pk=comment_pk, workflow_id=pk)
+    if comment.user != request.user:
+        messages.error(request, "You can only delete your own comments.")
+    else:
+        comment.delete()
+        messages.success(request, "Comment deleted.")
+    return redirect("workflow_detail", pk=pk)
+
+
+@login_required
 def workflow_edit(request, pk):
     """Edit a workflow"""
     workflow = get_object_or_404(Workflow, pk=pk)
@@ -410,9 +458,18 @@ def workflow_edit(request, pk):
         return redirect("workflow_detail", pk=pk)
 
     if request.method == "GET":
+        workflow_type = workflow.workflow_type
+        workflow_type_schemas = (
+            {str(workflow_type.pk): workflow_type.json_schema}
+            if workflow_type.json_schema
+            else {}
+        )
+
         context = {
             "workflow": workflow,
             "workflow_types": WorkflowType.objects.all(),
+            "workflow_type_schemas": workflow_type_schemas,
+            "existing_data": json.dumps(workflow.data or {}),
         }
         return render(request, "workflows/workflow_edit.html", context)
 

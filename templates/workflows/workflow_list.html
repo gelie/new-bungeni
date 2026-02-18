@@ -10,9 +10,25 @@
             <h1 class="text-3xl font-bold">Workflows</h1>
             <p class="text-base-content/70 mt-1">Manage parliamentary workflows</p>
         </div>
-        <a href="{% url 'workflow_create' %}" class="btn btn-primary">
-            {% lucide "plus" class="w-5 h-5 mr-2" %} New Workflow
-        </a>
+        {% if creatable_workflow_types %}
+        <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-primary">
+                {% lucide "plus" class="w-5 h-5" %}
+                New Workflow
+                {% lucide "chevron-down" class="w-4 h-4" %}
+            </div>
+            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-56 p-2 shadow-lg border border-base-200 mt-1">
+                {% for wt in creatable_workflow_types %}
+                <li>
+                    <a href="{% url 'workflow_create' %}?type={{ wt.pk }}">
+                        {% lucide "file-plus" class="w-4 h-4" %}
+                        {{ wt.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Filters -->
