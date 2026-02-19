@@ -239,7 +239,7 @@ async def upload_file(
     if len(file_content) < 4 * 1024 * 1024:
         # Handle root folder case
         folder_path = "/root" if folder_id == "root" else folder_id
-        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items{folder_path}:/{filename}:/content"
+        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_path}:/{filename}:/content"
         headers["Content-Type"] = "application/octet-stream"
 
         async with httpx.AsyncClient() as client:

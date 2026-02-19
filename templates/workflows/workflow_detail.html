@@ -14,7 +14,8 @@
             {% if forloop.last %}
             <li>{{ workflow_item.title|truncatewords:5 }}</li>
             {% else %}
-            <li><a href="{% url 'workflow_detail' workflow_item.pk %}">{{ workflow_item.title|truncatewords:3 }}</a></li>
+            <li><a href="{% url 'workflow_detail' workflow_item.pk %}">{{ workflow_item.title|truncatewords:3 }}</a>
+            </li>
             {% endif %}
             {% endfor %}
             {% else %}
@@ -32,14 +33,16 @@
                     <div class="text-sm text-base-content/60 mb-2">
                         {% lucide "link" class="w-4 h-4 inline mr-1" %}
                         {{ workflow.get_relationship_type_display|default:"Child" }} of
-                        <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}" class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
+                        <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
+                            class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
                     </div>
                     {% endif %}
                     <h1 class="text-2xl font-bold">{{ workflow.title }}</h1>
 
                     <!-- Key Status Indicators (Always Visible) -->
                     <div class="flex flex-wrap gap-2 mt-3">
-                        <span class="badge badge-lg" style="background-color: {{ workflow.current_state.color }}; color: white;">
+                        <span class="badge badge-lg"
+                            style="background-color: {{ workflow.current_state.color }}; color: white;">
                             {{ workflow.current_state.name }}
                         </span>
                         <span class="badge badge-lg badge-outline">{{ workflow.workflow_type.name }}</span>
@@ -90,7 +93,8 @@
                             Actions
                         </label>
                         <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
-                            <li><a href="{% url 'workflow_edit' workflow.pk %}">{% lucide "pencil" class="w-4 h-4" %} Edit</a></li>
+                            <li><a href="{% url 'workflow_edit' workflow.pk %}">{% lucide "pencil" class="w-4 h-4" %}
+                                    Edit</a></li>
                             <li><a>{% lucide "share-2" class="w-4 h-4" %} Share</a></li>
                             <li><a>{% lucide "download" class="w-4 h-4" %} Export</a></li>
                         </ul>
@@ -167,7 +171,8 @@
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-base-content/70">State</span>
-                                    <span class="badge" style="background-color: {{ workflow.current_state.color }}; color: white;">
+                                    <span class="badge"
+                                        style="background-color: {{ workflow.current_state.color }}; color: white;">
                                         {{ workflow.current_state.name }}
                                     </span>
                                 </div>
@@ -198,7 +203,8 @@
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-primary text-primary-content rounded-full w-8">
-                                                <span class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
+                                                <span
+                                                    class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
                                             </div>
                                         </div>
                                         <span>{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
@@ -210,7 +216,8 @@
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-secondary text-secondary-content rounded-full w-8">
-                                                <span class="text-xs">{{ workflow.assigned_to.first_name.0|default:workflow.assigned_to.username.0|upper }}</span>
+                                                <span
+                                                    class="text-xs">{{ workflow.assigned_to.first_name.0|default:workflow.assigned_to.username.0|upper }}</span>
                                             </div>
                                         </div>
                                         <span>{{ workflow.assigned_to.get_full_name|default:workflow.assigned_to.username }}</span>
@@ -259,7 +266,8 @@
                                             {% endif %}
                                         </div>
                                         <div class="flex items-center gap-2 mt-2">
-                                            <span class="badge" style="background-color: {{ workflow.parent_workflow.current_state.color }}; color: white;">
+                                            <span class="badge"
+                                                style="background-color: {{ workflow.parent_workflow.current_state.color }}; color: white;">
                                                 {{ workflow.parent_workflow.current_state.name }}
                                             </span>
                                         </div>
@@ -296,7 +304,8 @@
                                                 {% endif %}
                                             </div>
                                             <div class="flex items-center gap-2 mt-2">
-                                                <span class="badge badge-xs" style="background-color: {{ sub_workflow.current_state.color }}; color: white;">
+                                                <span class="badge badge-xs"
+                                                    style="background-color: {{ sub_workflow.current_state.color }}; color: white;">
                                                     {{ sub_workflow.current_state.name }}
                                                 </span>
                                                 {% if sub_workflow.priority == 'urgent' %}
@@ -337,7 +346,8 @@
                                                 {% endif %}
                                             </div>
                                         </div>
-                                        <span class="badge badge-xs" style="background-color: {{ sibling.current_state.color }}; color: white;">
+                                        <span class="badge badge-xs"
+                                            style="background-color: {{ sibling.current_state.color }}; color: white;">
                                             {{ sibling.current_state.name }}
                                         </span>
                                     </div>
@@ -367,8 +377,9 @@
                             {% for comment in comments %}
                             <div class="flex gap-3 p-4 bg-base-200 rounded-lg">
                                 <div class="avatar avatar-placeholder">
-                                    <div class="bg-neutral text-neutral-content rounded-full w-10">
-                                        <span class="text-sm">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
+                                    <div class="bg-neutral text-neutral-content rounded-full h-10 w-10">
+                                        <span
+                                            class="text-sm">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
                                     </div>
                                 </div>
                                 <div class="flex-1">
@@ -382,13 +393,51 @@
                                         {% if comment.user == request.user %}
                                         <form method="post" action="{% url 'comment_delete' workflow.pk comment.pk %}">
                                             {% csrf_token %}
-                                            <button type="submit" class="btn btn-ghost btn-xs text-error" title="Delete comment">
+                                            <button type="submit" class="btn btn-ghost btn-xs text-error"
+                                                title="Delete comment">
                                                 {% lucide "trash-2" class="w-4 h-4" %}
                                             </button>
                                         </form>
                                         {% endif %}
                                     </div>
-                                    <div class="text-sm">{{ comment.text }}</div>
+                                    <div class="flex items-start gap-3">
+                                        <div class="flex-1">
+                                            <div class="text-sm">{{ comment.text }}</div>
+
+                                            <!-- Debug: Check if attachments exist -->
+                                            <!-- {{ comment.attachments.all|length }} attachments found -->
+
+                                            <!-- Comment Attachments - Inline -->
+                                            {% if comment.attachments.all %}
+                                            <div class="flex flex-wrap items-center gap-2 mt-2">
+                                                {% for attachment in comment.attachments.all %}
+                                                <a href="{{ attachment.get_sharepoint_url }}" target="_blank"
+                                                    class="flex items-center gap-1 px-2 py-1 bg-base-100 border border-base-300 hover:bg-primary hover:text-primary-content rounded text-xs link link-primary transition-colors">
+                                                    {% if attachment.mimetype %}
+                                                    {% if 'pdf' in attachment.mimetype %}
+                                                    {% lucide "file-text" class="w-3 h-3" %}
+                                                    {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
+                                                    {% lucide "file-text" class="w-3 h-3" %}
+                                                    {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
+                                                    {% lucide "file-spreadsheet" class="w-3 h-3" %}
+                                                    {% elif 'image' in attachment.mimetype %}
+                                                    {% lucide "image" class="w-3 h-3" %}
+                                                    {% else %}
+                                                    {% lucide "file" class="w-3 h-3" %}
+                                                    {% endif %}
+                                                    {% else %}
+                                                    {% lucide "file" class="w-3 h-3" %}
+                                                    {% endif %}
+                                                    <span class="truncate max-w-[150px]">{{ attachment.name }}</span>
+                                                    {% if attachment.size %}<span class="text-base-content/60">({{ attachment.size|filesizeformat }})</span>{% endif %}
+                                                </a>
+                                                {% endfor %}
+                                            </div>
+                                            {% else %}
+                                            <!-- No attachments for this comment -->
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             {% empty %}
@@ -404,19 +453,55 @@
 
                         <!-- Add Comment Form -->
                         <div class="border-t pt-6">
-                            <form method="post" action="{% url 'workflow_detail' workflow.pk %}" class="flex gap-3">
+                            <form method="post" action="{% url 'workflow_detail' workflow.pk %}" class="space-y-4">
                                 {% csrf_token %}
-                                <div class="avatar avatar-placeholder">
-                                    <div class="bg-primary text-primary-content rounded-full w-10">
-                                        <span class="text-sm">{{ request.user.first_name.0|default:request.user.username.0|upper }}</span>
+                                <div class="flex gap-3">
+                                    <div class="avatar avatar-placeholder">
+                                        <div class="bg-primary text-primary-content rounded-full h-10 w-10">
+                                            <span
+                                                class="text-sm">{{ request.user.first_name.0|default:request.user.username.0|upper }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex-1">
+                                        <textarea name="comment" placeholder="Add a comment..."
+                                            class="textarea textarea-bordered w-full" rows="3" required></textarea>
+
+                                        <!-- Comment Attachments Section -->
+                                        <div id="comment-attachments" class="mt-3 hidden">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-sm font-medium">Attachments</span>
+                                                <button type="button" onclick="clearCommentAttachments()"
+                                                    class="btn btn-ghost btn-xs text-error">
+                                                    {% lucide "x" class="w-3 h-3" %}
+                                                    Clear All
+                                                </button>
+                                            </div>
+                                            <div id="comment-attachments-list" class="space-y-2"></div>
+                                        </div>
+
+                                        <!-- Attachment Buttons -->
+                                        <div class="flex gap-2 mt-3">
+                                            <button type="button" onclick="showCommentSharepointModal()"
+                                                class="btn btn-outline">
+                                                {% lucide "paperclip" class="w-3 h-3 mr-1" %}
+                                                Attach from SharePoint
+                                            </button>
+                                            <button type="button" onclick="showCommentUploadModal()"
+                                                class="btn btn-outline">
+                                                {% lucide "upload" class="w-3 h-3 mr-1" %}
+                                                Upload File
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="flex-1 flex gap-2">
-                                    <input type="text" name="comment" placeholder="Add a comment..." class="input flex-1" required>
+                                <div class="flex justify-end">
                                     <button type="submit" class="btn btn-primary">
-                                        {% lucide "send" class="w-4 h-4" %}
+                                        {% lucide "send" class="w-4 h-4 mr-2" %}
+                                        Send
                                     </button>
                                 </div>
+                                <!-- Hidden input for comment attachment IDs -->
+                                <input type="hidden" id="comment-attachment-ids" name="attachment_ids" value="">
                             </form>
                         </div>
                     </div>
@@ -509,10 +594,12 @@
                                             {% if attachment.size %}{{ attachment.size|filesizeformat }} • {% endif %}
                                             {{ attachment.type|title }} •
                                             {{ attachment.created_at|date:"M d, Y H:i" }}
-                                            {% if attachment.uploaded_by %}by {{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}{% endif %}
+                                            {% if attachment.uploaded_by %}by
+                                            {{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}{% endif %}
                                         </p>
                                         {% if attachment.sharepoint_folder_path %}
-                                        <p class="text-xs text-base-content/50">📁 {{ attachment.sharepoint_folder_path }}</p>
+                                        <p class="text-xs text-base-content/50">📁
+                                            {{ attachment.sharepoint_folder_path }}</p>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -534,6 +621,89 @@
                             {% lucide "paperclip" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
                             <p class="text-lg">No attachments yet</p>
                             <p class="text-sm">Click "Upload File" to add your first attachment</p>
+                        </div>
+                        {% endif %}
+
+                        <!-- Comment Attachments Section -->
+                        {% if comments %}
+                        {% regroup comments by user as comment_groups %}
+                        <div class="mt-8 pt-8 border-t border-base-300">
+                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                                {% lucide "message-square" class="w-5 h-5" %}
+                                Comment Attachments
+                            </h3>
+                            {% for group in comment_groups %}
+                                {% for comment in group.list %}
+                                    {% if comment.attachments.all %}
+                                    <div class="mb-6">
+                                        <div class="flex items-center gap-2 mb-3 text-sm text-base-content/70">
+                                            <div class="avatar avatar-placeholder">
+                                                <div class="bg-neutral text-neutral-content rounded-full w-6">
+                                                    <span class="text-xs">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
+                                                </div>
+                                            </div>
+                                            <span class="font-medium">{{ comment.user.get_full_name|default:comment.user.username }}</span>
+                                            <span>•</span>
+                                            <span>{{ comment.created_at|timesince }} ago</span>
+                                        </div>
+                                        <div class="bg-base-50 rounded-lg p-3 mb-2">
+                                            <p class="text-sm mb-2">{{ comment.text|truncatewords:20 }}</p>
+                                        </div>
+                                        <div class="space-y-2">
+                                            {% for attachment in comment.attachments.all %}
+                                            <div class="border rounded-lg p-3 hover:bg-base-200 transition-colors">
+                                                <div class="flex items-center justify-between">
+                                                    <div class="flex items-center gap-3">
+                                                        <div class="text-primary">
+                                                            {% if attachment.mimetype %}
+                                                            {% if 'pdf' in attachment.mimetype %}
+                                                            {% lucide "file-text" class="w-6 h-6" %}
+                                                            {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
+                                                            {% lucide "file-text" class="w-6 h-6" %}
+                                                            {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
+                                                            {% lucide "file-spreadsheet" class="w-6 h-6" %}
+                                                            {% elif 'image' in attachment.mimetype %}
+                                                            {% lucide "image" class="w-6 h-6" %}
+                                                            {% else %}
+                                                            {% lucide "file" class="w-6 h-6" %}
+                                                            {% endif %}
+                                                            {% else %}
+                                                            {% lucide "file" class="w-6 h-6" %}
+                                                            {% endif %}
+                                                        </div>
+                                                        <div>
+                                                            <h4 class="font-medium text-sm">{{ attachment.name }}</h4>
+                                                            <p class="text-xs text-base-content/70">
+                                                                {% if attachment.size %}{{ attachment.size|filesizeformat }} • {% endif %}
+                                                                {{ attachment.type|title }} •
+                                                                {{ attachment.created_at|date:"M d, Y H:i" }}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        <a href="{{ attachment.get_sharepoint_url }}" target="_blank"
+                                                            class="btn btn-ghost btn-xs">
+                                                            {% lucide "external-link" class="w-3 h-3" %}
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endfor %}
+                            {% if not comments %}
+                                {% for comment in comments %}
+                                    {% if comment.attachments.all %}
+                                        {% comment %} This should never happen due to the regroup logic {% endcomment %}
+                                    {% endif %}
+                                {% endfor %}
+                                <div class="text-center py-8 text-base-content/50">
+                                    <p class="text-sm">No attachments in comments yet</p>
+                                </div>
+                            {% endif %}
                         </div>
                         {% endif %}
                     </div>
@@ -586,7 +756,8 @@
                                 {% if workflow.referred_to %}
                                 <div class="flex justify-between items-center">
                                     <span class="text-base-content/70">Referred To</span>
-                                    <a href="{% url 'group_detail' workflow.referred_to.pk %}" class="btn btn-outline btn-xs">
+                                    <a href="{% url 'group_detail' workflow.referred_to.pk %}"
+                                        class="btn btn-outline btn-xs">
                                         {{ workflow.referred_to.name|truncatewords:3 }}
                                     </a>
                                 </div>
@@ -762,7 +933,8 @@
                     driveSelect.disabled = true;
                     driveSelect.innerHTML = '<option value="">Select a library...</option>';
                     document.getElementById('folder-select').disabled = true;
-                    document.getElementById('folder-select').innerHTML = '<option value="">Root Folder</option>';
+                    document.getElementById('folder-select').innerHTML =
+                        '<option value="">Root Folder</option>';
                 }
             });
         }
@@ -1230,7 +1402,8 @@
                 filesList.innerHTML = '';
                 sharepointFiles.forEach(file => {
                     const fileItem = document.createElement('div');
-                    fileItem.className = 'flex items-center gap-3 p-3 rounded-lg border hover:bg-base-200 cursor-pointer transition-colors';
+                    fileItem.className =
+                        'flex items-center gap-3 p-3 rounded-lg border hover:bg-base-200 cursor-pointer transition-colors';
                     fileItem.onclick = () => selectSharepointFile(file);
 
                     const fileIcon = getFileIcon(file.mimetype);
@@ -1394,7 +1567,8 @@
             <!-- Progress Bar -->
             <div id="upload-progress" class="hidden">
                 <div class="bg-base-300 rounded-full h-2">
-                    <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300"
+                        style="width: 0%"></div>
                 </div>
                 <p class="text-sm mt-1">Uploading... <span id="progress-text">0%</span></p>
             </div>
@@ -1404,12 +1578,10 @@
 
             <!-- Buttons -->
             <div class="flex gap-3 pt-4">
-                <button type="button" onclick="hideUploadModal()"
-                    class="flex-1 btn btn-outline">
+                <button type="button" onclick="hideUploadModal()" class="flex-1 btn btn-outline">
                     Cancel
                 </button>
-                <button type="submit"
-                    class="flex-1 btn btn-primary">
+                <button type="submit" class="flex-1 btn btn-primary">
                     Upload
                 </button>
             </div>
@@ -1432,7 +1604,8 @@
             <!-- Site Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">SharePoint Site</label>
-                <select id="sharepoint-site-select" onchange="loadSharepointDrives()" class="select select-bordered w-full">
+                <select id="sharepoint-site-select" onchange="loadSharepointDrives()"
+                    class="select select-bordered w-full">
                     <option value="">Select a site...</option>
                 </select>
             </div>
@@ -1440,7 +1613,8 @@
             <!-- Drive Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Document Library</label>
-                <select id="sharepoint-drive-select" onchange="loadSharepointFolders()" class="select select-bordered w-full" disabled>
+                <select id="sharepoint-drive-select" onchange="loadSharepointFolders()"
+                    class="select select-bordered w-full" disabled>
                     <option value="">Select a library...</option>
                 </select>
             </div>
@@ -1448,7 +1622,8 @@
             <!-- Folder Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
-                <select id="sharepoint-folder-select" onchange="loadSharepointFiles()" class="select select-bordered w-full" disabled>
+                <select id="sharepoint-folder-select" onchange="loadSharepointFiles()"
+                    class="select select-bordered w-full" disabled>
                     <option value="">Root Folder</option>
                 </select>
                 <p class="text-xs text-base-content/50 mt-1">Leave empty to view root files</p>
@@ -1479,17 +1654,482 @@
 
         <!-- Buttons -->
         <div class="flex gap-3 pt-4">
-            <button type="button" onclick="hideSharepointModal()"
-                class="flex-1 btn btn-outline">
+            <button type="button" onclick="hideSharepointModal()" class="flex-1 btn btn-outline">
                 Cancel
             </button>
-            <button type="button" id="sharepoint-select-btn" disabled
-                onclick="linkSharepointFile()"
+            <button type="button" id="sharepoint-select-btn" disabled onclick="linkSharepointFile()"
                 class="flex-1 btn btn-primary">
                 Select File
             </button>
         </div>
     </div>
 </div>
+
+<!-- Comment Attachment Upload Modal -->
+<div id="comment-upload-modal"
+    class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-base-100 rounded-lg p-6 w-full max-w-2xl">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Upload File for Comment</h3>
+            <button onclick="hideCommentUploadModal()" class="text-base-content/50 hover:text-base-content">
+                {% lucide "x" class="w-5 h-5" %}
+            </button>
+        </div>
+
+        <form id="comment-upload-form" method="post" enctype="multipart/form-data"
+            action="{% url 'attachment_upload' %}">
+            {% csrf_token %}
+            <!-- Site Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">SharePoint Site</label>
+                <select id="comment-site-select" name="site_id" required class="select select-bordered w-full" disabled>
+                    <option value="">Loading sites...</option>
+                </select>
+            </div>
+
+            <!-- Drive Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Document Library</label>
+                <select id="comment-drive-select" name="drive_id" required class="select select-bordered w-full"
+                    disabled>
+                    <option value="">Select a library...</option>
+                </select>
+            </div>
+
+            <!-- Folder Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
+                <select id="comment-folder-select" name="folder_id" class="select select-bordered w-full" disabled>
+                    <option value="">Root Folder</option>
+                </select>
+                <p class="text-xs text-base-content/50 mt-1">Leave empty to upload to the root directory</p>
+            </div>
+
+            <!-- File Upload -->
+            <div>
+                <label class="block text-sm font-medium mb-1">File</label>
+                <input type="file" name="file" required class="file-input file-input-bordered w-full">
+            </div>
+
+            <!-- Attachment Type -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Type</label>
+                <select name="type" class="select select-bordered w-full">
+                    <option value="document">Document</option>
+                    <option value="response">Response</option>
+                    <option value="petition">Petition</option>
+                </select>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="comment-upload-progress" class="hidden">
+                <div class="bg-base-300 rounded-full h-2">
+                    <div id="comment-progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300"
+                        style="width: 0%"></div>
+                </div>
+                <p class="text-sm mt-1">Uploading... <span id="comment-progress-text">0%</span></p>
+            </div>
+
+            <!-- Hidden field for workflow ID -->
+            <input type="hidden" name="workflow_id" value="{{ workflow.id }}">
+
+            <!-- Buttons -->
+            <div class="flex gap-3 pt-4">
+                <button type="button" onclick="hideCommentUploadModal()" class="flex-1 btn btn-outline">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 btn btn-primary">
+                    Upload
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Comment SharePoint File Selection Modal -->
+<div id="comment-sharepoint-modal"
+    class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-base-100 rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Select File from SharePoint for Comment</h3>
+            <button onclick="hideCommentSharepointModal()" class="text-base-content/50 hover:text-base-content">
+                {% lucide "x" class="w-5 h-5" %}
+            </button>
+        </div>
+
+        <!-- Navigation -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <!-- Site Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">SharePoint Site</label>
+                <select id="comment-sharepoint-site-select" onchange="loadCommentSharepointDrives()"
+                    class="select select-bordered w-full">
+                    <option value="">Select a site...</option>
+                </select>
+            </div>
+
+            <!-- Drive Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Document Library</label>
+                <select id="comment-sharepoint-drive-select" onchange="loadCommentSharepointFolders()"
+                    class="select select-bordered w-full" disabled>
+                    <option value="">Select a library...</option>
+                </select>
+            </div>
+
+            <!-- Folder Selection -->
+            <div>
+                <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
+                <select id="comment-sharepoint-folder-select" onchange="loadCommentSharepointFiles()"
+                    class="select select-bordered w-full" disabled>
+                    <option value="">Root Folder</option>
+                </select>
+                <p class="text-xs text-base-content/50 mt-1">Leave empty to view root files</p>
+            </div>
+        </div>
+
+        <!-- Files List -->
+        <div class="border rounded-lg p-4 max-h-60 overflow-y-auto">
+            <div id="comment-sharepoint-files-list" class="space-y-2">
+                <p class="text-center text-base-content/50 py-8">
+                    📁 Select a folder to view files
+                </p>
+            </div>
+        </div>
+
+        <!-- Attachment Type -->
+        <div class="mt-4">
+            <label class="block text-sm font-medium mb-1">Type</label>
+            <select id="comment-sharepoint-type-select" class="select select-bordered w-full">
+                <option value="document">Document</option>
+                <option value="response">Response</option>
+                <option value="petition">Petition</option>
+            </select>
+        </div>
+
+        <!-- Hidden field for workflow ID -->
+        <input type="hidden" id="comment-sharepoint-workflow-id" value="{{ workflow.id }}">
+
+        <!-- Buttons -->
+        <div class="flex gap-3 pt-4">
+            <button type="button" onclick="hideCommentSharepointModal()" class="flex-1 btn btn-outline">
+                Cancel
+            </button>
+            <button type="button" id="comment-sharepoint-select-btn" disabled onclick="linkCommentSharepointFile()"
+                class="flex-1 btn btn-primary">
+                Select File
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Comment attachment functionality
+    let commentAttachments = [];
+
+    function showCommentUploadModal() {
+        document.getElementById('comment-upload-modal').classList.remove('hidden');
+        loadCommentSites();
+    }
+
+    function hideCommentUploadModal() {
+        document.getElementById('comment-upload-modal').classList.add('hidden');
+    }
+
+    function showCommentSharepointModal() {
+        document.getElementById('comment-sharepoint-modal').classList.remove('hidden');
+        loadCommentSharepointSites();
+    }
+
+    function hideCommentSharepointModal() {
+        document.getElementById('comment-sharepoint-modal').classList.add('hidden');
+    }
+
+    function clearCommentAttachments() {
+        commentAttachments = [];
+        updateCommentAttachmentsDisplay();
+    }
+
+    function updateCommentAttachmentsDisplay() {
+        const container = document.getElementById('comment-attachments');
+        const list = document.getElementById('comment-attachments-list');
+        const hiddenInput = document.getElementById('comment-attachment-ids');
+
+        if (commentAttachments.length === 0) {
+            container.classList.add('hidden');
+            hiddenInput.value = '';
+        } else {
+            container.classList.remove('hidden');
+            list.innerHTML = commentAttachments.map(att => `
+            <div class="flex items-center gap-2 p-2 bg-base-300 rounded">
+                <span class="text-primary">${getFileIcon(att.mimetype)}</span>
+                <span class="flex-1 text-sm">${att.name}</span>
+                <button type="button" onclick="removeCommentAttachment(${att.id})" class="btn btn-ghost btn-xs text-error">
+                    ×
+                </button>
+            </div>
+        `).join('');
+            hiddenInput.value = commentAttachments.map(att => att.id).join(',');
+        }
+    }
+
+    function removeCommentAttachment(id) {
+        commentAttachments = commentAttachments.filter(att => att.id !== id);
+        updateCommentAttachmentsDisplay();
+    }
+
+    function addCommentAttachment(attachment) {
+        if (!commentAttachments.find(att => att.id === attachment.id)) {
+            commentAttachments.push(attachment);
+            updateCommentAttachmentsDisplay();
+        }
+    }
+
+    function getFileIcon(mimetype) {
+        if (!mimetype) return '📄';
+        if (mimetype.includes('pdf')) return '📄';
+        if (mimetype.includes('word') || mimetype.includes('document')) return '📝';
+        if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) return '📊';
+        if (mimetype.includes('image')) return '🖼️';
+        return '📄';
+    }
+
+    // Load sites for comment upload
+    function loadCommentSites() {
+        fetch('/api/sharepoint/sites/')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('comment-site-select');
+                select.innerHTML = '<option value="">Select a site...</option>';
+                const sites = data.sites || []; // Access the sites array from the response
+                sites.forEach(site => {
+                    select.innerHTML += `<option value="${site.id}">${site.name}</option>`;
+                });
+                select.disabled = false;
+                select.onchange = loadCommentDrives;
+            });
+    }
+
+    function loadCommentDrives() {
+        const siteId = document.getElementById('comment-site-select').value;
+        const driveSelect = document.getElementById('comment-drive-select');
+        if (!siteId) return;
+
+        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+            .then(response => response.json())
+            .then(data => {
+                driveSelect.innerHTML = '<option value="">Select a library...</option>';
+                drives = data.drives||[]
+                drives.forEach(drive => {
+                    driveSelect.innerHTML += `<option value="${drive.id}">${drive.name}</option>`;
+                });
+                driveSelect.disabled = false;
+                driveSelect.onchange = () => loadCommentFolders(siteId, driveSelect.value);
+            });
+    }
+
+    function loadCommentFolders(siteId, driveId) {
+        if (!siteId || !driveId) return;
+
+        fetch(`/api/sharepoint/drives/${driveId}/folders/`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('comment-folder-select');
+                select.innerHTML = '<option value="">Root Folder</option>';
+                folders = data.folders || [];
+                folders.forEach(folder => {
+                    select.innerHTML += `<option value="${folder.id}">${folder.name}</option>`;
+                });
+                select.disabled = false;
+            });
+    }
+
+    // Handle comment upload form submission
+    document.getElementById('comment-upload-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const progressBar = document.getElementById('comment-progress-bar');
+        const progressText = document.getElementById('comment-progress-text');
+        const progressContainer = document.getElementById('comment-upload-progress');
+
+        progressContainer.classList.remove('hidden');
+
+        fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addCommentAttachment(data.attachment);
+                    hideCommentUploadModal();
+                    this.reset();
+                } else {
+                    alert('Upload failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Upload failed: ' + error.message);
+            })
+            .finally(() => {
+                progressContainer.classList.add('hidden');
+                progressBar.style.width = '0%';
+                progressText.textContent = '0%';
+            });
+    });
+
+    // SharePoint file selection for comments
+    function loadCommentSharepointSites() {
+        fetch('/api/sharepoint/sites/')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('comment-sharepoint-site-select');
+                select.innerHTML = '<option value="">Select a site...</option>';
+                const sites = data.sites || []; // Access the sites array from the response
+                sites.forEach(site => {
+                    select.innerHTML += `<option value="${site.id}">${site.name}</option>`;
+                });
+            });
+    }
+
+    function loadCommentSharepointDrives() {
+        const siteId = document.getElementById('comment-sharepoint-site-select').value;
+        if (!siteId) return;
+
+        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('comment-sharepoint-drive-select');
+                select.innerHTML = '<option value="">Select a library...</option>';
+                data.drives.forEach(drive => {
+                    select.innerHTML += `<option value="${drive.id}">${drive.name}</option>`;
+                });
+                select.disabled = false;
+            });
+    }
+
+    function loadCommentSharepointFolders() {
+        const siteId = document.getElementById('comment-sharepoint-site-select').value;
+        const driveId = document.getElementById('comment-sharepoint-drive-select').value;
+        if (!siteId || !driveId) return;
+
+        fetch(`/api/sharepoint/drives/${driveId}/folders/`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('comment-sharepoint-folder-select');
+                select.innerHTML = '<option value="">Root Folder</option>';
+                data.folders.forEach(folder => {
+                    select.innerHTML += `<option value="${folder.id}">${folder.name}</option>`;
+                });
+                select.disabled = false;
+            });
+    }
+
+    function loadCommentSharepointFiles() {
+        const siteId = document.getElementById('comment-sharepoint-site-select').value;
+        const driveId = document.getElementById('comment-sharepoint-drive-select').value;
+        const folderId = document.getElementById('comment-sharepoint-folder-select').value;
+
+        if (!siteId || !driveId) return;
+
+        // If no folder selected, use root folder
+        const targetFolderId = folderId || 'root';
+        let url = `/api/sharepoint/folders/${targetFolderId}/items/?drive_id=${driveId}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const list = document.getElementById('comment-sharepoint-files-list');
+                const selectBtn = document.getElementById('comment-sharepoint-select-btn');
+                const files = data.files || []; // Access the files array from the response
+
+                if (files.length === 0) {
+                    list.innerHTML = '<p class="text-center text-base-content/50 py-8">No files found</p>';
+                    selectBtn.disabled = true;
+                } else {
+                    list.innerHTML = files.map(file => `
+                    <div class="flex items-center gap-3 p-2 hover:bg-base-200 rounded cursor-pointer" onclick="selectCommentSharepointFile('${file.id}', '${file.name.replace(/'/g, "\\'").replace(/"/g, '\\"')}', '${file.mimetype || ''}', '${file.size || 0}')">
+                        <input type="radio" name="comment-sharepoint-file" value="${file.id}">
+                        <span class="text-primary">${getFileIcon(file.mimetype)}</span>
+                        <div class="flex-1">
+                            <div class="font-medium">${file.name}</div>
+                            <div class="text-xs text-base-content/60">${file.size ? formatFileSize(file.size) : ''}</div>
+                        </div>
+                    </div>
+                `).join('');
+                    selectBtn.disabled = false;
+                }
+            });
+    }
+
+    let selectedCommentSharepointFile = null;
+
+    function selectCommentSharepointFile(id, name, mimetype, size) {
+        selectedCommentSharepointFile = {
+            id,
+            name,
+            mimetype,
+            size
+        };
+        // Update radio button selection
+        document.querySelectorAll('input[name="comment-sharepoint-file"]').forEach(radio => {
+            radio.checked = radio.value == id;
+        });
+    }
+
+    function linkCommentSharepointFile() {
+        if (!selectedCommentSharepointFile) return;
+
+        const siteId = document.getElementById('comment-sharepoint-site-select').value;
+        const driveId = document.getElementById('comment-sharepoint-drive-select').value;
+        const folderId = document.getElementById('comment-sharepoint-folder-select').value;
+        const type = document.getElementById('comment-sharepoint-type-select').value;
+
+        fetch('/api/attachments/link-sharepoint/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    site_id: siteId,
+                    drive_id: driveId,
+                    folder_id: folderId,
+                    file_id: selectedCommentSharepointFile.id,
+                    workflow_id: {{ workflow.id }},
+                    type: type
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addCommentAttachment(data.attachment);
+                    hideCommentSharepointModal();
+                    // Reset selection
+                    selectedCommentSharepointFile = null;
+                    document.getElementById('comment-sharepoint-files-list').innerHTML =
+                        '<p class="text-center text-base-content/50 py-8">📁 Select a folder to view files</p>';
+                    document.getElementById('comment-sharepoint-select-btn').disabled = true;
+                } else {
+                    alert('Failed to link file: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Failed to link file: ' + error.message);
+            });
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+</script>
 
 {% endblock %}

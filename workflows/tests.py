@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from .models import (
+    Attachment,
+    Comment,
     Facet,
     Group,
     GroupMembership,
@@ -28,15 +30,9 @@ class PermissionTestCase(TestCase):
         )
 
         # Create test roles
-        self.chair_role = Role.objects.create(
-            name="Chairperson", can_create_workflows=True, can_edit_workflows=True
-        )
-        self.member_role = Role.objects.create(
-            name="Member", can_view_all_workflows=True
-        )
-        self.secretary_role = Role.objects.create(
-            name="Secretary", can_create_workflows=True, can_transition_workflows=True
-        )
+        self.chair_role = Role.objects.create(name="Chairperson")
+        self.member_role = Role.objects.create(name="Member")
+        self.secretary_role = Role.objects.create(name="Secretary")
 
         # Create test users
         self.chair_user = User.objects.create_user(
@@ -77,12 +73,11 @@ class PermissionTestCase(TestCase):
         )
 
         # Create facets
-        self.view_facet = Facet.objects.create(
-            name="Committee View", can_view=True, allowed_roles=[self.member_role]
-        )
-        self.edit_facet = Facet.objects.create(
-            name="Chair Edit", can_edit=True, allowed_roles=[self.chair_role]
-        )
+        self.view_facet = Facet.objects.create(name="Committee View")
+        self.view_facet.view_roles.add(self.member_role)
+
+        self.edit_facet = Facet.objects.create(name="Chair Edit")
+        self.edit_facet.edit_roles.add(self.chair_role)
 
         # Link facets to states
         StateFacet.objects.create(state=self.draft_state, facet=self.view_facet)
@@ -114,12 +109,12 @@ class PermissionTestCase(TestCase):
         global_viewer = User.objects.create_user(
             username="global", email="global@test.com"
         )
-        global_role = Role.objects.create(
-            name="Global Viewer", can_view_all_workflows=True
-        )
+        global_role = Role.objects.create(name="Global Viewer")
         GroupMembership.objects.create(
             user=global_viewer, group=self.parliament, role=global_role
         )
+        # Add global role to view facet
+        self.view_facet.view_roles.add(global_role)
         self.assertTrue(self.workflow.can_user_view(global_viewer))
 
     def test_can_user_edit_with_role(self):
@@ -133,10 +128,12 @@ class PermissionTestCase(TestCase):
     def test_can_user_edit_with_global_role(self):
         """Test user with global edit role can edit"""
         editor = User.objects.create_user(username="editor", email="editor@test.com")
-        edit_role = Role.objects.create(name="Editor", can_edit_workflows=True)
+        edit_role = Role.objects.create(name="Editor")
         GroupMembership.objects.create(
             user=editor, group=self.parliament, role=edit_role
         )
+        # Add edit role to edit facet
+        self.edit_facet.edit_roles.add(edit_role)
         self.assertTrue(self.workflow.can_user_edit(editor))
 
     def test_get_available_transitions(self):
@@ -144,6 +141,9 @@ class PermissionTestCase(TestCase):
         transitions = self.workflow.get_available_transitions(self.secretary_user)
         # Should return transitions where secretary has role and facet allows transition
         # (Assuming transitions exist with allowed_roles including secretary_role)
+        self.assertIsInstance(
+            transitions, list
+        )  # Basic check that method returns a list
 
     def test_workflow_creation_inherits_group(self):
         """Test new workflow inherits group from type"""
@@ -154,3 +154,45 @@ class PermissionTestCase(TestCase):
             owner=self.chair_user,
         )
         self.assertEqual(new_workflow.effective_group, self.parliament)
+
+    def test_comment_with_attachments(self):
+        """Test that comments can have attachments"""
+        # Create a comment
+        comment = Comment.objects.create(
+            workflow=self.workflow,
+            user=self.chair_user,
+            text="This is a test comment with attachments",
+        )
+
+        # Create some test attachments
+        attachment1 = Attachment.objects.create(
+            name="Test Document.pdf",
+            drive_id="drive123",
+            item_id="item123",
+            mimetype="application/pdf",
+            size=1024000,
+            uploaded_by=self.chair_user,
+            type="document",
+        )
+
+        attachment2 = Attachment.objects.create(
+            name="Test Response.docx",
+            drive_id="drive456",
+            item_id="item456",
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            size=512000,
+            uploaded_by=self.chair_user,
+            type="response",
+        )
+
+        # Add attachments to comment
+        comment.attachments.add(attachment1, attachment2)
+
+        # Test the relationship
+        self.assertEqual(comment.attachments.count(), 2)
+        self.assertIn(attachment1, comment.attachments.all())
+        self.assertIn(attachment2, comment.attachments.all())
+
+        # Test reverse relationship
+        self.assertIn(comment, attachment1.comments.all())
+        self.assertIn(comment, attachment2.comments.all())

@@ -381,8 +381,22 @@ def workflow_detail(request, pk):
 
     if request.method == "POST":
         text = (request.POST.get("comment") or "").strip()
+        attachment_ids = request.POST.getlist("attachment_ids")
+
         if text:
-            Comment.objects.create(workflow=workflow, user=request.user, text=text)
+            comment = Comment.objects.create(
+                workflow=workflow, user=request.user, text=text
+            )
+
+            # Add attachments if provided
+            if attachment_ids:
+                try:
+                    attachments = Attachment.objects.filter(id__in=attachment_ids)
+                    comment.attachments.add(*attachments)
+                except (ValueError, Attachment.DoesNotExist):
+                    # If invalid attachment IDs, just continue without attachments
+                    pass
+
             messages.success(request, "Comment added.")
         else:
             messages.error(request, "Comment cannot be empty.")
@@ -396,8 +410,10 @@ def workflow_detail(request, pk):
         "user", "from_state", "to_state"
     )
 
-    # Get comments
-    comments = workflow.comments.all().select_related("user")
+    # Get comments with attachments
+    comments = (
+        workflow.comments.all().select_related("user").prefetch_related("attachments")
+    )
 
     # Get hierarchy information
     hierarchy_path = workflow.get_workflow_hierarchy_path()

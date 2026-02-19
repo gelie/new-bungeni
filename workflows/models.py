@@ -1149,6 +1149,14 @@ class Comment(models.Model):
 
     text = models.TextField()
 
+    # Optional attachments for comments
+    attachments = models.ManyToManyField(
+        "Attachment",
+        blank=True,
+        related_name="comments",
+        help_text="Supporting documents attached to this comment",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
