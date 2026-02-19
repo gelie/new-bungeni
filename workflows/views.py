@@ -1919,8 +1919,13 @@ def user_admin_workflow_types(request):
         "states", "transitions"
     )
 
+    active_workflow_types = WorkflowType.objects.filter(enabled=True).prefetch_related(
+        "states", "transitions"
+    )
+
     context = {
         "workflow_types": workflow_types,
+        "active_workflow_types": active_workflow_types,
     }
 
     return render(request, "workflows/admin/user_admin_workflow_types.html", context)
