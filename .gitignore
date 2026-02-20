@@ -21,3 +21,6 @@ workflows/migrations_backup/*
 workflows/management/commands/import_committees.py
 workflows/management/commands/import_roles.py
 general.log
+
+# Diagrams
+workflows/diagrams/*.png

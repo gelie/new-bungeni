@@ -160,6 +160,10 @@
                     {% lucide "file-text" class="w-4 h-4 mr-2" %}
                     Details
                 </a>
+                <a class="tab" data-tab="diagram">
+                    {% lucide "workflow" class="w-4 h-4 mr-2" %}
+                    Diagram
+                </a>
             </div>
 
             <!-- Tab Content -->
@@ -779,6 +783,147 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Diagram Tab -->
+                <div id="tab-diagram" class="tab-content">
+                    <div class="space-y-4">
+
+                        <!-- Diagram Image -->
+                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl" open>
+                            <summary class="collapse-title text-lg font-semibold flex items-center gap-2">
+                                {% lucide "workflow" class="w-5 h-5" %}
+                                {{ workflow.workflow_type.name }} Workflow Diagram
+                            </summary>
+                            <div class="collapse-content">
+                            {% if diagram_url %}
+                            <div class="bg-base-200 rounded-xl p-4 flex justify-center overflow-auto">
+                                <img src="{{ diagram_url }}" alt="{{ workflow.workflow_type.name }} workflow diagram"
+                                    class="max-w-full rounded-lg shadow" />
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                {% lucide "alert-triangle" class="w-4 h-4" %}
+                                <span>No diagram available for this workflow type. Run <code class="font-mono">manage.py generate_workflow_diagrams</code> to generate one.</span>
+                            </div>
+                            {% endif %}
+                            </div>
+                        </details>
+
+                        <!-- States & Permissions Table -->
+                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl" open>
+                            <summary class="collapse-title text-lg font-semibold flex items-center gap-2">
+                                {% lucide "shield" class="w-5 h-5" %}
+                                States &amp; Permissions
+                            </summary>
+                            <div class="collapse-content">
+                            <div class="overflow-x-auto rounded-xl border border-base-300">
+                                <table class="table table-zebra w-full">
+                                    <thead>
+                                        <tr>
+                                            <th>State</th>
+                                            <th>Type</th>
+                                            <th>Role</th>
+                                            <th class="text-center">View</th>
+                                            <th class="text-center">Edit</th>
+                                            <th class="text-center">Delete</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for state in diagram_states %}
+                                        {% if state.permissions.all %}
+                                        {% for perm in state.permissions.all %}
+                                        <tr>
+                                            {% if forloop.first %}
+                                            <td rowspan="{{ state.permissions.all|length }}" class="font-medium align-top">
+                                                <span class="badge badge-sm" style="background-color: {{ state.color }}; color: white;">
+                                                    {{ state.name }}
+                                                </span>
+                                            </td>
+                                            <td rowspan="{{ state.permissions.all|length }}" class="align-top text-sm text-base-content/60">
+                                                {% if state.is_initial %}Initial{% elif state.is_terminal %}Terminal{% else %}Regular{% endif %}
+                                            </td>
+                                            {% endif %}
+                                            <td class="text-sm">{{ perm.role.name }}</td>
+                                            <td class="text-center">
+                                                {% if perm.can_view %}{% lucide "check" class="w-4 h-4 text-success mx-auto" %}{% else %}<span class="text-base-content/30">—</span>{% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if perm.can_edit %}{% lucide "check" class="w-4 h-4 text-success mx-auto" %}{% else %}<span class="text-base-content/30">—</span>{% endif %}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if perm.can_delete %}{% lucide "check" class="w-4 h-4 text-success mx-auto" %}{% else %}<span class="text-base-content/30">—</span>{% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% else %}
+                                        <tr>
+                                            <td class="font-medium">
+                                                <span class="badge badge-sm" style="background-color: {{ state.color }}; color: white;">
+                                                    {{ state.name }}
+                                                </span>
+                                            </td>
+                                            <td class="text-sm text-base-content/60">
+                                                {% if state.is_initial %}Initial{% elif state.is_terminal %}Terminal{% else %}Regular{% endif %}
+                                            </td>
+                                            <td colspan="4" class="text-sm text-base-content/40 italic">No permissions defined — visible to all group members</td>
+                                        </tr>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            </div>
+                        </details>
+
+                        <!-- Transitions Table -->
+                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl" open>
+                            <summary class="collapse-title text-lg font-semibold flex items-center gap-2">
+                                {% lucide "arrow-right-left" class="w-5 h-5" %}
+                                Transitions &amp; Allowed Roles
+                            </summary>
+                            <div class="collapse-content">
+                            <div class="overflow-x-auto rounded-xl border border-base-300">
+                                <table class="table table-zebra w-full">
+                                    <thead>
+                                        <tr>
+                                            <th>Transition</th>
+                                            <th>From</th>
+                                            <th>To</th>
+                                            <th>Allowed Roles</th>
+                                            <th class="text-center">Requires Comment</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for t in diagram_transitions %}
+                                        <tr>
+                                            <td class="font-medium">{{ t.name }}</td>
+                                            <td>
+                                                <span class="badge badge-sm badge-outline">{{ t.from_state.name }}</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-sm" style="background-color: {{ t.to_state.color }}; color: white;">{{ t.to_state.name }}</span>
+                                            </td>
+                                            <td class="text-sm">
+                                                {% for role in t.allowed_roles.all %}
+                                                <span class="badge badge-xs badge-ghost mr-1">{{ role.name }}</span>
+                                                {% empty %}
+                                                <span class="text-base-content/40 italic">None</span>
+                                                {% endfor %}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if t.requires_comment %}{% lucide "check" class="w-4 h-4 text-warning mx-auto" %}{% else %}<span class="text-base-content/30">—</span>{% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            </div>
+                        </details>
+
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

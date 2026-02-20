@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 
 import httpx
 from django.contrib import messages
@@ -8,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -454,6 +455,28 @@ def workflow_detail(request, pk):
     if workflow.parent_workflow:
         related_count += 1
 
+    # Diagram tab: states with permissions, transitions with roles
+    wt = workflow.workflow_type
+    diagram_states = wt.states.prefetch_related("permissions__role").order_by(
+        "order", "name"
+    )
+    diagram_transitions = (
+        wt.transitions.select_related("from_state", "to_state")
+        .prefetch_related("allowed_roles")
+        .order_by("order", "name")
+    )
+
+    # Check if diagram file exists
+    diagram_filename = f"{wt.name.lower().replace(' ', '_')}_workflow.svg"
+    diagram_filepath = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "diagrams", diagram_filename
+    )
+    diagram_url = (
+        f"/workflow-types/{wt.pk}/diagram/"
+        if os.path.exists(diagram_filepath)
+        else None
+    )
+
     context = {
         "workflow": workflow,
         "available_transitions": available_transitions,
@@ -469,6 +492,9 @@ def workflow_detail(request, pk):
         "related_count": related_count,
         "allowed_child_configs": allowed_child_configs,
         "can_edit": workflow.can_user_edit(request.user),
+        "diagram_url": diagram_url,
+        "diagram_states": diagram_states,
+        "diagram_transitions": diagram_transitions,
     }
 
     return render(request, "workflows/workflow_detail.html", context)
@@ -867,6 +893,25 @@ def group_detail(request, pk):
     }
 
     return render(request, "workflows/group_detail.html", context)
+
+
+# ============================================================================
+# DIAGRAM VIEW
+# ============================================================================
+
+
+@login_required
+def workflow_type_diagram(request, pk):
+    """Serve the diagram SVG for a workflow type."""
+    workflow_type = get_object_or_404(WorkflowType, pk=pk)
+    filename = f"{workflow_type.name.lower().replace(' ', '_')}_workflow.svg"
+    diagrams_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "diagrams")
+    filepath = os.path.join(diagrams_dir, filename)
+
+    if not os.path.exists(filepath):
+        raise Http404("Diagram not yet generated for this workflow type.")
+
+    return FileResponse(open(filepath, "rb"), content_type="image/svg+xml")
 
 
 # ============================================================================

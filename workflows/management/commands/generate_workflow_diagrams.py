@@ -26,8 +26,8 @@ class Command(BaseCommand):
             "--format",
             type=str,
             choices=["dot", "png", "svg", "pdf"],
-            default="dot",
-            help="Output format for diagrams (default: dot)",
+            default="svg",
+            help="Output format for diagrams (default: svg)",
         )
         parser.add_argument(
             "--show-roles",
@@ -142,7 +142,7 @@ class Command(BaseCommand):
         )
         dot.attr(rankdir="TB")
         dot.attr("node", shape="box", style="filled")
-        dot.attr("edge", fontsize="10")
+        dot.attr("edge", fontsize="12")
 
         # Add title to the graph
         title = f"{workflow_type.name} Workflow"

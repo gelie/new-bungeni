@@ -103,6 +103,11 @@ urlpatterns = [
         views.workflow_type_transitions,
         name="admin_workflow_type_transitions",
     ),
+    path(
+        "workflow-types/<int:pk>/diagram/",
+        views.workflow_type_diagram,
+        name="workflow_type_diagram",
+    ),
     path("manage/groups/", views.group_admin, name="admin_groups"),
     path(
         "manage/sharepoint/sites/",
