@@ -103,25 +103,25 @@
             <div class="flex items-center gap-2">
               {% lucide "info" class="w-4 h-4" %}
               <span>
-                Creating this workflow as a sub-workflow of: <strong>{{ parent_workflow.title }}</strong>
+                Creating a sub-workflow of: <strong>{{ parent_workflow.title }}</strong>
+                ({{ parent_workflow.workflow_type.name }})
               </span>
             </div>
           </div>
 
           <input type="hidden" name="parent_workflow" value="{{ parent_workflow.pk }}" />
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Relationship Type *</span>
-              <span class="label-text-alt text-base-content/70">Required for sub-workflows</span>
-            </label>
-            <select name="relationship_type" class="select select-bordered w-full" required>
-              <option value="">Select relationship type...</option>
-              <option value="amendment">Amendment</option>
-              <option value="supplement">Supplement</option>
-              <option value="correction">Correction/Erratum</option>
-            </select>
+          {% if workflow_types %}
+          <div class="alert alert-success text-sm">
+            {% lucide "circle-check" class="w-4 h-4" %}
+            The relationship type will be set automatically based on the selected workflow type.
           </div>
+          {% else %}
+          <div class="alert alert-warning">
+            {% lucide "alert-triangle" class="w-4 h-4" %}
+            <span>No allowed child workflow types are configured for <strong>{{ parent_workflow.workflow_type.name }}</strong>. Please contact an administrator.</span>
+          </div>
+          {% endif %}
         </div>
         {% endif %}
 

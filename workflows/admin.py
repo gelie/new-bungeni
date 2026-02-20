@@ -9,7 +9,6 @@ from .models import (
     Event,
     EventAttendance,
     EventType,
-    Facet,
     Group,
     GroupMembership,
     # GroupType,
@@ -18,13 +17,14 @@ from .models import (
     Site,
     SiteMember,
     State,
-    StateFacet,
+    StatePermission,
     Transition,
     User,
     Venue,
     Workflow,
     WorkflowTransitionLog,
     WorkflowType,
+    WorkflowTypeChildConfig,
 )
 
 # ============================================================================
@@ -105,11 +105,40 @@ class GroupMembershipAdmin(admin.ModelAdmin):
 # ============================================================================
 
 
+class StatePermissionInline(admin.TabularInline):
+    model = StatePermission
+    extra = 1
+    autocomplete_fields = ["role"]
+    fields = ["role", "can_view", "can_edit", "can_delete"]
+
+
+class WorkflowTypeChildConfigInline(admin.TabularInline):
+    model = WorkflowTypeChildConfig
+    fk_name = "parent_type"
+    extra = 1
+    autocomplete_fields = ["child_type"]
+    fields = ["child_type", "relationship_label"]
+
+
+@admin.register(WorkflowTypeChildConfig)
+class WorkflowTypeChildConfigAdmin(admin.ModelAdmin):
+    list_display = [
+        "parent_type",
+        "child_type",
+        "relationship_label",
+        "relationship_key",
+    ]
+    list_filter = ["parent_type"]
+    search_fields = ["parent_type__name", "child_type__name", "relationship_label"]
+    autocomplete_fields = ["parent_type", "child_type"]
+
+
 @admin.register(WorkflowType)
 class WorkflowTypeAdmin(admin.ModelAdmin):
-    list_display = ["name", "description", "group"]
+    list_display = ["name", "description", "group", "enabled"]
     search_fields = ["name"]
     autocomplete_fields = ["group", "create_roles"]
+    inlines = [WorkflowTypeChildConfigInline]
 
 
 @admin.register(State)
@@ -125,6 +154,7 @@ class StateAdmin(admin.ModelAdmin):
     list_filter = ["workflow_type", "is_initial", "is_terminal"]
     search_fields = ["name"]
     ordering = ["workflow_type", "order"]
+    inlines = [StatePermissionInline]
 
 
 @admin.register(Transition)
@@ -157,18 +187,12 @@ class TransitionAdmin(admin.ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
-@admin.register(Facet)
-class FacetAdmin(admin.ModelAdmin):
-    list_display = ["name", "description"]
-    search_fields = ["name", "description"]
-    filter_horizontal = ["view_roles", "edit_roles", "delete_roles", "transition_roles"]
-
-
-@admin.register(StateFacet)
-class StateFacetAdmin(admin.ModelAdmin):
-    list_display = ["state", "facet"]
-    list_filter = ["state__workflow_type"]
-    search_fields = ["state__name", "facet__name"]
+@admin.register(StatePermission)
+class StatePermissionAdmin(admin.ModelAdmin):
+    list_display = ["state", "role", "can_view", "can_edit", "can_delete"]
+    list_filter = ["state__workflow_type", "can_view", "can_edit", "can_delete"]
+    search_fields = ["state__name", "role__name"]
+    autocomplete_fields = ["state", "role"]
 
 
 @admin.register(Workflow)

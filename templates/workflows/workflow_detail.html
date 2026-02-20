@@ -32,7 +32,7 @@
                     {% if workflow.parent_workflow %}
                     <div class="text-sm text-base-content/60 mb-2">
                         {% lucide "link" class="w-4 h-4 inline mr-1" %}
-                        {{ workflow.get_relationship_type_display|default:"Child" }} of
+                        {{ workflow.relationship_type.relationship_label|default:"Child" }} of
                         <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
                             class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
                     </div>
@@ -51,7 +51,7 @@
                         {% elif workflow.priority == 'high' %}
                         <span class="badge badge-lg badge-warning">High Priority</span>
                         {% endif %}
-                        {% if workflow.is_overdue %}
+                        {% if workflow.is_overdue and not workflow.current_state.is_terminal %}
                         <span class="badge badge-lg badge-error">Overdue</span>
                         {% endif %}
                         {% if workflow.has_sub_workflows %}
@@ -61,11 +61,24 @@
                 </div>
 
                 <!-- Quick Actions -->
-                <div class="flex gap-2">
-                    {% if can_edit %}
-                    <a href="{% url 'workflow_create' %}?parent={{ workflow.pk }}" class="btn bg-gray-600 text-white">
-                        {% lucide "plus" class="w-4 h-4" %} Create Subworkflow
-                    </a>
+                <div class="flex gap-2 flex-wrap">
+                    {% if can_edit and allowed_child_configs %}
+                    <div class="dropdown dropdown-end">
+                        <label tabindex="0" class="btn btn-sm bg-gray-600 text-white">
+                            {% lucide "plus" class="w-4 h-4 mr-1" %} Add Sub-workflow
+                            {% lucide "chevron-down" class="w-3 h-3 ml-1" %}
+                        </label>
+                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-10">
+                            {% for config in allowed_child_configs %}
+                            <li>
+                                <a href="{% url 'workflow_create' %}?parent={{ workflow.pk }}&type={{ config.child_type.pk }}">
+                                    {% lucide "git-branch" class="w-4 h-4" %}
+                                    {{ config.relationship_label }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                     {% endif %}
 
                     {% if available_transitions %}
@@ -179,7 +192,7 @@
                                 {% if workflow.deadline %}
                                 <div class="flex justify-between">
                                     <span class="text-base-content/70">Deadline</span>
-                                    <span class="{% if workflow.is_overdue %}text-error font-semibold{% endif %}">
+                                    <span class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
                                         {{ workflow.deadline|date:"M d, Y" }}
                                     </span>
                                 </div>
@@ -262,7 +275,7 @@
                                         <div class="text-sm text-base-content/60 mt-1">
                                             {{ workflow.parent_workflow.workflow_type.name }}
                                             {% if workflow.relationship_type %}
-                                            • This is a {{ workflow.get_relationship_type_display|lower }}
+                                            • This is a {{ workflow.relationship_type.relationship_label|lower }}
                                             {% endif %}
                                         </div>
                                         <div class="flex items-center gap-2 mt-2">
@@ -300,7 +313,7 @@
                                             <div class="text-xs text-base-content/60 mt-1">
                                                 {{ sub_workflow.workflow_type.name }}
                                                 {% if sub_workflow.relationship_type %}
-                                                • {{ sub_workflow.get_relationship_type_display }}
+                                                • {{ sub_workflow.relationship_type.relationship_label }}
                                                 {% endif %}
                                             </div>
                                             <div class="flex items-center gap-2 mt-2">
@@ -342,7 +355,7 @@
                                             <div class="font-medium truncate">{{ sibling.title }}</div>
                                             <div class="text-xs text-base-content/60">
                                                 {% if sibling.relationship_type %}
-                                                {{ sibling.get_relationship_type_display }}
+                                                {{ sibling.relationship_type.relationship_label }}
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -730,7 +743,7 @@
                                 {% if workflow.deadline %}
                                 <div class="flex justify-between">
                                     <span class="text-base-content/70">Deadline</span>
-                                    <span class="{% if workflow.is_overdue %}text-error font-semibold{% endif %}">
+                                    <span class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
                                         {{ workflow.deadline|date:"F d, Y H:i" }}
                                     </span>
                                 </div>

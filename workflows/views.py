@@ -5,6 +5,7 @@ import httpx
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
@@ -15,6 +16,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import (
     Attachment,
+    AuditLog,
     Comment,
     Drive,
     Event,
@@ -250,10 +252,22 @@ def workflow_create(request):
                 )
                 return redirect("workflow_detail", pk=parent_id)
 
-        # Filter workflow types to only enabled ones where user has create roles
-        workflow_types = WorkflowType.objects.filter(
-            enabled=True, create_roles__in=user_roles
-        ).distinct()
+        # When creating a sub-workflow, restrict types to those allowed by the parent config
+        if parent_workflow:
+            allowed_child_type_ids = (
+                parent_workflow.workflow_type.allowed_child_configs.values_list(
+                    "child_type_id", flat=True
+                )
+            )
+            workflow_types = WorkflowType.objects.filter(
+                enabled=True,
+                create_roles__in=user_roles,
+                pk__in=allowed_child_type_ids,
+            ).distinct()
+        else:
+            workflow_types = WorkflowType.objects.filter(
+                enabled=True, create_roles__in=user_roles
+            ).distinct()
 
         # Build schema map keyed by str(pk) for JS lookup
         workflow_type_schemas = {
@@ -280,7 +294,7 @@ def workflow_create(request):
     # POST
     workflow_type_id = request.POST.get("workflow_type")
     parent_workflow_id = request.POST.get("parent_workflow")
-    relationship_type = request.POST.get("relationship_type")
+    relationship_type = None
     title = (request.POST.get("title") or "").strip()
     description = (request.POST.get("description") or "").strip()
     priority = request.POST.get("priority") or "medium"
@@ -323,13 +337,14 @@ def workflow_create(request):
             )
             return redirect("workflow_detail", pk=parent_workflow_id)
         # Check if parent can have this type
-        if not parent_workflow.can_be_parent_of(workflow_type.name):
+        if not parent_workflow.can_be_parent_of(workflow_type):
             messages.error(
                 request,
                 f"{parent_workflow.workflow_type.name} cannot have {workflow_type.name} as subworkflow.",
             )
             return redirect("workflow_detail", pk=parent_workflow_id)
-        # Require relationship_type for subworkflows
+        # Resolve the relationship config FK
+        relationship_type = parent_workflow.get_child_config(workflow_type)
         if not relationship_type:
             messages.error(request, "Relationship type is required for subworkflows.")
             return redirect("workflow_detail", pk=parent_workflow_id)
@@ -361,7 +376,7 @@ def workflow_create(request):
         owner=user,
         priority=priority,
         parent_workflow=parent_workflow,
-        relationship_type=relationship_type if parent_workflow else "",
+        relationship_type=relationship_type if parent_workflow else None,
         data=workflow_data,
     )
 
@@ -418,7 +433,7 @@ def workflow_detail(request, pk):
     # Get hierarchy information
     hierarchy_path = workflow.get_workflow_hierarchy_path()
     sub_workflows = workflow.sub_workflows.all().select_related(
-        "workflow_type", "current_state", "owner"
+        "workflow_type", "current_state", "owner", "relationship_type"
     )
     root_workflow = workflow.get_root_workflow()
 
@@ -427,7 +442,12 @@ def workflow_detail(request, pk):
     if workflow.parent_workflow:
         sibling_workflows = workflow.parent_workflow.sub_workflows.exclude(
             id=workflow.id
-        ).select_related("workflow_type", "current_state")
+        ).select_related("workflow_type", "current_state", "relationship_type")
+
+    # Allowed child types for this workflow type (drives "Add" buttons)
+    allowed_child_configs = workflow.workflow_type.allowed_child_configs.select_related(
+        "child_type"
+    )
 
     # Calculate related count for badge
     related_count = sub_workflows.count() + len(sibling_workflows)
@@ -447,6 +467,7 @@ def workflow_detail(request, pk):
         "has_children": workflow.has_sub_workflows,
         "hierarchy_level": workflow.hierarchy_level,
         "related_count": related_count,
+        "allowed_child_configs": allowed_child_configs,
         "can_edit": workflow.can_user_edit(request.user),
     }
 
@@ -615,6 +636,23 @@ def workflow_transition(request, pk, transition_id):
             to_state=transition.to_state,
             user=request.user,
             comment=comment,
+        )
+
+        # Audit log with IP address
+        AuditLog.objects.create(
+            content_type=ContentType.objects.get_for_model(workflow),
+            object_id=workflow.pk,
+            action="transition",
+            user=request.user,
+            ip_address=request.META.get("HTTP_X_FORWARDED_FOR", "")
+            .split(",")[0]
+            .strip()
+            or request.META.get("REMOTE_ADDR"),
+            changes={
+                "transition": transition.name,
+                "from_state": from_state.name,
+                "to_state": transition.to_state.name,
+            },
         )
 
         # Update workflow state

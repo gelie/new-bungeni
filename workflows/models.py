@@ -388,7 +388,7 @@ class WorkflowType(models.Model):
         return str(self.name)
 
     def clean(self):
-        if not self.create_roles.exists():
+        if self.pk and not self.create_roles.exists():
             raise ValidationError("Create roles cannot be empty.")
 
         # Validate that create_roles are in group owner roles
@@ -477,49 +477,73 @@ class Transition(models.Model):
         return f"{self.name}: {self.from_state.name} → {self.to_state.name}"
 
 
-class Facet(models.Model):
+class WorkflowTypeChildConfig(models.Model):
     """
-    Facets define bundled permissions for workflow states.
-    They control visibility and actions based on state.
+    Declares which child WorkflowTypes are allowed under a parent WorkflowType,
+    and what the relationship is called. Replaces the hardcoded can_be_parent_of dict.
     """
 
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
-
-    # Permissions encapsulated with roles
-    view_roles = models.ManyToManyField(
-        Role, related_name="viewable_facets", blank=True
+    parent_type = models.ForeignKey(
+        WorkflowType,
+        on_delete=models.CASCADE,
+        related_name="allowed_child_configs",
     )
-    edit_roles = models.ManyToManyField(
-        Role, related_name="editable_facets", blank=True
+    child_type = models.ForeignKey(
+        WorkflowType,
+        on_delete=models.CASCADE,
+        related_name="allowed_as_child_of",
     )
-    delete_roles = models.ManyToManyField(
-        Role, related_name="deletable_facets", blank=True
+    relationship_label = models.CharField(
+        max_length=100,
+        help_text="Human-readable label for this relationship (e.g. 'Resolution', 'Amendment')",
     )
-    transition_roles = models.ManyToManyField(
-        Role, related_name="transitionable_facets", blank=True
+    relationship_key = AutoSlugField(
+        populate_from="relationship_label",
+        unique=True,
+        editable=False,
+        help_text="Slug-like key stored on the child Workflow instance (e.g. 'resolution')",
     )
 
     class Meta:
-        ordering = ["name"]
+        ordering = ["parent_type", "relationship_label"]
+        unique_together = [["parent_type", "child_type"]]
 
     def __str__(self):
-        return str(self.name)
+        return f"{self.parent_type.name} → {self.child_type.name} ({self.relationship_label})"
 
 
-class StateFacet(models.Model):
+class StatePermission(models.Model):
     """
-    Links states to facets - defines who can see/interact with workflows in specific states.
+    Direct per-state role permissions. Replaces the Facet/StateFacet indirection.
+    One row per (state, role) pair controls what that role can do in that state.
+    Transition permission is handled separately by Transition.allowed_roles.
     """
 
-    state = models.ForeignKey(State, on_delete=models.CASCADE, related_name="facets")
-    facet = models.ForeignKey(Facet, on_delete=models.CASCADE)
+    state = models.ForeignKey(
+        State, on_delete=models.CASCADE, related_name="permissions"
+    )
+    role = models.ForeignKey(
+        Role, on_delete=models.CASCADE, related_name="state_permissions"
+    )
+    can_view = models.BooleanField(default=False)
+    can_edit = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = [["state", "facet"]]
+        ordering = ["state", "role"]
+        unique_together = [["state", "role"]]
 
     def __str__(self):
-        return f"{self.state} - {self.facet}"
+        perms = ", ".join(
+            p
+            for p, v in [
+                ("view", self.can_view),
+                ("edit", self.can_edit),
+                ("delete", self.can_delete),
+            ]
+            if v
+        )
+        return f"{self.state} | {self.role} | [{perms or 'none'}]"
 
 
 class Workflow(models.Model):
@@ -569,19 +593,14 @@ class Workflow(models.Model):
         help_text="Parent workflow (e.g., International Report for Resolutions)",
     )
 
-    # Optional: Add a field to indicate the relationship type
-    relationship_type = models.CharField(
-        max_length=50,
-        choices=[
-            ("resolution", "Resolution"),
-            ("amendment", "Amendment"),
-            ("follow_up", "Follow-up Action"),
-            ("supplement", "Supplementary Document"),
-            ("correction", "Correction/Erratum"),
-        ],
+    # FK to the predefined child config that describes this relationship
+    relationship_type = models.ForeignKey(
+        "WorkflowTypeChildConfig",
+        on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="Type of relationship to parent workflow",
+        related_name="workflow_instances",
+        help_text="Predefined relationship type to parent workflow",
     )
 
     # Workflow-specific data stored as JSON
@@ -626,7 +645,9 @@ class Workflow(models.Model):
         if self.parent_workflow:
             prefix = "  " * self.hierarchy_level
             relationship = (
-                f" ({self.relationship_type})" if self.relationship_type else ""
+                f" ({self.relationship_type.relationship_label})"
+                if self.relationship_type
+                else ""
             )
             return f"{prefix}└─ {self.workflow_type.name}: {self.title}{relationship}"
         return f"{self.workflow_type.name}: {self.title}"
@@ -652,111 +673,51 @@ class Workflow(models.Model):
             allowed_roles__in=user_roles,
         ).distinct()
 
-    def can_user_view(self, user):
-        """Check if user can view this workflow"""
-        # Check if user is in the workflow's group or referred group
+    def _user_roles_for_workflow(self, user):
+        """Return queryset of role IDs the user holds in this workflow's relevant groups."""
+        groups = [self.effective_group]
+        if self.referred_to:
+            groups.append(self.referred_to)
+        return user.memberships.filter(group__in=groups, is_active=True).values_list(
+            "role", flat=True
+        )
+
+    def _user_in_workflow_groups(self, user):
+        """Return True if the user is a member of the workflow's group or referred group."""
         user_groups = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
         )
-
-        if self.effective_group.id in user_groups or (
+        return self.effective_group.id in user_groups or (
             self.referred_to and self.referred_to.id in user_groups
-        ):
-            # Owners can always view their own workflows
-            # if self.owner == user:
-            #     return True
+        )
 
-            # Check facet permissions for current state
-            state_facets = self.current_state.facets.all()
-            if not state_facets.exists():
-                return True  # No facets = visible to all group members
-
-            user_roles = user.memberships.filter(
-                group__in=[self.effective_group, self.referred_to]
-                if self.referred_to
-                else [self.effective_group],
-                is_active=True,
-            ).values_list("role", flat=True)
-
-            for state_facet in state_facets:
-                facet = state_facet.facet
-                if (
-                    facet.view_roles.exists()
-                    and facet.view_roles.filter(id__in=user_roles).exists()
-                ):
-                    return True
-
+    def can_user_view(self, user):
+        """Check if user can view this workflow."""
+        if not self._user_in_workflow_groups(user):
             return False
-
-        return False
+        user_roles = self._user_roles_for_workflow(user)
+        state_perms = self.current_state.permissions.all()
+        if not state_perms.exists():
+            return True  # No permissions defined = visible to all group members
+        return state_perms.filter(role__in=user_roles, can_view=True).exists()
 
     def can_user_edit(self, user):
-        """Check if user can edit this workflow"""
-        # Check if user is in the workflow's group or referred group
-        user_groups = user.memberships.filter(is_active=True).values_list(
-            "group", flat=True
-        )
-
-        if self.effective_group.id in user_groups or (
-            self.referred_to and self.referred_to.id in user_groups
-        ):
-            # Check facet permissions for current state
-            state_facets = self.current_state.facets.all()
-            if not state_facets.exists():
-                return False  # No facets = no edit permission by default
-
-            user_roles = user.memberships.filter(
-                group__in=[self.effective_group, self.referred_to]
-                if self.referred_to
-                else [self.effective_group],
-                is_active=True,
-            ).values_list("role", flat=True)
-
-            for state_facet in state_facets:
-                facet = state_facet.facet
-                if (
-                    facet.edit_roles.exists()
-                    and not facet.edit_roles.filter(id__in=user_roles).exists()
-                ):
-                    return False
-
-            return True
-
-        return False
+        """Check if user can edit this workflow."""
+        if not self._user_in_workflow_groups(user):
+            return False
+        user_roles = self._user_roles_for_workflow(user)
+        return self.current_state.permissions.filter(
+            role__in=user_roles, can_edit=True
+        ).exists()
 
     def can_user_delete(self, user):
-        """Check if user can delete this workflow"""
-        # Check if user is in the workflow's group or referred group
-        user_groups = user.memberships.filter(is_active=True).values_list(
-            "group", flat=True
-        )
-
-        if self.effective_group.id in user_groups or (
-            self.referred_to and self.referred_to.id in user_groups
-        ):
-            # Check facet permissions for current state
-            state_facets = self.current_state.facets.all()
-            if not state_facets.exists():
-                return False  # No facets = no delete permission by default
-
-            user_roles = user.memberships.filter(
-                group__in=[self.effective_group, self.referred_to]
-                if self.referred_to
-                else [self.effective_group],
-                is_active=True,
-            ).values_list("role", flat=True)
-
-            for state_facet in state_facets:
-                facet = state_facet.facet
-                if (
-                    facet.delete_roles.exists()
-                    and not facet.delete_roles.filter(id__in=user_roles).exists()
-                ):
-                    return False
-
-            return True
-
-        return False
+        """Check if user can delete this workflow."""
+        if not self._user_in_workflow_groups(user):
+            return False
+        user_roles = self._user_roles_for_workflow(user)
+        return self.current_state.permissions.filter(
+            role__in=user_roles, can_delete=True
+        ).exists()
 
     def is_overdue(self):
         """Check if workflow is past deadline"""
@@ -822,27 +783,26 @@ class Workflow(models.Model):
             current = current.parent_workflow
         return path
 
-    def can_be_parent_of(self, potential_child_type):
-        """Check if this workflow type can be parent of another workflow type"""
-        # Define valid parent-child relationships
-        valid_relationships = {
-            "International Report": ["International Resolution"],
-            "Bill": ["Amendment"],
-            "Motion": ["Amendment", "Follow-up Action"],
-            # Add more as needed
-        }
+    def get_child_config(self, child_workflow_type):
+        """Return the WorkflowTypeChildConfig for a given child type, or None."""
+        return self.workflow_type.allowed_child_configs.filter(
+            child_type=child_workflow_type
+        ).first()
 
-        parent_type = self.workflow_type.name
-        return potential_child_type in valid_relationships.get(parent_type, [])
+    def can_be_parent_of(self, child_workflow_type):
+        """Check if this workflow's type allows the given WorkflowType as a child."""
+        return self.workflow_type.allowed_child_configs.filter(
+            child_type=child_workflow_type
+        ).exists()
 
-    def create_sub_workflow(self, workflow_type, title, relationship_type, **kwargs):
-        """Helper method to create a sub-workflow"""
-        if not self.can_be_parent_of(workflow_type.name):
+    def create_sub_workflow(self, child_workflow_type, title, **kwargs):
+        """Helper method to create a sub-workflow using a predefined child config."""
+        config = self.get_child_config(child_workflow_type)
+        if not config:
             raise ValueError(
-                f"{self.workflow_type.name} cannot be parent of {workflow_type.name}"
+                f"{self.workflow_type.name} cannot be parent of {child_workflow_type.name}"
             )
 
-        # Inherit some properties from parent if not specified
         defaults = {
             "owner": self.owner,
             "priority": self.priority,
@@ -850,10 +810,10 @@ class Workflow(models.Model):
         defaults.update(kwargs)
 
         return Workflow.objects.create(
-            workflow_type=workflow_type,
+            workflow_type=child_workflow_type,
             title=title,
             parent_workflow=self,
-            relationship_type=relationship_type,
+            relationship_type=config,
             **defaults,
         )
 
@@ -926,6 +886,7 @@ class AuditLog(models.Model):
         ("update", "Update"),
         ("delete", "Delete"),
         ("view", "View"),
+        ("transition", "Transition"),
     ]
 
     # Generic foreign key to any model
@@ -933,7 +894,7 @@ class AuditLog(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey("content_type", "object_id")
 
-    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    action = models.CharField(max_length=12, choices=ACTION_CHOICES)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
 
     # What changed
