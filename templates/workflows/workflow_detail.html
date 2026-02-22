@@ -63,22 +63,9 @@
                 <!-- Quick Actions -->
                 <div class="flex gap-2 flex-wrap">
                     {% if can_edit and allowed_child_configs %}
-                    <div class="dropdown dropdown-end">
-                        <label tabindex="0" class="btn btn-sm bg-gray-600 text-white">
-                            {% lucide "plus" class="w-4 h-4 mr-1" %} Add Sub-workflow
-                            {% lucide "chevron-down" class="w-3 h-3 ml-1" %}
-                        </label>
-                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 z-10">
-                            {% for config in allowed_child_configs %}
-                            <li>
-                                <a href="{% url 'workflow_create' %}?parent={{ workflow.pk }}&type={{ config.child_type.pk }}">
-                                    {% lucide "git-branch" class="w-4 h-4" %}
-                                    {{ config.relationship_label }}
-                                </a>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
+                    <label for="bulk-create-modal" class="btn bg-gray-600 text-white">
+                        {% lucide "plus" class="w-4 h-4 mr-1" %} Add Sub-workflow
+                    </label>
                     {% endif %}
 
                     {% if available_transitions %}
@@ -2289,5 +2276,161 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 </script>
+
+{% if can_edit and allowed_child_configs %}
+<!-- Bulk Sub-workflow Creation Modal -->
+<input type="checkbox" id="bulk-create-modal" class="modal-toggle" />
+<div class="modal" role="dialog">
+  <div class="modal-box w-11/12 max-w-none">
+    <h3 class="font-bold text-lg mb-1">Add Sub-workflows</h3>
+    <p class="text-sm text-base-content/60 mb-4">Fill in as many rows as needed. Rows with an empty title will be skipped.</p>
+
+    <div class="form-control mb-4">
+      <label class="label"><span class="label-text font-medium">Sub-workflow Type</span></label>
+      <select id="bulk-wf-type" class="select select-bordered w-full max-w-xs">
+        {% for config in allowed_child_configs %}
+        <option value="{{ config.child_type.pk }}">{{ config.relationship_label }} — {{ config.child_type.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table table-sm w-full">
+        <thead>
+          <tr>
+            <th class="w-6 text-base-content/50">#</th>
+            <th>Title <span class="text-error">*</span></th>
+            <th class="w-32">Priority</th>
+            <th class="w-40">Deadline</th>
+            <th>Description</th>
+            <th class="w-8"></th>
+          </tr>
+        </thead>
+        <tbody id="bulk-rows">
+        </tbody>
+      </table>
+    </div>
+
+    <button type="button" onclick="bulkAddRow()" class="btn btn-ghost btn-sm mt-3">
+      {% lucide "plus" class="w-4 h-4" %} Add row
+    </button>
+
+    <div id="bulk-error" class="alert alert-error mt-3 hidden"></div>
+
+    <div class="modal-action">
+      <label for="bulk-create-modal" class="btn btn-ghost">Cancel</label>
+      <button type="button" onclick="bulkSubmit()" class="btn btn-primary" id="bulk-submit-btn">
+        {% lucide "save" class="w-4 h-4 mr-1" %} Create All
+      </button>
+    </div>
+  </div>
+  <label class="modal-backdrop" for="bulk-create-modal"></label>
+</div>
+
+<script>
+  const BULK_CREATE_URL = "{% url 'workflow_bulk_create' workflow.pk %}";
+  const CSRF_TOKEN = getCookie('csrftoken');
+
+  function bulkAddRow() {
+    const tbody = document.getElementById('bulk-rows');
+    const idx = tbody.rows.length + 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="text-base-content/40 text-xs">${idx}</td>
+      <td><input type="text" name="titles[]" class="input input-bordered input-sm w-full" placeholder="Title" /></td>
+      <td>
+        <select name="priorities[]" class="select select-bordered select-sm w-full">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </td>
+      <td><input type="date" name="deadlines[]" class="input input-bordered input-sm w-full" /></td>
+      <td><input type="text" name="descriptions[]" class="input input-bordered input-sm w-full" placeholder="Optional" /></td>
+      <td>
+        <button type="button" onclick="this.closest('tr').remove(); renumberRows();" class="btn btn-ghost btn-xs text-error">
+          {% lucide "x" class="w-3 h-3" %}
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function renumberRows() {
+    document.querySelectorAll('#bulk-rows tr').forEach((tr, i) => {
+      tr.cells[0].textContent = i + 1;
+    });
+  }
+
+  function bulkSubmit() {
+    const typeId = document.getElementById('bulk-wf-type').value;
+    const rows = document.querySelectorAll('#bulk-rows tr');
+    const errorEl = document.getElementById('bulk-error');
+    errorEl.classList.add('hidden');
+
+    const formData = new FormData();
+    formData.append('workflow_type', typeId);
+    formData.append('csrfmiddlewaretoken', CSRF_TOKEN);
+
+    let hasTitle = false;
+    rows.forEach(tr => {
+      const title = tr.querySelector('input[name="titles[]"]').value.trim();
+      const priority = tr.querySelector('select[name="priorities[]"]').value;
+      const deadline = tr.querySelector('input[name="deadlines[]"]').value;
+      const description = tr.querySelector('input[name="descriptions[]"]').value.trim();
+      formData.append('titles[]', title);
+      formData.append('priorities[]', priority);
+      formData.append('deadlines[]', deadline);
+      formData.append('descriptions[]', description);
+      if (title) hasTitle = true;
+    });
+
+    if (!hasTitle) {
+      errorEl.textContent = 'Please enter at least one title.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    const btn = document.getElementById('bulk-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    fetch(BULK_CREATE_URL, {
+      method: 'POST',
+      body: formData,
+      headers: { 'X-CSRFToken': CSRF_TOKEN }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById('bulk-create-modal').checked = false;
+        location.reload();
+      } else {
+        errorEl.textContent = data.error || 'Failed to create sub-workflows.';
+        errorEl.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Create All';
+      }
+    })
+    .catch(() => {
+      errorEl.textContent = 'Network error. Please try again.';
+      errorEl.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Create All';
+    });
+  }
+
+  // Pre-populate 3 rows when modal opens
+  document.getElementById('bulk-create-modal').addEventListener('change', function () {
+    if (this.checked) {
+      const tbody = document.getElementById('bulk-rows');
+      if (tbody.rows.length === 0) {
+        bulkAddRow(); bulkAddRow(); bulkAddRow();
+      }
+    }
+  });
+</script>
+{% endif %}
 
 {% endblock %}

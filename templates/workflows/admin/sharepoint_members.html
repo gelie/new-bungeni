@@ -23,10 +23,10 @@
       </h1>
       <p class="text-base-content/70 mt-1">Manage user access to SharePoint sites</p>
     </div>
-    <button onclick="showAddMemberModal()" class="btn btn-primary gap-2">
+    <label for="add-member-modal" class="btn btn-primary gap-2">
       {% lucide "user-plus" class="w-5 h-5" %}
       Add Member
-    </button>
+    </label>
   </div>
 
   <!-- Search and Filters -->
@@ -192,69 +192,129 @@
 </div>
 
 <!-- Add Member Modal -->
-<div id="add-member-modal" class="modal">
+<input type="checkbox" id="add-member-modal" class="modal-toggle" />
+<div class="modal" role="dialog">
   <div class="modal-box">
     <h3 class="font-bold text-lg mb-4">Add Site Member</h3>
     <form id="add-member-form" class="space-y-4">
+      <!-- User searchable dropdown -->
       <div class="form-control">
         <label class="label">
           <span class="label-text">User</span>
         </label>
-        <select id="user-select" name="user_id" class="select select-bordered w-full" required>
-          <option value="">Select a user...</option>
-        </select>
+        <input type="hidden" id="user-id-input" name="user_id" required />
+        <div class="relative">
+          <input type="text" id="user-search" class="input input-bordered w-full"
+            placeholder="Search users..." autocomplete="off" />
+          <div id="user-dropdown"
+            class="absolute z-50 top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg hidden max-h-48 overflow-y-auto mt-1">
+          </div>
+        </div>
+        <span id="user-selected-label" class="text-xs text-success mt-1 hidden"></span>
       </div>
 
+      <!-- Site searchable dropdown -->
       <div class="form-control">
         <label class="label">
           <span class="label-text">Site</span>
         </label>
-        <select id="site-select" name="site_id" class="select select-bordered w-full" required>
-          <option value="">Select a site...</option>
-          {% for site in sites %}
-          <option value="{{ site.site_id }}">{{ site.name }}</option>
-          {% endfor %}
-        </select>
+        <input type="hidden" id="site-id-input" name="site_id" required />
+        <div class="relative">
+          <input type="text" id="site-search" class="input input-bordered w-full"
+            placeholder="Search sites..." autocomplete="off" />
+          <div id="site-dropdown"
+            class="absolute z-50 top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg hidden max-h-48 overflow-y-auto mt-1">
+          </div>
+        </div>
+        <span id="site-selected-label" class="text-xs text-success mt-1 hidden"></span>
       </div>
 
       <div class="modal-action">
-        <button type="button" onclick="hideAddMemberModal()" class="btn btn-ghost">Cancel</button>
+        <label for="add-member-modal" class="btn btn-ghost">Cancel</label>
         <button type="submit" class="btn btn-primary">Add Member</button>
       </div>
     </form>
   </div>
-  <div class="modal-backdrop" onclick="hideAddMemberModal()"></div>
+  <label class="modal-backdrop" for="add-member-modal"></label>
 </div>
 
 <script>
+  let allUsers = [
+    {% for u in all_users %}
+    { id: "{{ u.pk }}", name: "{{ u.get_full_name|default:u.username|escapejs }} ({{ u.username|escapejs }})" },
+    {% endfor %}
+  ];
+  let allSites = [
+    {% for site in sites %}
+    { id: "{{ site.site_id }}", name: "{{ site.name|escapejs }}" },
+    {% endfor %}
+  ];
+
   function showAddMemberModal() {
-    document.getElementById('add-member-modal').showModal();
-    loadUsers();
+    document.getElementById('add-member-modal').checked = true;
   }
 
   function hideAddMemberModal() {
-    document.getElementById('add-member-modal').close();
+    document.getElementById('add-member-modal').checked = false;
     document.getElementById('add-member-form').reset();
+    document.getElementById('user-id-input').value = '';
+    document.getElementById('site-id-input').value = '';
+    document.getElementById('user-search').value = '';
+    document.getElementById('site-search').value = '';
+    document.getElementById('user-selected-label').classList.add('hidden');
+    document.getElementById('site-selected-label').classList.add('hidden');
+    document.getElementById('user-dropdown').classList.add('hidden');
+    document.getElementById('site-dropdown').classList.add('hidden');
   }
 
-  function loadUsers() {
-    fetch('/api/users/')
-      .then(response => response.json())
-      .then(data => {
-        const userSelect = document.getElementById('user-select');
-        userSelect.innerHTML = '<option value="">Select a user...</option>';
+  function makeSearchable(inputId, dropdownId, hiddenId, labelId, getItems, getLabel) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    const hidden = document.getElementById(hiddenId);
+    const label = document.getElementById(labelId);
 
-        data.users.forEach(user => {
-          const option = document.createElement('option');
-          option.value = user.id;
-          option.textContent = `${user.first_name} ${user.last_name} (${user.username})`;
-          userSelect.appendChild(option);
+    function renderItems(query) {
+      const q = query.toLowerCase();
+      const filtered = getItems().filter(item => getLabel(item).toLowerCase().includes(q));
+      dropdown.innerHTML = '';
+      if (filtered.length === 0) {
+        dropdown.innerHTML = '<div class="p-3 text-sm text-base-content/50">No results found</div>';
+      } else {
+        filtered.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'px-3 py-2 text-sm cursor-pointer hover:bg-base-200';
+          div.textContent = getLabel(item);
+          div.addEventListener('mousedown', e => {
+            e.preventDefault();
+            hidden.value = item.id;
+            input.value = getLabel(item);
+            label.textContent = getLabel(item);
+            label.classList.remove('hidden');
+            dropdown.classList.add('hidden');
+          });
+          dropdown.appendChild(div);
         });
-      })
-      .catch(error => {
-        console.error('Error loading users:', error);
-      });
+      }
+      dropdown.classList.remove('hidden');
+    }
+
+    input.addEventListener('input', () => renderItems(input.value));
+    input.addEventListener('focus', () => renderItems(input.value));
+    input.addEventListener('blur', () => setTimeout(() => dropdown.classList.add('hidden'), 150));
   }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    makeSearchable(
+      'user-search', 'user-dropdown', 'user-id-input', 'user-selected-label',
+      () => allUsers,
+      u => u.name
+    );
+    makeSearchable(
+      'site-search', 'site-dropdown', 'site-id-input', 'site-selected-label',
+      () => allSites,
+      s => s.name
+    );
+  });
 
   document.getElementById('add-member-form').addEventListener('submit', function (e) {
     e.preventDefault();

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from datetime import timedelta
 
 import httpx
 from django.contrib import messages
@@ -383,6 +384,111 @@ def workflow_create(request):
 
     messages.success(request, f"Workflow created: {workflow.title}")
     return redirect("workflow_detail", pk=workflow.pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def workflow_bulk_create(request, parent_pk):
+    """Bulk-create multiple child workflows under a parent in one submission."""
+    parent = get_object_or_404(Workflow, pk=parent_pk)
+
+    if not parent.can_user_edit(request.user):
+        return JsonResponse(
+            {"success": False, "error": "Permission denied."}, status=403
+        )
+
+    workflow_type_id = request.POST.get("workflow_type")
+    if not workflow_type_id:
+        return JsonResponse(
+            {"success": False, "error": "Workflow type is required."}, status=400
+        )
+
+    workflow_type = get_object_or_404(WorkflowType, pk=workflow_type_id)
+
+    if not parent.can_be_parent_of(workflow_type):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": f"{parent.workflow_type.name} cannot have {workflow_type.name} as a sub-workflow.",
+            },
+            status=400,
+        )
+
+    user_roles = request.user.memberships.filter(is_active=True).values_list(
+        "role", flat=True
+    )
+    if not workflow_type.create_roles.filter(id__in=user_roles).exists():
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "You do not have permission to create this workflow type.",
+            },
+            status=403,
+        )
+
+    relationship_type = parent.get_child_config(workflow_type)
+    if not relationship_type:
+        return JsonResponse(
+            {"success": False, "error": "No relationship config found."}, status=400
+        )
+
+    initial_state = (
+        State.objects.filter(workflow_type=workflow_type, is_initial=True)
+        .order_by("order", "id")
+        .first()
+    ) or State.objects.filter(workflow_type=workflow_type).order_by(
+        "order", "id"
+    ).first()
+
+    if not initial_state:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": f"No states configured for '{workflow_type.name}'.",
+            },
+            status=400,
+        )
+
+    # Collect rows: titles[] / priorities[] / deadlines[] / descriptions[]
+    titles = request.POST.getlist("titles[]")
+    priorities = request.POST.getlist("priorities[]")
+    deadlines = request.POST.getlist("deadlines[]")
+    descriptions = request.POST.getlist("descriptions[]")
+
+    created = []
+    for i, title in enumerate(titles):
+        title = title.strip()
+        if not title:
+            continue
+        priority = priorities[i] if i < len(priorities) else "medium"
+        deadline_str = deadlines[i] if i < len(deadlines) else ""
+        description = descriptions[i].strip() if i < len(descriptions) else ""
+
+        deadline = None
+        if deadline_str:
+            from django.utils.dateparse import parse_date, parse_datetime
+
+            deadline = parse_datetime(deadline_str) or parse_date(deadline_str)
+
+        wf = Workflow.objects.create(
+            workflow_type=workflow_type,
+            title=title,
+            description=description,
+            current_state=initial_state,
+            owner=request.user,
+            priority=priority or "medium",
+            deadline=deadline,
+            parent_workflow=parent,
+            relationship_type=relationship_type,
+        )
+        created.append({"id": wf.pk, "title": wf.title})
+
+    if not created:
+        return JsonResponse(
+            {"success": False, "error": "No valid titles provided."}, status=400
+        )
+
+    return JsonResponse({"success": True, "created": created, "count": len(created)})
 
 
 @login_required
@@ -919,6 +1025,56 @@ def workflow_type_diagram(request, pk):
 # ============================================================================
 
 
+def _apply_report_filters(workflows, request):
+    """Apply period, workflow_type, overdue, and parent_workflow filters to a workflow queryset.
+    Returns (filtered_qs, filter_params_dict)."""
+    now = timezone.now()
+    period = request.GET.get("period", "")
+    workflow_type_id = request.GET.get("workflow_type", "")
+    overdue_only = request.GET.get("overdue_only", "") == "1"
+    parent_workflow_id = request.GET.get("parent_workflow", "")
+
+    if period == "weekly":
+        start = now - timedelta(weeks=1)
+        workflows = workflows.filter(created_at__gte=start)
+    elif period == "monthly":
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        workflows = workflows.filter(created_at__gte=start)
+    elif period == "quarterly":
+        quarter_start_month = ((now.month - 1) // 3) * 3 + 1
+        start = now.replace(
+            month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        workflows = workflows.filter(created_at__gte=start)
+
+    if workflow_type_id:
+        workflows = workflows.filter(workflow_type_id=workflow_type_id)
+
+    if overdue_only:
+        workflows = workflows.filter(deadline__lt=now, current_state__is_terminal=False)
+
+    # Parent workflow filter: include the parent itself + all direct sub-workflows
+    parent_workflow = None
+    if parent_workflow_id:
+        try:
+            parent_workflow = Workflow.objects.select_related(
+                "workflow_type", "current_state", "owner"
+            ).get(pk=parent_workflow_id)
+            workflows = workflows.filter(
+                Q(pk=parent_workflow_id) | Q(parent_workflow_id=parent_workflow_id)
+            )
+        except Workflow.DoesNotExist:
+            parent_workflow_id = ""
+
+    return workflows, {
+        "period": period,
+        "workflow_type_id": workflow_type_id,
+        "overdue_only": overdue_only,
+        "parent_workflow_id": parent_workflow_id,
+        "parent_workflow": parent_workflow,
+    }
+
+
 @login_required
 def reports(request):
     """Reports and analytics view"""
@@ -928,9 +1084,12 @@ def reports(request):
     )
 
     # Get workflows user can view
-    workflows = Workflow.objects.filter(
+    base_workflows = Workflow.objects.filter(
         Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
     ).select_related("workflow_type", "current_state", "owner")
+
+    # Apply custom report filters
+    workflows, filter_params = _apply_report_filters(base_workflows, request)
 
     # Workflow statistics
     total_workflows = workflows.count()
@@ -961,16 +1120,15 @@ def reports(request):
         .order_by("-count")[:10]
     )
 
+    now = timezone.now()
+
     # Overdue workflows
     overdue = workflows.filter(
-        deadline__lt=timezone.now(), current_state__is_terminal=False
+        deadline__lt=now, current_state__is_terminal=False
     ).count()
 
     # Workflows created this month
-
-    this_month_start = timezone.now().replace(
-        day=1, hour=0, minute=0, second=0, microsecond=0
-    )
+    this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     created_this_month = workflows.filter(created_at__gte=this_month_start).count()
 
     # Completed workflows (terminal states)
@@ -989,7 +1147,15 @@ def reports(request):
     # Events statistics
     events = Event.objects.filter(group__in=user_groups)
     total_events = events.count()
-    upcoming_events = events.filter(start_datetime__gte=timezone.now()).count()
+    upcoming_events = events.filter(start_datetime__gte=now).count()
+
+    # Workflow types available to this user for filtering
+    workflow_types = WorkflowType.objects.filter(group__in=user_groups).order_by("name")
+
+    # Top-level (parent) workflows available to this user for the parent filter
+    parent_workflows = base_workflows.filter(parent_workflow__isnull=True).order_by(
+        "title"
+    )
 
     context = {
         "total_workflows": total_workflows,
@@ -1004,6 +1170,9 @@ def reports(request):
         "recent_transitions": recent_transitions,
         "total_events": total_events,
         "upcoming_events": upcoming_events,
+        "workflow_types": workflow_types,
+        "parent_workflows": parent_workflows,
+        "filter_params": filter_params,
     }
 
     return render(request, "workflows/reports.html", context)
@@ -1018,50 +1187,122 @@ def reports_export_csv(request):
     user_groups = user.memberships.filter(is_active=True).values_list(
         "group", flat=True
     )
-    workflows = Workflow.objects.filter(
+    base_workflows = Workflow.objects.filter(
         Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
     ).select_related("workflow_type", "current_state", "owner")
 
-    response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = 'attachment; filename="workflows_report.csv"'
+    workflows, filter_params = _apply_report_filters(base_workflows, request)
 
-    writer = csv.writer(response)
-    writer.writerow(
-        [
-            "ID",
-            "Title",
-            "Type",
-            "State",
-            "Priority",
-            "Owner",
-            "Group",
-            "Created",
-            "Deadline",
-            "Overdue",
-        ]
+    period = filter_params["period"]
+    filename_suffix = f"_{period}" if period else ""
+    if filter_params["overdue_only"]:
+        filename_suffix += "_overdue"
+    if filter_params["parent_workflow_id"]:
+        filename_suffix += "_tree"
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="workflows_report{filename_suffix}.csv"'
     )
 
+    writer = csv.writer(response)
     now = timezone.now()
-    for wf in workflows:
-        is_overdue = (
-            wf.deadline and wf.deadline < now and not wf.current_state.is_terminal
+
+    # If filtering by parent, write a tree-style report
+    if filter_params["parent_workflow"] and filter_params["parent_workflow_id"]:
+        parent = filter_params["parent_workflow"]
+        writer.writerow(["Workflow Tree Report"])
+        writer.writerow(["Parent Workflow", parent.title])
+        writer.writerow(["Type", parent.workflow_type.name])
+        writer.writerow(["Status", parent.current_state.name])
+        writer.writerow(
+            ["Owner", parent.owner.get_full_name() or parent.owner.username]
         )
+        writer.writerow(["Generated", now.strftime("%Y-%m-%d %H:%M")])
+        writer.writerow([])
         writer.writerow(
             [
-                wf.pk,
-                wf.title,
-                wf.workflow_type.name,
-                wf.current_state.name,
-                wf.get_priority_display()
-                if hasattr(wf, "get_priority_display")
-                else wf.priority,
-                wf.owner.get_full_name() or wf.owner.username,
-                wf.workflow_type.group.name,
-                wf.created_at.strftime("%Y-%m-%d %H:%M"),
-                wf.deadline.strftime("%Y-%m-%d %H:%M") if wf.deadline else "",
-                "Yes" if is_overdue else "No",
+                "#",
+                "Title",
+                "Type",
+                "Relationship",
+                "State",
+                "Terminal?",
+                "Priority",
+                "Owner",
+                "Created",
+                "Deadline",
+                "Overdue",
             ]
         )
+        for i, wf in enumerate(
+            workflows.select_related(
+                "workflow_type", "current_state", "owner", "relationship_type"
+            ),
+            1,
+        ):
+            is_overdue = (
+                wf.deadline and wf.deadline < now and not wf.current_state.is_terminal
+            )
+            role = (
+                "Parent"
+                if str(wf.pk) == str(filter_params["parent_workflow_id"])
+                else (
+                    wf.relationship_type.relationship_label
+                    if wf.relationship_type
+                    else "Sub-workflow"
+                )
+            )
+            writer.writerow(
+                [
+                    i,
+                    wf.title,
+                    wf.workflow_type.name,
+                    role,
+                    wf.current_state.name,
+                    "Yes" if wf.current_state.is_terminal else "No",
+                    wf.priority.capitalize(),
+                    wf.owner.get_full_name() or wf.owner.username,
+                    wf.created_at.strftime("%Y-%m-%d %H:%M"),
+                    wf.deadline.strftime("%Y-%m-%d %H:%M") if wf.deadline else "",
+                    "Yes" if is_overdue else "No",
+                ]
+            )
+    else:
+        writer.writerow(
+            [
+                "ID",
+                "Title",
+                "Type",
+                "State",
+                "Priority",
+                "Owner",
+                "Group",
+                "Created",
+                "Deadline",
+                "Overdue",
+            ]
+        )
+        for wf in workflows:
+            is_overdue = (
+                wf.deadline and wf.deadline < now and not wf.current_state.is_terminal
+            )
+            writer.writerow(
+                [
+                    wf.pk,
+                    wf.title,
+                    wf.workflow_type.name,
+                    wf.current_state.name,
+                    wf.get_priority_display()
+                    if hasattr(wf, "get_priority_display")
+                    else wf.priority,
+                    wf.owner.get_full_name() or wf.owner.username,
+                    wf.workflow_type.group.name,
+                    wf.created_at.strftime("%Y-%m-%d %H:%M"),
+                    wf.deadline.strftime("%Y-%m-%d %H:%M") if wf.deadline else "",
+                    "Yes" if is_overdue else "No",
+                ]
+            )
 
     return response
 
@@ -1079,9 +1320,24 @@ def reports_export_excel(request):
     user_groups = user.memberships.filter(is_active=True).values_list(
         "group", flat=True
     )
-    workflows = Workflow.objects.filter(
+    base_workflows = Workflow.objects.filter(
         Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
     ).select_related("workflow_type", "current_state", "owner")
+
+    workflows, filter_params = _apply_report_filters(base_workflows, request)
+
+    period = filter_params["period"]
+    period_labels = {
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "quarterly": "Quarterly",
+    }
+    period_label = period_labels.get(period, "All Time")
+    filename_suffix = f"_{period}" if period else ""
+    if filter_params["overdue_only"]:
+        filename_suffix += "_overdue"
+    if filter_params["parent_workflow_id"]:
+        filename_suffix += "_tree"
 
     wb = Workbook()
 
@@ -1102,8 +1358,28 @@ def reports_export_excel(request):
         deadline__lt=now, current_state__is_terminal=False
     ).count()
 
+    # Resolve workflow type name for summary
+    wt_name = ""
+    if filter_params["workflow_type_id"]:
+        try:
+            wt_name = WorkflowType.objects.get(
+                pk=filter_params["workflow_type_id"]
+            ).name
+        except WorkflowType.DoesNotExist:
+            wt_name = ""
+
+    parent_label = (
+        filter_params["parent_workflow"].title
+        if filter_params["parent_workflow"]
+        else "All Workflows"
+    )
+
     summary_rows = [
         ["Metric", "Value"],
+        ["Report Period", period_label],
+        ["Workflow Type Filter", wt_name or "All Types"],
+        ["Parent Workflow Filter", parent_label],
+        ["Overdue Only", "Yes" if filter_params["overdue_only"] else "No"],
         ["Total Workflows", total],
         ["Active", active],
         ["Completed", completed],
@@ -1119,7 +1395,7 @@ def reports_export_excel(request):
         cell.alignment = Alignment(horizontal="center")
 
     ws_summary.column_dimensions["A"].width = 25
-    ws_summary.column_dimensions["B"].width = 20
+    ws_summary.column_dimensions["B"].width = 30
 
     # ── Workflows sheet ────────────────────────────────────────────────────────
     ws = wb.create_sheet("Workflows")
@@ -1173,6 +1449,71 @@ def reports_export_excel(request):
         )
         ws.column_dimensions[col_letter].width = min(max_len + 4, 50)
 
+    # ── Workflow Tree sheet (only when parent filter is active) ────────────────
+    if filter_params["parent_workflow"] and filter_params["parent_workflow_id"]:
+        ws_tree = wb.create_sheet("Workflow Tree")
+        tree_headers = [
+            "#",
+            "Title",
+            "Type",
+            "Relationship",
+            "State",
+            "Terminal?",
+            "Priority",
+            "Owner",
+            "Created",
+            "Deadline",
+            "Overdue",
+        ]
+        ws_tree.append(tree_headers)
+        for cell in ws_tree[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+        for i, wf in enumerate(
+            workflows.select_related(
+                "workflow_type", "current_state", "owner", "relationship_type"
+            ),
+            1,
+        ):
+            is_overdue = (
+                wf.deadline and wf.deadline < now and not wf.current_state.is_terminal
+            )
+            role = (
+                "Parent"
+                if str(wf.pk) == str(filter_params["parent_workflow_id"])
+                else (
+                    wf.relationship_type.relationship_label
+                    if wf.relationship_type
+                    else "Sub-workflow"
+                )
+            )
+            ws_tree.append(
+                [
+                    i,
+                    wf.title,
+                    wf.workflow_type.name,
+                    role,
+                    wf.current_state.name,
+                    "Yes" if wf.current_state.is_terminal else "No",
+                    wf.priority.capitalize(),
+                    wf.owner.get_full_name() or wf.owner.username,
+                    wf.created_at.replace(tzinfo=None),
+                    wf.deadline.replace(tzinfo=None) if wf.deadline else "",
+                    "Yes" if is_overdue else "No",
+                ]
+            )
+        for col_idx, _ in enumerate(tree_headers, 1):
+            col_letter = get_column_letter(col_idx)
+            max_len = max(
+                (
+                    len(str(ws_tree.cell(row=r, column=col_idx).value or ""))
+                    for r in range(1, ws_tree.max_row + 1)
+                ),
+                default=10,
+            )
+            ws_tree.column_dimensions[col_letter].width = min(max_len + 4, 50)
+
     # ── By Type sheet ──────────────────────────────────────────────────────────
     ws_type = wb.create_sheet("By Type")
     ws_type.append(["Workflow Type", "Count"])
@@ -1213,7 +1554,9 @@ def reports_export_excel(request):
         buffer.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-    response["Content-Disposition"] = 'attachment; filename="workflows_report.xlsx"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="workflows_report{filename_suffix}.xlsx"'
+    )
     return response
 
 
@@ -1648,6 +1991,9 @@ def sharepoint_admin_members(request):
     # Get all sites for filter dropdown
     sites = Site.objects.all().order_by("name")
 
+    # All users for the add-member modal
+    all_users = User.objects.all().order_by("last_name", "first_name")
+
     # Calculate statistics
     unique_users_count = len(set(member.user_id for member in site_members))
     team_sites_count = sum(
@@ -1660,12 +2006,67 @@ def sharepoint_admin_members(request):
     context = {
         "site_members": site_members,
         "sites": sites,
+        "all_users": all_users,
         "unique_users_count": unique_users_count,
         "team_sites_count": team_sites_count,
         "personal_sites_count": personal_sites_count,
     }
 
     return render(request, "workflows/admin/sharepoint_members.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_sharepoint_members_create(request):
+    """API: Add a user to a SharePoint site."""
+    if not request.user.is_staff and not request.user.is_superuser:
+        return JsonResponse(
+            {"success": False, "error": "Permission denied."}, status=403
+        )
+
+    user_id = request.POST.get("user_id")
+    site_id = request.POST.get("site_id")
+
+    if not user_id or not site_id:
+        return JsonResponse(
+            {"success": False, "error": "User and site are required."}, status=400
+        )
+
+    try:
+        user = User.objects.get(pk=user_id)
+        site = Site.objects.get(site_id=site_id)
+    except User.DoesNotExist:
+        return JsonResponse({"success": False, "error": "User not found."}, status=404)
+    except Site.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Site not found."}, status=404)
+
+    _, created = SiteMember.objects.get_or_create(user=user, site=site)
+    if not created:
+        return JsonResponse(
+            {"success": False, "error": "This user is already a member of that site."},
+            status=400,
+        )
+
+    return JsonResponse({"success": True})
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def api_sharepoint_members_delete(request, member_id):
+    """API: Remove a user from a SharePoint site."""
+    if not request.user.is_staff and not request.user.is_superuser:
+        return JsonResponse(
+            {"success": False, "error": "Permission denied."}, status=403
+        )
+
+    try:
+        member = SiteMember.objects.get(pk=member_id)
+        member.delete()
+        return JsonResponse({"success": True})
+    except SiteMember.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "error": "Member not found."}, status=404
+        )
 
 
 @login_required
@@ -2124,7 +2525,7 @@ def workflow_type_create(request):
     context = {
         "groups": groups,
         "roles": roles,
-        "group_roles": group_roles,
+        "group_roles": json.dumps(group_roles),
     }
 
     return render(request, "workflows/admin/workflow_type_create.html", context)

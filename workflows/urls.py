@@ -48,7 +48,22 @@ urlpatterns = [
     path(
         "reports/export/excel/", views.reports_export_excel, name="reports_export_excel"
     ),
+    path(
+        "workflows/<int:parent_pk>/bulk-create/",
+        views.workflow_bulk_create,
+        name="workflow_bulk_create",
+    ),
     # SharePoint API endpoints
+    path(
+        "api/sharepoint/members/",
+        views.api_sharepoint_members_create,
+        name="api_sharepoint_members_create",
+    ),
+    path(
+        "api/sharepoint/members/<int:member_id>/",
+        views.api_sharepoint_members_delete,
+        name="api_sharepoint_members_delete",
+    ),
     path("api/sharepoint/sites/", views.sharepoint_sites, name="sharepoint_sites"),
     path("api/sharepoint/test/", views.sharepoint_test, name="sharepoint_test"),
     path(
