@@ -22,9 +22,11 @@ from .models import (
     User,
     Venue,
     Workflow,
+    WorkflowReferral,
     WorkflowTransitionLog,
     WorkflowType,
     WorkflowTypeChildConfig,
+    WorkflowTypeReferralConfig,
 )
 
 # ============================================================================
@@ -120,6 +122,19 @@ class WorkflowTypeChildConfigInline(admin.TabularInline):
     fields = ["child_type", "relationship_label"]
 
 
+class WorkflowTypeReferralConfigInline(admin.TabularInline):
+    model = WorkflowTypeReferralConfig
+    extra = 1
+    autocomplete_fields = ["target_group"]
+    fields = [
+        "target_group",
+        "label",
+        "referred_transition_roles",
+        "referred_edit_roles",
+    ]
+    filter_horizontal = ["referred_transition_roles", "referred_edit_roles"]
+
+
 @admin.register(WorkflowTypeChildConfig)
 class WorkflowTypeChildConfigAdmin(admin.ModelAdmin):
     list_display = [
@@ -138,7 +153,7 @@ class WorkflowTypeAdmin(admin.ModelAdmin):
     list_display = ["name", "description", "group", "enabled"]
     search_fields = ["name"]
     autocomplete_fields = ["group", "create_roles"]
-    inlines = [WorkflowTypeChildConfigInline]
+    inlines = [WorkflowTypeChildConfigInline, WorkflowTypeReferralConfigInline]
 
 
 @admin.register(State)
@@ -262,6 +277,34 @@ class WorkflowAdmin(admin.ModelAdmin):
         # Store the object being edited for use in formfield_for_foreignkey
         request._obj_ = obj
         return super().get_form(request, obj, change, **kwargs)
+
+
+@admin.register(WorkflowTypeReferralConfig)
+class WorkflowTypeReferralConfigAdmin(admin.ModelAdmin):
+    list_display = ["workflow_type", "target_group", "label"]
+    list_filter = ["workflow_type"]
+    search_fields = ["workflow_type__name", "target_group__name", "label"]
+    autocomplete_fields = ["workflow_type", "target_group"]
+    filter_horizontal = ["referred_transition_roles", "referred_edit_roles"]
+
+
+@admin.register(WorkflowReferral)
+class WorkflowReferralAdmin(admin.ModelAdmin):
+    list_display = [
+        "workflow",
+        "referred_to",
+        "referred_by",
+        "referred_at",
+        "is_active",
+    ]
+    list_filter = ["referred_to"]
+    search_fields = ["workflow__title", "referred_to__name", "referred_by__username"]
+    readonly_fields = ["referred_at", "recalled_at"]
+    date_hierarchy = "referred_at"
+
+    @admin.display(boolean=True, description="Active")
+    def is_active(self, obj):
+        return obj.is_active
 
 
 @admin.register(WorkflowTransitionLog)

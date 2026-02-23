@@ -97,8 +97,7 @@
                         <tr>
                             <th class="w-1/4">Title</th>
                             <th class="w-32">Type</th>
-                            <th class="w-24">State</th>
-                            <th class="w-1/6">Group</th>
+                            <th class="w-48">State</th>
                             <th class="w-20">Priority</th>
                             <th class="w-1/6">Owner</th>
                             <th class="w-24">Deadline</th>
@@ -134,21 +133,39 @@
                                 </div>
                             </td>
                             <td>
-                                <div class="max-w-48">
+                                <div class="max-w-42">
                                     <span class="badge badge-outline text-xs px-2 py-1 inline-block w-full truncate"
                                         title="{{ workflow.workflow_type.name }}">
                                         {{ workflow.workflow_type.name|title }}
                                     </span>
                                 </div>
                             </td>
-                            <td>
+                            <td onclick="event.stopPropagation()">
+                                {% if workflow.user_transitions %}
+                                <div class="dropdown">
+                                    <label tabindex="0" class="badge w-42 cursor-pointer select-none flex items-center gap-1 workflow-state-badge"
+                                        data-state-color="{{ workflow.current_state.color }}">
+                                        <span class="truncate">{{ workflow.current_state.name }}</span>
+                                        {% lucide "chevron-down" class="w-3 h-3 shrink-0 opacity-80" %}
+                                    </label>
+                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-52 z-50 border border-base-300 mt-1">
+                                        <li class="menu-title text-xs opacity-50 px-3 py-1">Transition to…</li>
+                                        {% for transition in workflow.user_transitions %}
+                                        <li>
+                                            <a href="{% url 'workflow_transition' workflow.pk transition.pk %}" class="flex items-center justify-between">
+                                                {{ transition.name }}
+                                                {% lucide "arrow-right" class="w-4 h-4 ml-auto shrink-0" %}
+                                            </a>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% else %}
                                 <span class="badge w-36 workflow-state-badge"
                                     data-state-color="{{ workflow.current_state.color }}">
                                     {{ workflow.current_state.name }}
                                 </span>
-                            </td>
-                            <td>
-                                <div class="text-sm">{{ workflow.group.name|truncatewords:5 }}</div>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if workflow.priority == 'urgent' %}

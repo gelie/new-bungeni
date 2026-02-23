@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+
+{% block title %}Referral Configs - {{ workflow_type.name }} - Bungeni{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "send" class="w-8 h-8" %}
+        Referral Configurations
+      </h1>
+      <p class="text-base-content/70 mt-1">
+        Configure which groups <strong>{{ workflow_type.name }}</strong> workflows can be referred to, and what permissions referred group members get.
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="{% url 'admin_workflow_type_edit' workflow_type.pk %}" class="btn btn-ghost">
+        {% lucide "arrow-left" class="w-4 h-4" %}
+        Back to Workflow Type
+      </a>
+      <a href="{% url 'admin_workflow_type_transitions' workflow_type.pk %}" class="btn btn-outline">
+        {% lucide "arrow-right-left" class="w-4 h-4" %}
+        Transitions
+      </a>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+        {% lucide "plus" class="w-4 h-4" %}
+        Add Referral Target
+      </button>
+    </div>
+  </div>
+
+  <!-- Configs Table -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Configured Referral Targets</h3>
+        <span class="badge badge-neutral">{{ configs|length }} configured</span>
+      </div>
+
+      {% if configs %}
+      <div class="overflow-x-auto">
+        <table class="table w-full" id="configs-table">
+          <thead>
+            <tr class="bg-base-200">
+              <th>Target Group</th>
+              <th>Label</th>
+              <th>Transition Roles (referred group)</th>
+              <th>Edit Roles (referred group)</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cfg in configs %}
+            <tr class="hover" id="config-row-{{ cfg.pk }}">
+              <td class="font-medium">{{ cfg.target_group.name }}</td>
+              <td class="text-sm text-base-content/70">{{ cfg.label|default:"—" }}</td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  {% for role in cfg.referred_transition_roles.all %}
+                  <span class="badge badge-primary badge-sm">{{ role.name }}</span>
+                  {% empty %}
+                  <span class="text-xs text-base-content/40">None (all roles)</span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  {% for role in cfg.referred_edit_roles.all %}
+                  <span class="badge badge-secondary badge-sm">{{ role.name }}</span>
+                  {% empty %}
+                  <span class="text-xs text-base-content/40">None</span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td class="text-right">
+                <button class="btn btn-ghost btn-xs" onclick="openEditModal({{ cfg.pk }})">
+                  {% lucide "pencil" class="w-3 h-3" %}
+                </button>
+                <button class="btn btn-ghost btn-xs text-error" onclick="deleteConfig({{ cfg.pk }}, '{{ cfg.target_group.name|escapejs }}')">
+                  {% lucide "trash-2" class="w-3 h-3" %}
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-info">
+        {% lucide "info" class="w-5 h-5" %}
+        <span>No referral targets configured yet. Add one to allow workflows of this type to be referred to other groups.</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="card bg-base-200 shadow-sm">
+    <div class="card-body">
+      <h3 class="font-semibold flex items-center gap-2 mb-2">
+        {% lucide "circle-help" class="w-4 h-4" %}
+        How referrals work
+      </h3>
+      <ul class="text-sm text-base-content/70 space-y-1 list-disc list-inside">
+        <li>When a workflow is referred to a group, all members of that group can <strong>view</strong> the workflow.</li>
+        <li><strong>Transition roles</strong>: members of the referred group with these roles can perform transitions (in addition to the owning group).</li>
+        <li><strong>Edit roles</strong>: members of the referred group with these roles can edit the workflow fields.</li>
+        <li>If no transition roles are set, referred group members cannot perform any transitions.</li>
+        <li>Referrals are tracked with full history. Only one referral can be active at a time.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<input type="checkbox" id="config-modal" class="modal-toggle" />
+<div class="modal" role="dialog">
+  <div class="modal-box w-full max-w-xl">
+    <h3 class="font-bold text-lg mb-4" id="modal-title">Add Referral Target</h3>
+
+    <div class="form-control mb-3" id="group-field">
+      <label class="label"><span class="label-text font-medium">Target Group <span class="text-error">*</span></span></label>
+      <input type="hidden" id="modal-group" value="" />
+      <div class="relative">
+        <input type="text" id="group-search" class="input input-bordered w-full" placeholder="Search groups…" autocomplete="off" />
+        <div id="group-dropdown" class="absolute z-50 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto hidden">
+          {% for g in all_groups %}
+          <div class="group-option px-3 py-2 cursor-pointer hover:bg-base-200 text-sm" data-value="{{ g.pk }}" data-label="{{ g.name|escapejs }}">{{ g.name }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      <div id="group-selected-badge" class="hidden mt-1">
+        <span class="badge badge-primary gap-1" id="group-selected-text"></span>
+      </div>
+    </div>
+
+    <div class="form-control mb-3">
+      <label class="label"><span class="label-text font-medium">Label <span class="text-base-content/40 font-normal">(optional)</span></span></label>
+      <input type="text" id="modal-label" class="input input-bordered w-full" placeholder="e.g. For comment, For decision" />
+    </div>
+
+    <div class="form-control mb-3">
+      <label class="label">
+        <span class="label-text font-medium">Transition Roles</span>
+        <span class="label-text-alt text-base-content/50">Roles in the referred group that can perform transitions</span>
+      </label>
+      <input type="text" class="input input-bordered input-sm w-full mb-2" placeholder="Search roles…" oninput="filterRoles('transition-roles-list', this.value)" />
+      <div class="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1" id="transition-roles-list">
+        {% for role in all_roles %}
+        <label class="role-item flex items-center gap-2 cursor-pointer hover:bg-base-300 rounded px-2 py-1" data-name="{{ role.name|lower }}">
+          <input type="checkbox" class="checkbox checkbox-sm checkbox-primary transition-role-cb" value="{{ role.pk }}" />
+          <span class="text-sm">{{ role.name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-control mb-4">
+      <label class="label">
+        <span class="label-text font-medium">Edit Roles</span>
+        <span class="label-text-alt text-base-content/50">Roles in the referred group that can edit the workflow</span>
+      </label>
+      <input type="text" class="input input-bordered input-sm w-full mb-2" placeholder="Search roles…" oninput="filterRoles('edit-roles-list', this.value)" />
+      <div class="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-1" id="edit-roles-list">
+        {% for role in all_roles %}
+        <label class="role-item flex items-center gap-2 cursor-pointer hover:bg-base-300 rounded px-2 py-1" data-name="{{ role.name|lower }}">
+          <input type="checkbox" class="checkbox checkbox-sm checkbox-secondary edit-role-cb" value="{{ role.pk }}" />
+          <span class="text-sm">{{ role.name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="modal-error" class="alert alert-error mb-3 hidden"></div>
+
+    <div class="modal-action">
+      <label for="config-modal" class="btn btn-ghost">Cancel</label>
+      <button type="button" id="modal-submit-btn" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+  <label class="modal-backdrop" for="config-modal"></label>
+</div>
+
+<script>
+// Role list filter
+window.filterRoles = function (listId, query) {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll(`#${listId} .role-item`).forEach(item => {
+    item.classList.toggle('hidden', q !== '' && !item.dataset.name.includes(q));
+  });
+};
+
+(function () {
+  const URL = '{% url "admin_workflow_type_referral_configs" workflow_type.pk %}';
+  const CSRF = '{{ csrf_token }}';
+  let editingId = null;
+
+  // ── Searchable group dropdown ──────────────────────────────────────────────
+  const groupHidden  = document.getElementById('modal-group');
+  const groupSearch  = document.getElementById('group-search');
+  const groupDrop    = document.getElementById('group-dropdown');
+  const groupBadge   = document.getElementById('group-selected-badge');
+  const groupBadgeTxt = document.getElementById('group-selected-text');
+
+  function setGroup(value, label) {
+    groupHidden.value = value;
+    groupSearch.value = label;
+    groupBadgeTxt.textContent = label;
+    groupBadge.classList.toggle('hidden', !value);
+    groupDrop.classList.add('hidden');
+    filterGroupOptions('');
+  }
+
+  function filterGroupOptions(q) {
+    const lq = q.toLowerCase();
+    groupDrop.querySelectorAll('.group-option').forEach(opt => {
+      opt.classList.toggle('hidden', lq !== '' && !opt.dataset.label.toLowerCase().includes(lq));
+    });
+  }
+
+  groupSearch.addEventListener('focus', () => {
+    filterGroupOptions(groupSearch.value);
+    groupDrop.classList.remove('hidden');
+  });
+
+  groupSearch.addEventListener('input', () => {
+    groupHidden.value = '';
+    groupBadge.classList.add('hidden');
+    filterGroupOptions(groupSearch.value);
+    groupDrop.classList.remove('hidden');
+  });
+
+  groupDrop.addEventListener('mousedown', e => {
+    const opt = e.target.closest('.group-option');
+    if (opt) setGroup(opt.dataset.value, opt.dataset.label);
+  });
+
+  document.addEventListener('click', e => {
+    if (!groupSearch.contains(e.target) && !groupDrop.contains(e.target)) {
+      groupDrop.classList.add('hidden');
+    }
+  });
+  // ──────────────────────────────────────────────────────────────────────────
+
+  function post(data) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(data)) {
+      if (Array.isArray(v)) v.forEach(x => fd.append(k, x));
+      else fd.append(k, v);
+    }
+    fd.append('csrfmiddlewaretoken', CSRF);
+    return fetch(URL, { method: 'POST', body: fd }).then(r => r.json());
+  }
+
+  function getChecked(cls) {
+    return [...document.querySelectorAll(`.${cls}:checked`)].map(cb => cb.value);
+  }
+
+  function clearModal() {
+    editingId = null;
+    document.getElementById('modal-title').textContent = 'Add Referral Target';
+    setGroup('', '');
+    groupSearch.value = '';
+    document.getElementById('group-field').style.display = '';
+    document.getElementById('modal-label').value = '';
+    document.querySelectorAll('.transition-role-cb').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.edit-role-cb').forEach(cb => cb.checked = false);
+    // Reset role search inputs
+    document.querySelectorAll('.role-item').forEach(i => i.classList.remove('hidden'));
+    document.querySelectorAll('input[placeholder="Search roles…"]').forEach(i => i.value = '');
+    document.getElementById('modal-error').classList.add('hidden');
+    document.getElementById('modal-submit-btn').disabled = false;
+  }
+
+  window.openAddModal = function () {
+    clearModal();
+    document.getElementById('config-modal').checked = true;
+  };
+
+  window.openEditModal = function (id) {
+    clearModal();
+    editingId = id;
+    document.getElementById('modal-title').textContent = 'Edit Referral Config';
+    document.getElementById('group-field').style.display = 'none';
+    post({ action: 'get', config_id: id }).then(data => {
+      if (!data.success) { alert(data.error); return; }
+      const c = data.config;
+      document.getElementById('modal-label').value = c.label || '';
+      c.transition_role_ids.forEach(rid => {
+        const cb = document.querySelector(`.transition-role-cb[value="${rid}"]`);
+        if (cb) cb.checked = true;
+      });
+      c.edit_role_ids.forEach(rid => {
+        const cb = document.querySelector(`.edit-role-cb[value="${rid}"]`);
+        if (cb) cb.checked = true;
+      });
+      document.getElementById('config-modal').checked = true;
+    });
+  };
+
+  window.deleteConfig = function (id, name) {
+    if (!confirm(`Delete referral config for "${name}"? This cannot be undone.`)) return;
+    post({ action: 'delete', config_id: id }).then(data => {
+      if (data.success) {
+        const row = document.getElementById(`config-row-${id}`);
+        if (row) row.remove();
+      } else {
+        alert(data.error || 'Delete failed.');
+      }
+    });
+  };
+
+  document.getElementById('modal-submit-btn').addEventListener('click', function () {
+    const errEl = document.getElementById('modal-error');
+    errEl.classList.add('hidden');
+    this.disabled = true;
+
+    const label = document.getElementById('modal-label').value.trim();
+    const transitionRoles = getChecked('transition-role-cb');
+    const editRoles = getChecked('edit-role-cb');
+
+    let payload;
+    if (editingId) {
+      payload = { action: 'edit', config_id: editingId, label, transition_roles: transitionRoles, edit_roles: editRoles };
+    } else {
+      const groupId = document.getElementById('modal-group').value;
+      if (!groupId) { errEl.textContent = 'Please select a target group.'; errEl.classList.remove('hidden'); this.disabled = false; return; }
+      payload = { action: 'create', group_id: groupId, label, transition_roles: transitionRoles, edit_roles: editRoles };
+    }
+
+    post(payload).then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        errEl.textContent = data.error || 'Save failed.';
+        errEl.classList.remove('hidden');
+        document.getElementById('modal-submit-btn').disabled = false;
+      }
+    }).catch(() => {
+      errEl.textContent = 'Network error.';
+      errEl.classList.remove('hidden');
+      document.getElementById('modal-submit-btn').disabled = false;
+    });
+  });
+})();
+</script>
+{% endblock %}

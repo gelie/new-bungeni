@@ -35,8 +35,10 @@ from .models import (
     Transition,
     User,
     Workflow,
+    WorkflowReferral,
     WorkflowTransitionLog,
     WorkflowType,
+    WorkflowTypeReferralConfig,
 )
 from .sharepoint import (
     get_all_sites,
@@ -204,8 +206,13 @@ def workflow_list(request):
         enabled=True, create_roles__in=user_roles
     ).distinct()
 
+    # Attach available transitions per workflow for the status dropdown
+    workflows_list = list(workflows)
+    for wf in workflows_list:
+        wf.user_transitions = wf.get_available_transitions(user)
+
     context = {
-        "workflows": workflows,
+        "workflows": workflows_list,
         "workflow_types": workflow_types,
         "states": states,
         "groups": groups,
@@ -583,6 +590,16 @@ def workflow_detail(request, pk):
         else None
     )
 
+    # Referral context
+    active_referral = workflow.active_referral
+    referral_history = workflow.referrals.select_related(
+        "referred_to", "referred_by", "recalled_by", "config"
+    ).order_by("-referred_at")
+    referral_configs = WorkflowTypeReferralConfig.objects.filter(
+        workflow_type=workflow.workflow_type
+    ).select_related("target_group")
+    can_refer = workflow.can_user_edit(request.user) and referral_configs.exists()
+
     context = {
         "workflow": workflow,
         "available_transitions": available_transitions,
@@ -601,6 +618,10 @@ def workflow_detail(request, pk):
         "diagram_url": diagram_url,
         "diagram_states": diagram_states,
         "diagram_transitions": diagram_transitions,
+        "active_referral": active_referral,
+        "referral_history": referral_history,
+        "referral_configs": referral_configs,
+        "can_refer": can_refer,
     }
 
     return render(request, "workflows/workflow_detail.html", context)
@@ -737,6 +758,159 @@ def workflow_edit(request, pk):
 
 
 @login_required
+@require_http_methods(["POST"])
+def workflow_refer(request, pk):
+    """
+    Refer a workflow to another group, or recall an active referral.
+    POST body (form-encoded):
+      action      = "refer" | "recall"
+      group_id    = <Group pk>          (for refer)
+      reason      = <text>              (optional for refer)
+      recall_reason = <text>            (optional for recall)
+    """
+    workflow = get_object_or_404(Workflow, pk=pk)
+
+    if not workflow.can_user_edit(request.user):
+        return JsonResponse({"error": "Permission denied."}, status=403)
+
+    action = request.POST.get("action")
+
+    if action == "refer":
+        group_id = request.POST.get("group_id")
+        reason = (request.POST.get("reason") or "").strip()
+
+        if not group_id:
+            return JsonResponse({"error": "group_id is required."}, status=400)
+
+        target_group = get_object_or_404(Group, pk=group_id)
+
+        # Validate against referral config
+        config = WorkflowTypeReferralConfig.objects.filter(
+            workflow_type=workflow.workflow_type,
+            target_group=target_group,
+        ).first()
+        if not config:
+            return JsonResponse(
+                {
+                    "error": f"This workflow type cannot be referred to '{target_group.name}'."
+                },
+                status=400,
+            )
+
+        # Recall any existing active referral first
+        active = workflow.active_referral
+        if active:
+            active.recalled_at = timezone.now()
+            active.recalled_by = request.user
+            active.recall_reason = "Superseded by new referral"
+            active.save()
+
+        referral = WorkflowReferral.objects.create(
+            workflow=workflow,
+            referred_to=target_group,
+            config=config,
+            reason=reason,
+            referred_by=request.user,
+        )
+
+        # Update the denormalised field for fast queryset filtering
+        workflow.referred_to = target_group
+        workflow.save(update_fields=["referred_to"])
+
+        # Notify all active members of the referred group
+        actor = request.user.get_full_name() or request.user.username
+        all_roles = (
+            target_group.members.filter(is_active=True)
+            .values_list("role", flat=True)
+            .distinct()
+        )
+        _notify_group_members(
+            group=target_group,
+            roles=all_roles,
+            verb=Notification.VERB_REFERRED,
+            title=f"Workflow referred to your group: '{workflow.title}'",
+            message=f"{actor} referred '{workflow.title}' to {target_group.name}"
+            + (f": {reason}" if reason else "."),
+            workflow=workflow,
+            exclude_user=request.user,
+        )
+
+        # Audit log
+        AuditLog.objects.create(
+            content_type=ContentType.objects.get_for_model(workflow),
+            object_id=workflow.pk,
+            action="update",
+            user=request.user,
+            ip_address=request.META.get("HTTP_X_FORWARDED_FOR", "")
+            .split(",")[0]
+            .strip()
+            or request.META.get("REMOTE_ADDR"),
+            changes={"referred_to": target_group.name, "reason": reason},
+        )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "referral_id": referral.pk,
+                "referred_to": target_group.name,
+                "referred_at": referral.referred_at.strftime("%Y-%m-%d %H:%M"),
+                "label": config.label or "",
+            }
+        )
+
+    elif action == "recall":
+        recall_reason = (request.POST.get("recall_reason") or "").strip()
+        active = workflow.active_referral
+        if not active:
+            return JsonResponse({"error": "No active referral to recall."}, status=400)
+
+        active.recalled_at = timezone.now()
+        active.recalled_by = request.user
+        active.recall_reason = recall_reason
+        active.save()
+
+        workflow.referred_to = None
+        workflow.save(update_fields=["referred_to"])
+
+        AuditLog.objects.create(
+            content_type=ContentType.objects.get_for_model(workflow),
+            object_id=workflow.pk,
+            action="update",
+            user=request.user,
+            ip_address=request.META.get("HTTP_X_FORWARDED_FOR", "")
+            .split(",")[0]
+            .strip()
+            or request.META.get("REMOTE_ADDR"),
+            changes={
+                "recalled_referral": active.referred_to.name,
+                "recall_reason": recall_reason,
+            },
+        )
+
+        return JsonResponse({"success": True, "recalled": True})
+
+    return JsonResponse({"error": "Invalid action."}, status=400)
+
+
+@login_required
+def api_referral_configs(request, pk):
+    """Return allowed referral targets for a workflow's type as JSON."""
+    workflow = get_object_or_404(Workflow, pk=pk)
+    configs = WorkflowTypeReferralConfig.objects.filter(
+        workflow_type=workflow.workflow_type
+    ).select_related("target_group")
+    data = [
+        {
+            "group_id": c.target_group.pk,
+            "group_name": c.target_group.name,
+            "label": c.label or "",
+        }
+        for c in configs
+    ]
+    return JsonResponse({"configs": data})
+
+
+@login_required
 def workflow_transition(request, pk, transition_id):
     """Execute a workflow transition"""
     workflow = get_object_or_404(Workflow, pk=pk)
@@ -790,6 +964,15 @@ def workflow_transition(request, pk, transition_id):
         # Update workflow state
         workflow.current_state = transition.to_state
         workflow.save()
+
+        # Auto-recall any active referral when reaching a terminal state
+        if transition.to_state.is_terminal:
+            active_referral = workflow.active_referral
+            if active_referral:
+                active_referral.recalled_at = timezone.now()
+                active_referral.recalled_by = request.user
+                active_referral.recall_reason = f"Auto-recalled: workflow reached terminal state '{transition.to_state.name}'."
+                active_referral.save()
 
         # Always notify the workflow owner (unless they triggered it)
         if workflow.owner != request.user:
@@ -3153,6 +3336,172 @@ def workflow_type_transitions(request, pk):
     }
 
     return render(request, "workflows/admin/workflow_type_transitions.html", context)
+
+
+@login_required
+def workflow_type_referral_configs(request, pk):
+    """Manage referral targets for a workflow type"""
+    workflow_type = get_object_or_404(WorkflowType, pk=pk)
+
+    if not request.user.is_staff:
+        messages.error(
+            request, "You do not have permission to manage referral configs."
+        )
+        return redirect("admin_workflow_types")
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        try:
+            if action == "create":
+                group_id = request.POST.get("group_id")
+                label = request.POST.get("label", "").strip()
+                transition_role_ids = request.POST.getlist("transition_roles")
+                edit_role_ids = request.POST.getlist("edit_roles")
+
+                if not group_id:
+                    return JsonResponse(
+                        {"success": False, "error": "Target group is required."}
+                    )
+
+                target_group = get_object_or_404(Group, pk=group_id)
+
+                if WorkflowTypeReferralConfig.objects.filter(
+                    workflow_type=workflow_type, target_group=target_group
+                ).exists():
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "error": f"A referral config for '{target_group.name}' already exists.",
+                        }
+                    )
+
+                config = WorkflowTypeReferralConfig.objects.create(
+                    workflow_type=workflow_type,
+                    target_group=target_group,
+                    label=label,
+                )
+                if transition_role_ids:
+                    config.referred_transition_roles.set(
+                        Role.objects.filter(id__in=transition_role_ids)
+                    )
+                if edit_role_ids:
+                    config.referred_edit_roles.set(
+                        Role.objects.filter(id__in=edit_role_ids)
+                    )
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "config": {
+                            "id": config.pk,
+                            "group_name": target_group.name,
+                            "label": config.label,
+                            "transition_roles": [
+                                r.name for r in config.referred_transition_roles.all()
+                            ],
+                            "edit_roles": [
+                                r.name for r in config.referred_edit_roles.all()
+                            ],
+                        },
+                    }
+                )
+
+            elif action == "get":
+                config_id = request.POST.get("config_id")
+                config = get_object_or_404(
+                    WorkflowTypeReferralConfig,
+                    pk=config_id,
+                    workflow_type=workflow_type,
+                )
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "config": {
+                            "id": config.pk,
+                            "group_id": config.target_group.pk,
+                            "group_name": config.target_group.name,
+                            "label": config.label,
+                            "transition_role_ids": list(
+                                config.referred_transition_roles.values_list(
+                                    "id", flat=True
+                                )
+                            ),
+                            "edit_role_ids": list(
+                                config.referred_edit_roles.values_list("id", flat=True)
+                            ),
+                        },
+                    }
+                )
+
+            elif action == "edit":
+                config_id = request.POST.get("config_id")
+                config = get_object_or_404(
+                    WorkflowTypeReferralConfig,
+                    pk=config_id,
+                    workflow_type=workflow_type,
+                )
+                label = request.POST.get("label", "").strip()
+                transition_role_ids = request.POST.getlist("transition_roles")
+                edit_role_ids = request.POST.getlist("edit_roles")
+
+                config.label = label
+                config.save()
+                config.referred_transition_roles.set(
+                    Role.objects.filter(id__in=transition_role_ids)
+                )
+                config.referred_edit_roles.set(
+                    Role.objects.filter(id__in=edit_role_ids)
+                )
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "config": {
+                            "id": config.pk,
+                            "group_name": config.target_group.name,
+                            "label": config.label,
+                            "transition_roles": [
+                                r.name for r in config.referred_transition_roles.all()
+                            ],
+                            "edit_roles": [
+                                r.name for r in config.referred_edit_roles.all()
+                            ],
+                        },
+                    }
+                )
+
+            elif action == "delete":
+                config_id = request.POST.get("config_id")
+                config = get_object_or_404(
+                    WorkflowTypeReferralConfig,
+                    pk=config_id,
+                    workflow_type=workflow_type,
+                )
+                config.delete()
+                return JsonResponse({"success": True})
+
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)})
+
+    # GET
+    configs = WorkflowTypeReferralConfig.objects.filter(
+        workflow_type=workflow_type
+    ).prefetch_related(
+        "target_group", "referred_transition_roles", "referred_edit_roles"
+    )
+    all_groups = Group.objects.order_by("name")
+    all_roles = Role.objects.order_by("name")
+
+    context = {
+        "workflow_type": workflow_type,
+        "configs": configs,
+        "all_groups": all_groups,
+        "all_roles": all_roles,
+    }
+    return render(
+        request, "workflows/admin/workflow_type_referral_configs.html", context
+    )
 
 
 @login_required

@@ -53,6 +53,16 @@ urlpatterns = [
         views.workflow_bulk_create,
         name="workflow_bulk_create",
     ),
+    path(
+        "workflows/<int:pk>/refer/",
+        views.workflow_refer,
+        name="workflow_refer",
+    ),
+    path(
+        "api/workflows/<int:pk>/referral-configs/",
+        views.api_referral_configs,
+        name="api_referral_configs",
+    ),
     # SharePoint API endpoints
     path(
         "api/sharepoint/members/",
@@ -117,6 +127,11 @@ urlpatterns = [
         "manage/workflow-types/<int:pk>/transitions/",
         views.workflow_type_transitions,
         name="admin_workflow_type_transitions",
+    ),
+    path(
+        "manage/workflow-types/<int:pk>/referral-configs/",
+        views.workflow_type_referral_configs,
+        name="admin_workflow_type_referral_configs",
     ),
     path(
         "workflow-types/<int:pk>/diagram/",

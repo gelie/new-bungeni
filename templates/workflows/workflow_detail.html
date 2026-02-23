@@ -27,7 +27,7 @@
     <!-- Workflow Header (Compact) -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body pb-4">
-            <div class="flex justify-between items-start">
+            <div class="flex justify-between items-end gap-4">
                 <div class="flex-1">
                     {% if workflow.parent_workflow %}
                     <div class="text-sm text-base-content/60 mb-2">
@@ -41,10 +41,31 @@
 
                     <!-- Key Status Indicators (Always Visible) -->
                     <div class="flex flex-wrap gap-2 mt-3">
+                        {% if available_transitions %}
+                        <div class="dropdown">
+                            <label tabindex="0" class="badge badge-lg cursor-pointer select-none flex items-center gap-1 pr-2"
+                                style="background-color: {{ workflow.current_state.color }}; color: white;">
+                                {{ workflow.current_state.name }}
+                                {% lucide "chevron-down" class="w-3 h-3 opacity-80" %}
+                            </label>
+                            <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-56 z-50 border border-base-300 mt-1">
+                                <li class="menu-title text-xs opacity-50 px-3 py-1">Transition to…</li>
+                                {% for transition in available_transitions %}
+                                <li>
+                                    <a href="{% url 'workflow_transition' workflow.pk transition.pk %}" class="flex items-center justify-between">
+                                        {{ transition.name }}
+                                        {% lucide "arrow-right" class="w-4 h-4 ml-auto shrink-0" %}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% else %}
                         <span class="badge badge-lg"
                             style="background-color: {{ workflow.current_state.color }}; color: white;">
                             {{ workflow.current_state.name }}
                         </span>
+                        {% endif %}
                         <span class="badge badge-lg badge-outline">{{ workflow.workflow_type.name }}</span>
                         {% if workflow.priority == 'urgent' %}
                         <span class="badge badge-lg badge-error">Urgent</span>
@@ -67,24 +88,16 @@
                         {% lucide "plus" class="w-4 h-4 mr-1" %} Add Sub-workflow
                     </label>
                     {% endif %}
-
-                    {% if available_transitions %}
-                    <div class="dropdown dropdown-end">
-                        <label tabindex="0" class="btn btn-primary">
-                            {% lucide "zap" class="w-4 h-4 mr-1" %}
-                            Workflow
-                        </label>
-                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
-                            {% for transition in available_transitions %}
-                            <li>
-                                <a href="{% url 'workflow_transition' workflow.pk transition.pk %}">
-                                    {{ transition.name }}
-                                    {% lucide "arrow-right" class="w-4 h-4 ml-auto" %}
-                                </a>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
+                    {% if can_refer %}
+                    <label for="refer-modal" class="btn btn-warning btn-outline">
+                        {% lucide "send" class="w-4 h-4 mr-1" %}
+                        {% if active_referral %}Re-refer{% else %}Refer{% endif %}
+                    </label>
+                    {% endif %}
+                    {% if active_referral and can_edit %}
+                    <button id="recall-btn" class="btn btn-error btn-outline btn-sm self-center">
+                        {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
+                    </button>
                     {% endif %}
 
                     <div class="dropdown dropdown-end">
@@ -143,14 +156,18 @@
                     <span class="badge badge-sm badge-primary ml-1">{{ workflow.attachments.all|length }}</span>
                     {% endif %}
                 </a>
-                <a class="tab" data-tab="details">
-                    {% lucide "file-text" class="w-4 h-4 mr-2" %}
-                    Details
-                </a>
                 <a class="tab" data-tab="diagram">
                     {% lucide "workflow" class="w-4 h-4 mr-2" %}
                     Diagram
                 </a>
+                {% if referral_history or can_refer %}
+                <a class="tab" data-tab="referrals">
+                    {% lucide "send" class="w-4 h-4 mr-2" %}
+                    Referrals
+                    {% if active_referral %}<span class="badge badge-sm badge-warning ml-1">Active</span>{% endif %}
+                    {% if referral_history %}<span class="badge badge-sm badge-outline ml-1">{{ referral_history|length }}</span>{% endif %}
+                </a>
+                {% endif %}
             </div>
 
             <!-- Tab Content -->
@@ -243,6 +260,79 @@
                         </div>
                     </div>
                     {% endif %}
+
+                    <!-- Timeline & System Information (merged from Details tab) -->
+                    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                {% lucide "calendar" class="w-5 h-5" %}
+                                Timeline
+                            </h3>
+                            <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Created</span>
+                                    <span>{{ workflow.created_at|date:"F d, Y H:i" }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Last Updated</span>
+                                    <span>{{ workflow.updated_at|date:"F d, Y H:i" }}</span>
+                                </div>
+                                {% if workflow.deadline %}
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Deadline</span>
+                                    <span class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
+                                        {{ workflow.deadline|date:"F d, Y H:i" }}
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <h3 class="text-lg font-semibold flex items-center gap-2">
+                                {% lucide "settings" class="w-5 h-5" %}
+                                System Information
+                            </h3>
+                            <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Workflow ID</span>
+                                    <span class="font-mono text-sm">{{ workflow.id }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-base-content/70">Hierarchy Level</span>
+                                    <span>{{ workflow.hierarchy_level }}</span>
+                                </div>
+                                {% if active_referral %}
+                                <div class="flex justify-between items-center">
+                                    <span class="text-base-content/70">Referred To</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="badge badge-warning badge-sm">Active</span>
+                                        <a href="{% url 'group_detail' active_referral.referred_to.pk %}"
+                                            class="link link-hover text-sm font-medium">
+                                            {{ active_referral.referred_to.name|truncatewords:4 }}
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-base-content/70">Referred By</span>
+                                    <span class="text-sm">{{ active_referral.referred_by.get_full_name|default:active_referral.referred_by.username }}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-base-content/70">Referred At</span>
+                                    <span class="text-sm">{{ active_referral.referred_at|date:"Y-m-d H:i" }}</span>
+                                </div>
+                                {% elif workflow.referred_to %}
+                                <div class="flex justify-between items-center">
+                                    <span class="text-base-content/70">Referred To</span>
+                                    <a href="{% url 'group_detail' workflow.referred_to.pk %}"
+                                        class="btn btn-outline btn-xs">
+                                        {{ workflow.referred_to.name|truncatewords:3 }}
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Related Tab -->
@@ -713,61 +803,126 @@
                     </div>
                 </div>
 
-                <!-- Details Tab -->
-                <div id="tab-details" class="tab-content">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Metadata -->
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-semibold flex items-center gap-2">
-                                {% lucide "calendar" class="w-5 h-5" %}
-                                Timeline
-                            </h3>
-                            <div class="bg-base-200 rounded-lg p-4 space-y-3">
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Created</span>
-                                    <span>{{ workflow.created_at|date:"F d, Y H:i" }}</span>
-                                </div>
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Last Updated</span>
-                                    <span>{{ workflow.updated_at|date:"F d, Y H:i" }}</span>
-                                </div>
-                                {% if workflow.deadline %}
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Deadline</span>
-                                    <span class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
-                                        {{ workflow.deadline|date:"F d, Y H:i" }}
-                                    </span>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
+                <!-- Referrals Tab -->
+                <div id="tab-referrals" class="tab-content">
+                    <div class="space-y-6">
 
-                        <!-- System Information -->
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-semibold flex items-center gap-2">
-                                {% lucide "settings" class="w-5 h-5" %}
-                                System Information
-                            </h3>
-                            <div class="bg-base-200 rounded-lg p-4 space-y-3">
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Workflow ID</span>
-                                    <span class="font-mono text-sm">{{ workflow.id }}</span>
+                        <!-- Active Referral Banner -->
+                        {% if active_referral %}
+                        <div class="alert alert-warning shadow">
+                            <div class="flex items-start gap-3 w-full">
+                                {% lucide "send" class="w-5 h-5 shrink-0 mt-0.5" %}
+                                <div class="flex-1">
+                                    <div class="font-semibold">Currently referred to {{ active_referral.referred_to.name }}</div>
+                                    <div class="text-sm mt-0.5">
+                                        By {{ active_referral.referred_by.get_full_name|default:active_referral.referred_by.username }}
+                                        on {{ active_referral.referred_at|date:"Y-m-d H:i" }}
+                                        {% if active_referral.config.label %} &mdash; <em>{{ active_referral.config.label }}</em>{% endif %}
+                                    </div>
+                                    {% if active_referral.reason %}
+                                    <div class="text-sm mt-1 italic">"{{ active_referral.reason }}"</div>
+                                    {% endif %}
                                 </div>
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Hierarchy Level</span>
-                                    <span>{{ workflow.hierarchy_level }}</span>
-                                </div>
-                                {% if workflow.referred_to %}
-                                <div class="flex justify-between items-center">
-                                    <span class="text-base-content/70">Referred To</span>
-                                    <a href="{% url 'group_detail' workflow.referred_to.pk %}"
-                                        class="btn btn-outline btn-xs">
-                                        {{ workflow.referred_to.name|truncatewords:3 }}
-                                    </a>
-                                </div>
+                                {% if can_edit %}
+                                <button id="recall-btn-tab" class="btn btn-error btn-sm shrink-0">
+                                    {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall
+                                </button>
                                 {% endif %}
                             </div>
                         </div>
+                        {% else %}
+                        <div class="alert alert-info shadow">
+                            {% lucide "info" class="w-5 h-5" %}
+                            <span>This workflow is not currently referred to any group.</span>
+                            {% if can_refer %}
+                            <label for="refer-modal" class="btn btn-warning btn-sm ml-auto">
+                                {% lucide "send" class="w-4 h-4 mr-1" %} Refer Now
+                            </label>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Referral History -->
+                        {% if referral_history %}
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+                                {% lucide "clock" class="w-5 h-5" %}
+                                Referral History
+                            </h3>
+                            <div class="overflow-x-auto">
+                                <table class="table table-sm w-full">
+                                    <thead>
+                                        <tr>
+                                            <th>Group</th>
+                                            <th>Label</th>
+                                            <th>Reason</th>
+                                            <th>Referred By</th>
+                                            <th>Referred At</th>
+                                            <th>Status</th>
+                                            <th>Recalled At</th>
+                                            <th>Recall Reason</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for ref in referral_history %}
+                                        <tr class="{% if ref.is_active %}bg-warning/10{% endif %}">
+                                            <td class="font-medium">{{ ref.referred_to.name }}</td>
+                                            <td class="text-sm text-base-content/60">{{ ref.config.label|default:"—" }}</td>
+                                            <td class="text-sm max-w-xs truncate" title="{{ ref.reason }}">{{ ref.reason|default:"—" }}</td>
+                                            <td class="text-sm">{{ ref.referred_by.get_full_name|default:ref.referred_by.username }}</td>
+                                            <td class="text-sm">{{ ref.referred_at|date:"Y-m-d H:i" }}</td>
+                                            <td>
+                                                {% if ref.is_active %}
+                                                <span class="badge badge-warning badge-sm">Active</span>
+                                                {% else %}
+                                                <span class="badge badge-ghost badge-sm">Recalled</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-sm">{{ ref.recalled_at|date:"Y-m-d H:i"|default:"—" }}</td>
+                                            <td class="text-sm max-w-xs truncate" title="{{ ref.recall_reason }}">{{ ref.recall_reason|default:"—" }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Allowed Referral Targets -->
+                        {% if referral_configs %}
+                        <div>
+                            <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+                                {% lucide "users" class="w-5 h-5" %}
+                                Configured Referral Targets
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {% for cfg in referral_configs %}
+                                <div class="card bg-base-200 shadow-sm">
+                                    <div class="card-body p-4">
+                                        <div class="font-medium text-sm">{{ cfg.target_group.name }}</div>
+                                        {% if cfg.label %}<div class="text-xs text-base-content/60 mt-0.5">{{ cfg.label }}</div>{% endif %}
+                                        <div class="flex flex-wrap gap-1 mt-2">
+                                            {% for role in cfg.referred_transition_roles.all %}
+                                            <span class="badge badge-primary badge-xs">{{ role.name }}</span>
+                                            {% empty %}
+                                            <span class="text-xs text-base-content/40">No transition roles</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% if can_refer %}
+                                        <button class="btn btn-warning btn-xs mt-2 refer-quick-btn"
+                                            data-group-id="{{ cfg.target_group.pk }}"
+                                            data-group-name="{{ cfg.target_group.name }}"
+                                            data-label="{{ cfg.label }}">
+                                            {% lucide "send" class="w-3 h-3 mr-1" %} Refer to this group
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
                     </div>
                 </div>
 
@@ -2275,6 +2430,142 @@
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
+</script>
+
+{% if can_refer %}
+<!-- Referral Modal -->
+<input type="checkbox" id="refer-modal" class="modal-toggle" />
+<div class="modal" role="dialog">
+  <div class="modal-box w-full max-w-lg">
+    <h3 class="font-bold text-lg mb-1">Refer Workflow</h3>
+    <p class="text-sm text-base-content/60 mb-4">Select a group to refer this workflow to. The referred group will be notified.</p>
+
+    <div class="form-control mb-3">
+      <label class="label"><span class="label-text font-medium">Refer To</span></label>
+      <select id="refer-group-select" class="select select-bordered w-full">
+        <option value="">— Select group —</option>
+        {% for cfg in referral_configs %}
+        <option value="{{ cfg.target_group.pk }}" data-label="{{ cfg.label }}">
+          {{ cfg.target_group.name }}{% if cfg.label %} ({{ cfg.label }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-control mb-4">
+      <label class="label"><span class="label-text font-medium">Reason <span class="text-base-content/40 font-normal">(optional)</span></span></label>
+      <textarea id="refer-reason" class="textarea textarea-bordered w-full" rows="3" placeholder="Reason for referral…"></textarea>
+    </div>
+
+    <div id="refer-error" class="alert alert-error mb-3 hidden"></div>
+
+    <div class="modal-action">
+      <label for="refer-modal" class="btn btn-ghost">Cancel</label>
+      <button type="button" id="refer-submit-btn" class="btn btn-warning">
+        {% lucide "send" class="w-4 h-4 mr-1" %} Refer
+      </button>
+    </div>
+  </div>
+  <label class="modal-backdrop" for="refer-modal"></label>
+</div>
+{% endif %}
+
+{% if active_referral and can_edit %}
+<!-- Recall Confirmation Modal -->
+<input type="checkbox" id="recall-modal" class="modal-toggle" />
+<div class="modal" role="dialog">
+  <div class="modal-box w-full max-w-md">
+    <h3 class="font-bold text-lg mb-1">Recall Referral</h3>
+    <p class="text-sm text-base-content/60 mb-4">
+      This will recall the active referral to <strong>{{ active_referral.referred_to.name }}</strong>.
+      The workflow will no longer be accessible to that group.
+    </p>
+    <div class="form-control mb-4">
+      <label class="label"><span class="label-text font-medium">Recall Reason <span class="text-base-content/40 font-normal">(optional)</span></span></label>
+      <textarea id="recall-reason" class="textarea textarea-bordered w-full" rows="2" placeholder="Reason for recall…"></textarea>
+    </div>
+    <div id="recall-error" class="alert alert-error mb-3 hidden"></div>
+    <div class="modal-action">
+      <label for="recall-modal" class="btn btn-ghost">Cancel</label>
+      <button type="button" id="recall-submit-btn" class="btn btn-error">
+        {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
+      </button>
+    </div>
+  </div>
+  <label class="modal-backdrop" for="recall-modal"></label>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  const REFER_URL = '{% url "workflow_refer" workflow.pk %}';
+  const CSRF = '{{ csrf_token }}';
+
+  function post(data) {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(data)) fd.append(k, v);
+    fd.append('csrfmiddlewaretoken', CSRF);
+    return fetch(REFER_URL, { method: 'POST', body: fd }).then(r => r.json());
+  }
+
+  // Refer submit
+  const referSubmit = document.getElementById('refer-submit-btn');
+  if (referSubmit) {
+    referSubmit.addEventListener('click', function () {
+      const groupId = document.getElementById('refer-group-select').value;
+      const reason = document.getElementById('refer-reason').value.trim();
+      const errEl = document.getElementById('refer-error');
+      errEl.classList.add('hidden');
+      if (!groupId) { errEl.textContent = 'Please select a group.'; errEl.classList.remove('hidden'); return; }
+      referSubmit.disabled = true;
+      post({ action: 'refer', group_id: groupId, reason })
+        .then(data => {
+          if (data.success) { location.reload(); }
+          else { errEl.textContent = data.error || 'Failed to refer.'; errEl.classList.remove('hidden'); referSubmit.disabled = false; }
+        })
+        .catch(() => { errEl.textContent = 'Network error.'; errEl.classList.remove('hidden'); referSubmit.disabled = false; });
+    });
+  }
+
+  // Quick-refer buttons in Referrals tab
+  document.querySelectorAll('.refer-quick-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const groupId = this.dataset.groupId;
+      const groupName = this.dataset.groupName;
+      const sel = document.getElementById('refer-group-select');
+      if (sel) {
+        sel.value = groupId;
+      }
+      document.getElementById('refer-modal').checked = true;
+    });
+  });
+
+  // Recall buttons (both header and tab)
+  function openRecall() {
+    document.getElementById('recall-modal').checked = true;
+  }
+  const recallBtn = document.getElementById('recall-btn');
+  if (recallBtn) recallBtn.addEventListener('click', openRecall);
+  const recallBtnTab = document.getElementById('recall-btn-tab');
+  if (recallBtnTab) recallBtnTab.addEventListener('click', openRecall);
+
+  // Recall submit
+  const recallSubmit = document.getElementById('recall-submit-btn');
+  if (recallSubmit) {
+    recallSubmit.addEventListener('click', function () {
+      const reason = document.getElementById('recall-reason').value.trim();
+      const errEl = document.getElementById('recall-error');
+      errEl.classList.add('hidden');
+      recallSubmit.disabled = true;
+      post({ action: 'recall', recall_reason: reason })
+        .then(data => {
+          if (data.success) { location.reload(); }
+          else { errEl.textContent = data.error || 'Failed to recall.'; errEl.classList.remove('hidden'); recallSubmit.disabled = false; }
+        })
+        .catch(() => { errEl.textContent = 'Network error.'; errEl.classList.remove('hidden'); recallSubmit.disabled = false; });
+    });
+  }
+})();
 </script>
 
 {% if can_edit and allowed_child_configs %}

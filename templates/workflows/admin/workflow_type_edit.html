@@ -5,13 +5,24 @@
 {% block content %}
 <div class="space-y-6">
   <!-- Header -->
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between flex-wrap gap-3">
     <div>
       <h1 class="text-3xl font-bold flex items-center gap-2">
         {% lucide "pencil" class="w-8 h-8" %}
         Edit Workflow Template
       </h1>
       <p class="text-base-content/70 mt-1">Modify workflow template settings and optional fields</p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <a href="{% url 'admin_workflow_type_states' workflow_type.pk %}" class="btn btn-outline btn-sm">
+        {% lucide "circle-dot" class="w-4 h-4" %} States
+      </a>
+      <a href="{% url 'admin_workflow_type_transitions' workflow_type.pk %}" class="btn btn-outline btn-sm">
+        {% lucide "arrow-right-left" class="w-4 h-4" %} Transitions
+      </a>
+      <a href="{% url 'admin_workflow_type_referral_configs' workflow_type.pk %}" class="btn btn-outline btn-sm">
+        {% lucide "send" class="w-4 h-4" %} Referral Configs
+      </a>
     </div>
   </div>
 
