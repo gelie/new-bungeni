@@ -42,6 +42,11 @@ urlpatterns = [
         views.notifications_mark_read,
         name="notifications_mark_read",
     ),
+    path(
+        "notifications/clear/",
+        views.notifications_clear,
+        name="notifications_clear",
+    ),
     # Reports
     path("reports/", views.reports, name="reports"),
     path("reports/export/csv/", views.reports_export_csv, name="reports_export_csv"),

@@ -178,7 +178,7 @@ def workflow_list(request):
     # Filters
     workflow_type = request.GET.get("type")
     state = request.GET.get("state")
-    priority = request.GET.get("priority")
+    priority = request.GET.getlist("priority")
     group = request.GET.get("group")
     search = request.GET.get("search")
 
@@ -187,7 +187,7 @@ def workflow_list(request):
     if state:
         workflows = workflows.filter(current_state_id=state)
     if priority:
-        workflows = workflows.filter(priority=priority)
+        workflows = workflows.filter(priority__in=priority)
     if group:
         workflows = workflows.filter(workflow_type__group_id=group)
     if search:
@@ -195,9 +195,17 @@ def workflow_list(request):
             Q(title__icontains=search) | Q(description__icontains=search)
         )
 
-    # For filter dropdowns
-    workflow_types = WorkflowType.objects.all()
-    states = State.objects.all()
+    # For filter dropdowns — scoped to what the user can actually see
+    accessible_type_ids = workflows.values_list(
+        "workflow_type_id", flat=True
+    ).distinct()
+    accessible_state_ids = workflows.values_list(
+        "current_state_id", flat=True
+    ).distinct()
+    workflow_types = WorkflowType.objects.filter(id__in=accessible_type_ids).order_by(
+        "name"
+    )
+    states = State.objects.filter(id__in=accessible_state_ids).order_by("name")
     groups = Group.objects.filter(id__in=user_groups)
 
     # Workflow types the user can create
@@ -211,12 +219,21 @@ def workflow_list(request):
     for wf in workflows_list:
         wf.user_transitions = wf.get_available_transitions(user)
 
+    priority_choices = [
+        ("urgent", "Urgent"),
+        ("high", "High"),
+        ("medium", "Medium"),
+        ("low", "Low"),
+    ]
+
     context = {
         "workflows": workflows_list,
         "workflow_types": workflow_types,
         "states": states,
         "groups": groups,
         "creatable_workflow_types": creatable_workflow_types,
+        "priority_choices": priority_choices,
+        "selected_priorities": priority,
     }
 
     return render(request, "workflows/workflow_list.html", context)
@@ -1820,6 +1837,15 @@ def notifications_mark_read(request):
         Notification.objects.filter(user=request.user, is_read=False).update(
             is_read=True
         )
+    return JsonResponse({"ok": True})
+
+
+@require_http_methods(["POST"])
+def notifications_clear(request):
+    """Delete all notifications for the current user."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False}, status=200)
+    Notification.objects.filter(user=request.user).delete()
     return JsonResponse({"ok": True})
 
 

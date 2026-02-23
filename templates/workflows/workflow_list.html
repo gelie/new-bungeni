@@ -34,7 +34,7 @@
     <!-- Filters -->
     <div class="card bg-base-100 shadow">
         <div class="card-body">
-            <form method="get" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <form method="get" class="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div class="form-control">
                     <input type="text" name="search" placeholder="Search workflows..." value="{{ request.GET.search }}"
                         class="input">
@@ -65,14 +65,32 @@
                 </div>
 
                 <div class="form-control">
-                    <select name="priority" class="select">
-                        <option value="">All Priorities</option>
-                        <option value="urgent" {% if request.GET.priority == "urgent" %}selected{% endif %}>Urgent
+                    <div class="dropdown">
+                        <label tabindex="0" class="select select-bordered flex items-center gap-1 cursor-pointer w-full">
+                            {% lucide "flag" class="w-4 h-4 opacity-60" %}
+                            <span id="priority-label">Priority</span>
+                        </label>
+                        <div tabindex="0" class="dropdown-content bg-base-100 border border-base-300 rounded-box shadow-lg p-3 z-50 w-44 space-y-2 mt-1">
+                            {% for val, label in priority_choices %}
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="priority" value="{{ val }}" class="checkbox checkbox-sm checkbox-primary priority-cb"
+                                    {% if val in selected_priorities %}checked{% endif %} />
+                                <span class="text-sm">{{ label }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-control">
+                    <select name="group" class="select">
+                        <option value="">All Groups</option>
+                        {% for g in groups %}
+                        <option value="{{ g.id }}"
+                            {% if request.GET.group == g.id|stringformat:"s" %}selected{% endif %}>
+                            {{ g.name }}
                         </option>
-                        <option value="high" {% if request.GET.priority == "high" %}selected{% endif %}>High</option>
-                        <option value="medium" {% if request.GET.priority == "medium" %}selected{% endif %}>Medium
-                        </option>
-                        <option value="low" {% if request.GET.priority == "low" %}selected{% endif %}>Low</option>
+                        {% endfor %}
                     </select>
                 </div>
 
@@ -89,9 +107,9 @@
     </div>
 
     <!-- Workflows Table -->
-    <div class="card bg-base-100 shadow-xl">
-        <div class="card-body p-0">
-            <div class="overflow-x-auto">
+    <div class="card bg-base-100 shadow-xl overflow-visible">
+        <div class="card-body p-0 overflow-visible">
+            <div class="overflow-x-auto overflow-y-visible">
                 <table class="table table-zebra w-full">
                     <thead>
                         <tr>
@@ -140,26 +158,18 @@
                                     </span>
                                 </div>
                             </td>
-                            <td onclick="event.stopPropagation()">
+                            <td>
                                 {% if workflow.user_transitions %}
-                                <div class="dropdown">
-                                    <label tabindex="0" class="badge w-42 cursor-pointer select-none flex items-center gap-1 workflow-state-badge"
-                                        data-state-color="{{ workflow.current_state.color }}">
-                                        <span class="truncate">{{ workflow.current_state.name }}</span>
-                                        {% lucide "chevron-down" class="w-3 h-3 shrink-0 opacity-80" %}
-                                    </label>
-                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-52 z-50 border border-base-300 mt-1">
-                                        <li class="menu-title text-xs opacity-50 px-3 py-1">Transition to…</li>
-                                        {% for transition in workflow.user_transitions %}
-                                        <li>
-                                            <a href="{% url 'workflow_transition' workflow.pk transition.pk %}" class="flex items-center justify-between">
-                                                {{ transition.name }}
-                                                {% lucide "arrow-right" class="w-4 h-4 ml-auto shrink-0" %}
-                                            </a>
-                                        </li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
+                                <button type="button"
+                                    class="badge w-42 cursor-pointer select-none flex items-center gap-1 workflow-state-badge state-popover-trigger"
+                                    data-state-color="{{ workflow.current_state.color }}"
+                                    onclick="event.stopPropagation(); openStatePopover(this)">
+                                    <span class="truncate">{{ workflow.current_state.name }}</span>
+                                    {% lucide "chevron-down" class="w-3 h-3 shrink-0 opacity-80" %}
+                                    {% for t in workflow.user_transitions %}
+                                    <span class="hidden" data-t-url="{% url 'workflow_transition' workflow.pk t.pk %}" data-t-name="{{ t.name|escapejs }}"></span>
+                                    {% endfor %}
+                                </button>
                                 {% else %}
                                 <span class="badge w-36 workflow-state-badge"
                                     data-state-color="{{ workflow.current_state.color }}">
@@ -192,9 +202,9 @@
                             </td>
                             <td>
                                 {% if workflow.deadline %}
-                                <div class="text-sm {% if workflow.is_overdue %}text-error{% endif %}">
+                                <div class="text-sm {% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error{% endif %}">
                                     {{ workflow.deadline|date:"M d, Y" }}
-                                    {% if workflow.is_overdue %}
+                                    {% if workflow.is_overdue and not workflow.current_state.is_terminal %}
                                     {% lucide "circle-alert" class="w-4 h-4 inline" %}
                                     {% endif %}
                                 </div>
@@ -220,4 +230,59 @@
         </div>
     </div>
 </div>
+
+<!-- State transition popover (fixed-position, appended to body to escape table overflow) -->
+<div id="state-popover" class="hidden fixed z-[9999] bg-base-100 border border-base-300 rounded-box shadow-xl w-52 py-1" style="top:0;left:0">
+    <p class="text-xs text-base-content/50 px-3 py-1 font-medium">Transition to…</p>
+    <div id="state-popover-items"></div>
+</div>
+
+<script>
+(function () {
+    const popover = document.getElementById('state-popover');
+    const items   = document.getElementById('state-popover-items');
+    let activeBtn = null;
+
+    function positionPopover(btn) {
+        const rect = btn.getBoundingClientRect();
+        const popW = 208;
+        let left = rect.left + window.scrollX;
+        let top  = rect.bottom + window.scrollY + 4;
+        if (left + popW > window.innerWidth - 8) left = rect.right + window.scrollX - popW;
+        popover.style.left = left + 'px';
+        popover.style.top  = top  + 'px';
+    }
+
+    function closePopover() {
+        popover.classList.add('hidden');
+        activeBtn = null;
+    }
+
+    window.openStatePopover = function (btn) {
+        if (activeBtn === btn) { closePopover(); return; }
+        activeBtn = btn;
+        const spans = btn.querySelectorAll('[data-t-url]');
+        items.innerHTML = Array.from(spans).map(s =>
+            `<a href="${s.dataset.tUrl}" class="flex items-center justify-between px-3 py-2 text-sm hover:bg-base-200 rounded">
+                ${s.dataset.tName}
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 ml-auto shrink-0 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>`
+        ).join('');
+        popover.classList.remove('hidden');
+        positionPopover(btn);
+    };
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.state-popover-trigger') && !popover.contains(e.target)) closePopover();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closePopover();
+    });
+
+    window.addEventListener('scroll', function () {
+        if (activeBtn) positionPopover(activeBtn);
+    }, true);
+})();
+</script>
 {% endblock %}

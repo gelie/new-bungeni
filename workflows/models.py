@@ -652,6 +652,7 @@ class Workflow(models.Model):
             return f"{prefix}└─ {self.workflow_type.name}: {self.title}{relationship}"
         return f"{self.workflow_type.name}: {self.title}"
 
+    @property
     def is_overdue(self):
         """Check if workflow is past deadline"""
         if self.deadline:

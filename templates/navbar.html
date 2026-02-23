@@ -43,7 +43,12 @@
         <div class="card-body p-4">
           <div class="flex items-center justify-between mb-2">
             <h3 class="font-bold text-lg">Notifications</h3>
-            <button class="btn btn-ghost btn-xs" onclick="markAllRead()">Mark all read</button>
+            <div class="flex gap-1">
+              <button class="btn btn-ghost btn-xs" onclick="markAllRead()">Mark all read</button>
+              <button class="btn btn-ghost btn-xs text-error" onclick="clearNotifications()" title="Clear all notifications">
+                {% lucide "trash" class="w-4 h-4" %}
+              </button>
+            </div>
           </div>
           <div id="notif-list" class="space-y-2 max-h-96 overflow-y-auto">
             <p class="text-sm text-base-content/50 text-center py-4">Loading…</p>
@@ -126,6 +131,20 @@
         else { badge.style.display = "none"; }
       }).finally(() => {
         if (href && href !== "#") window.location.href = href;
+      });
+    }
+
+    const CLEAR_URL = "{% url 'notifications_clear' %}";
+
+    function clearNotifications() {
+      if (!confirm("Delete all notifications?")) return;
+      fetch(CLEAR_URL, {
+        method: "POST",
+        headers: {"X-CSRFToken": CSRF, "Content-Type": "application/x-www-form-urlencoded"},
+        body: ""
+      }).then(() => {
+        document.getElementById("notif-badge").style.display = "none";
+        loadNotifications();
       });
     }
 
