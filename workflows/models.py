@@ -1090,21 +1090,49 @@ class EventType(models.Model):
         return str(self.name)
 
 
-class Venue(models.Model):
+class Building(models.Model):
     """
-    Venues where events take place.
+    Buildings that contain venues.
     """
 
-    name = models.CharField(max_length=255)
-    location = models.CharField(max_length=255, blank=True)
-    capacity = models.IntegerField(null=True, blank=True)
-    facilities = models.TextField(blank=True)
+    name = models.CharField(max_length=255, unique=True)
+    address = models.TextField(blank=True)
+    description = models.TextField(blank=True)
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
         return str(self.name)
+
+
+class Venue(models.Model):
+    """
+    Venues where events take place.
+    """
+
+    name = models.CharField(max_length=255)
+    building = models.ForeignKey(
+        Building, on_delete=models.CASCADE, null=True, blank=True, related_name="venues"
+    )
+    floor = models.CharField(max_length=50, blank=True)
+    room_number = models.CharField(max_length=50, blank=True)
+    capacity = models.IntegerField(null=True, blank=True)
+    facilities = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["building", "floor", "room_number", "name"]
+
+    def __str__(self):
+        parts = []
+        if self.building:
+            parts.append(str(self.building))
+        if self.floor:
+            parts.append(f"Floor {self.floor}")
+        if self.room_number:
+            parts.append(f"Room {self.room_number}")
+        parts.append(self.name)
+        return " - ".join(parts)
 
 
 class Event(models.Model):
@@ -1154,6 +1182,36 @@ class Event(models.Model):
     def __str__(self):
         return f"{self.event_type.name}: {self.title}"
 
+    def create_attendance_records(self):
+        """Create attendance records for all group members when event is completed."""
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Get all active members of the event's group
+            members = self.group.members.filter(is_active=True).select_related("user")
+
+            for membership in members:
+                # Create attendance record only if it doesn't exist
+                EventAttendance.objects.get_or_create(
+                    event=self, user=membership.user, defaults={"status": "invited"}
+                )
+
+    def save(self, *args, **kwargs):
+        """Override save to create attendance records when status changes to completed."""
+        # Check if this is an existing event and status is being changed
+        if self.pk:
+            old_event = Event.objects.get(pk=self.pk)
+            status_changed = old_event.status != self.status
+            is_now_completed = self.status == "completed"
+
+            if status_changed and is_now_completed:
+                # Create attendance records after saving
+                super().save(*args, **kwargs)
+                self.create_attendance_records()
+                return
+
+        super().save(*args, **kwargs)
+
 
 class EventAttendance(models.Model):
     """
@@ -1189,6 +1247,33 @@ class EventAttendance(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.event} ({self.status})"
+
+
+# ============================================================================
+# EVENT COMMENT MODEL
+# ============================================================================
+
+
+class EventComment(models.Model):
+    """
+    Comments on events.
+    """
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="event_comments"
+    )
+    message = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        truncated = self.message[:40]
+        return f"{self.author} on {self.event}: {truncated}..."
 
 
 # ============================================================================

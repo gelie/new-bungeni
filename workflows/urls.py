@@ -31,7 +31,23 @@ urlpatterns = [
     ),
     # Events
     path("events/", views.event_list, name="event_list"),
+    path("events/create/", views.event_create, name="event_create"),
     path("events/<int:pk>/", views.event_detail, name="event_detail"),
+    path("events/<int:pk>/edit/", views.event_edit, name="event_edit"),
+    path(
+        "events/<int:pk>/attendance/",
+        views.event_attendance_edit,
+        name="event_attendance_edit",
+    ),
+    path("events/<int:pk>/export/", views.event_export, name="event_export"),
+    path(
+        "events/<int:pk>/export/pdf/", views.event_export_pdf, name="event_export_pdf"
+    ),
+    path(
+        "events/<int:pk>/status/<str:status>/",
+        views.event_update_status,
+        name="event_update_status",
+    ),
     # Groups
     path("groups/", views.group_list, name="group_list"),
     path("groups/<int:pk>/", views.group_detail, name="group_detail"),

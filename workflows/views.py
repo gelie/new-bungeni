@@ -645,6 +645,250 @@ def workflow_detail(request, pk):
 
 
 @login_required
+def event_create(request):
+    """Create a new event."""
+    from .forms import EventForm
+
+    if request.method == "POST":
+        form = EventForm(request.user, request.POST)
+        if form.is_valid():
+            event = form.save()
+            messages.success(request, f"Event '{event.title}' created successfully.")
+            return redirect("event_detail", pk=event.pk)
+    else:
+        form = EventForm(request.user)
+
+    return render(request, "workflows/event_create.html", {"form": form})
+
+
+@login_required
+def event_update_status(request, pk, status):
+    """Update event status."""
+    event = get_object_or_404(Event, pk=pk)
+
+    # Check if user can update this event (organizer or group member)
+    user_groups = request.user.memberships.filter(is_active=True).values_list(
+        "group", flat=True
+    )
+    if event.organizer != request.user and event.group.id not in user_groups:
+        messages.error(request, "You don't have permission to update this event.")
+        return redirect("event_detail", pk=pk)
+
+    # Validate status
+    valid_statuses = [choice[0] for choice in Event.STATUS_CHOICES]
+    if status not in valid_statuses:
+        messages.error(request, "Invalid status.")
+        return redirect("event_detail", pk=pk)
+
+    old_status = event.status
+    event.status = status
+    event.save()
+
+    message = f"Event status changed from {old_status.title()} to {status.title()}."
+
+    # If status changed to completed, mention attendance records were created
+    if old_status != status and status == "completed":
+        attendance_count = event.attendances.count()
+        message += f" Attendance records created for {attendance_count} group members."
+
+    messages.success(request, message)
+    return redirect("event_detail", pk=pk)
+
+
+@login_required
+def event_edit(request, pk):
+    """Edit an existing event."""
+    event = get_object_or_404(Event, pk=pk)
+
+    # Check permissions (organizer or group member)
+    user_groups = request.user.memberships.filter(is_active=True).values_list(
+        "group", flat=True
+    )
+    if event.organizer != request.user and event.group.id not in user_groups:
+        messages.error(request, "You don't have permission to edit this event.")
+        return redirect("event_detail", pk=pk)
+
+    from .forms import EventForm
+
+    if request.method == "POST":
+        form = EventForm(request.user, request.POST, instance=event)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Event '{event.title}' updated successfully.")
+            return redirect("event_detail", pk=pk)
+    else:
+        form = EventForm(request.user, instance=event)
+
+    return render(
+        request,
+        "workflows/event_edit.html",
+        {
+            "form": form,
+            "event": event,
+            "attendances": event.attendances.select_related("user").order_by(
+                "user__first_name", "user__last_name"
+            ),
+        },
+    )
+
+
+@login_required
+def event_export(request, pk):
+    """Export event as iCal file."""
+    event = get_object_or_404(Event, pk=pk)
+
+    # Create iCal content
+    ical_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Bungeni//Event Export//EN
+BEGIN:VEVENT
+UID:{event.pk}@bungeni.local
+DTSTART:{event.start_datetime.strftime("%Y%m%dT%H%M%S")}
+DTEND:{event.end_datetime.strftime("%Y%m%dT%H%M%S")}
+SUMMARY:{event.title}
+DESCRIPTION:{event.description.replace("\n", "\\n")}
+LOCATION:{event.venue.name if event.venue else "TBD"}
+STATUS:{event.status.upper()}
+END:VEVENT
+END:VCALENDAR"""
+
+    response = HttpResponse(ical_content, content_type="text/calendar")
+    response["Content-Disposition"] = f'attachment; filename="{event.title}.ics"'
+    return response
+
+
+@login_required
+def event_export_pdf(request, pk):
+    """Export event as PDF with details and attendance records."""
+    from django.template.loader import render_to_string
+    from weasyprint import CSS, HTML
+
+    event = get_object_or_404(Event, pk=pk)
+
+    # Get attendance records
+    attendances = event.attendances.select_related("user").order_by(
+        "user__first_name", "user__last_name"
+    )
+
+    # Count attendance statuses
+    status_counts = {}
+    for attendance in attendances:
+        status_counts[attendance.status] = status_counts.get(attendance.status, 0) + 1
+
+    # Render HTML template
+    html_string = render_to_string(
+        "workflows/event_pdf.html",
+        {
+            "event": event,
+            "attendances": attendances,
+            "status_counts": status_counts,
+            "request": request,
+        },
+    )
+
+    # Generate PDF
+    html = HTML(string=html_string)
+    css = CSS(
+        string="""
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .header {
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+        }
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .status-attended { background-color: #d4edda; color: #155724; }
+        .status-absent { background-color: #f8d7da; color: #721c24; }
+        .status-confirmed { background-color: #d1ecf1; color: #0c5460; }
+        .status-invited { background-color: #fff3cd; color: #856404; }
+        .status-apology { background-color: #e2e3e5; color: #383d41; }
+    """
+    )
+
+    pdf = html.write_pdf(stylesheets=[css])
+
+    response = HttpResponse(pdf, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="{event.title}_meeting_report.pdf"'
+    )
+    return response
+
+
+@login_required
+def event_attendance_edit(request, pk):
+    """Edit attendance records for an event."""
+    event = get_object_or_404(Event, pk=pk)
+
+    # Check permissions (organizer or group member)
+    user_groups = request.user.memberships.filter(is_active=True).values_list(
+        "group", flat=True
+    )
+    if event.organizer != request.user and event.group.id not in user_groups:
+        messages.error(
+            request, "You don't have permission to edit attendance for this event."
+        )
+        return redirect("event_detail", pk=pk)
+
+    from .forms import EventAttendanceBulkForm
+
+    if request.method == "POST":
+        form = EventAttendanceBulkForm(event, request.POST)
+        if form.is_valid():
+            updated_count = form.save()
+            messages.success(request, f"Updated {updated_count} attendance records.")
+            return redirect("event_detail", pk=pk)
+    else:
+        form = EventAttendanceBulkForm(event)
+
+    return render(
+        request,
+        "workflows/event_attendance_edit.html",
+        {
+            "form": form,
+            "event": event,
+            "attendances": event.attendances.select_related("user").order_by(
+                "user__first_name", "user__last_name"
+            ),
+        },
+    )
+
+
+@login_required
 def comment_delete(request, pk, comment_pk):
     comment = get_object_or_404(Comment, pk=comment_pk, workflow_id=pk)
     if comment.user != request.user:

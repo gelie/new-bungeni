@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Attendance - {{ event.title }} - Bungeni{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-6">
+        <div class="flex items-center gap-2 mb-2">
+            <a href="{% url 'event_detail' event.pk %}" class="btn btn-ghost btn-sm">
+                {% lucide "arrow-left" class="w-4 h-4" %}
+                Back to Event
+            </a>
+        </div>
+        <h1 class="text-3xl font-bold">Edit Attendance</h1>
+        <p class="text-base-content/70 mt-1">Update attendance records for {{ event.title }}</p>
+    </div>
+
+    <!-- Form -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+
+                <!-- Event Info -->
+                <div class="alert alert-info">
+                    <div>
+                        <h3 class="font-bold">{{ event.title }}</h3>
+                        <div class="text-sm">{{ event.start_datetime|date:"F d, Y H:i" }} - {{ event.end_datetime|date:"H:i" }}</div>
+                        <div class="text-sm">{{ event.venue.name|default:"No venue" }}</div>
+                    </div>
+                </div>
+
+                <!-- Attendance Records -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Attendance Records</h3>
+
+                    {% if form.fields %}
+                    <div class="space-y-4">
+                        {% for attendance in attendances %}
+                        <div class="card bg-base-200">
+                            <div class="card-body p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <h4 class="font-semibold">
+                                            {{ attendance.user.first_name }} {{ attendance.user.last_name }}
+                                        </h4>
+                                        <div class="text-sm text-base-content/60">{{ attendance.user.email }}</div>
+                                    </div>
+                                    <div class="flex gap-4 flex-1">
+                                        <div class="form-control flex-1">
+                                            <label class="label">
+                                                <span class="label-text text-xs">Status</span>
+                                            </label>
+                                            <select name="attendance_{{ attendance.pk }}" class="select select-bordered select-sm">
+                                                {% for choice in attendance.ATTENDANCE_CHOICES %}
+                                                <option value="{{ choice.0 }}" {% if choice.0 == attendance.status %}selected{% endif %}>
+                                                    {{ choice.1 }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="form-control flex-1">
+                                            <label class="label">
+                                                <span class="label-text text-xs">Notes</span>
+                                            </label>
+                                            <textarea name="notes_{{ attendance.pk }}" class="textarea textarea-bordered textarea-sm" rows="1" placeholder="Optional notes...">{{ attendance.notes }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-base-content/50 py-8">
+                        {% lucide "users" class="w-12 h-12 mx-auto mb-2 opacity-50" %}
+                        <p>No attendance records found.</p>
+                        <p class="text-sm">Make sure the event is marked as "completed" to generate attendance records.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Form Errors -->
+                {% if form.non_field_errors %}
+                <div class="alert alert-error">
+                    <span>{{ form.non_field_errors.0 }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-2 pt-4">
+                    <a href="{% url 'event_detail' event.pk %}" class="btn btn-ghost">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        {% lucide "save" class="w-5 h-5" %}
+                        Save Attendance
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

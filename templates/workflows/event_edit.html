@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Event - {{ event.title }} - Bungeni{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold">Edit Event</h1>
+        <p class="text-base-content/70 mt-1">Update event details</p>
+    </div>
+
+    <!-- Form -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+
+                <!-- Title -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Title *</span>
+                    </label>
+                    {{ form.title }}
+                    {% if form.title.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.title.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Event Type -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Event Type *</span>
+                    </label>
+                    {{ form.event_type }}
+                    {% if form.event_type.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.event_type.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Description</span>
+                    </label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.description.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Group and Venue Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">Group *</span>
+                        </label>
+                        {{ form.group }}
+                        {% if form.group.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.group.errors.0 }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">Venue</span>
+                        </label>
+                        {{ form.venue }}
+                        {% if form.venue.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.venue.errors.0 }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Date and Time Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">Start Date & Time *</span>
+                        </label>
+                        {{ form.start_datetime }}
+                        {% if form.start_datetime.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.start_datetime.errors.0 }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">End Date & Time *</span>
+                        </label>
+                        {{ form.end_datetime }}
+                        {% if form.end_datetime.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.end_datetime.errors.0 }}</span>
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Status</span>
+                    </label>
+                    {{ form.status }}
+                    {% if form.status.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.status.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Form Errors -->
+                {% if form.non_field_errors %}
+                <div class="alert alert-error">
+                    <span>{{ form.non_field_errors.0 }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-2 pt-4">
+                    <a href="{% url 'event_detail' event.pk %}" class="btn btn-ghost">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        {% lucide "save" class="w-5 h-5" %}
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -19,8 +19,67 @@
                     <h1 class="text-3xl font-bold">{{ event.title }}</h1>
                     <div class="flex gap-2 mt-4">
                         <span class="badge badge-lg badge-primary">{{ event.event_type.name }}</span>
-                        <span class="badge badge-lg badge-outline">{{ event.status|title }}</span>
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="badge badge-lg badge-outline cursor-pointer flex items-center gap-1">
+                                {{ event.status|title }}
+                                {% lucide "chevron-down" class="w-3 h-3" %}
+                            </label>
+                            <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-40 z-50 border border-base-300 mt-1">
+                                {% for status_choice in event.STATUS_CHOICES %}
+                                <li>
+                                    <a href="{% url 'event_update_status' event.pk status_choice.0 %}"
+                                       class="flex items-center justify-between">
+                                        {{ status_choice.1|title }}
+                                        {% if status_choice.0 == event.status %}
+                                        {% lucide "check" class="w-4 h-4 text-primary" %}
+                                        {% endif %}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Actions Dropdown -->
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-neutral">
+                        {% comment %} {% lucide "move-horizontal" class="w-5 h-5" %} {% endcomment %}
+                        Actions
+                        {% lucide "chevron-down" class="w-4 h-4" %}
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-36 z-50 border border-base-300 mt-1">
+                        <li>
+                            <a href="{% url 'event_edit' event.pk %}" class="flex items-center gap-2">
+                                {% lucide "pencil" class="w-4 h-4" %}
+                                Edit
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" onclick="shareEvent()" class="flex items-center gap-2">
+                                {% lucide "share" class="w-4 h-4" %}
+                                Share
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'event_attendance_edit' event.pk %}" class="flex items-center gap-2">
+                                {% lucide "users" class="w-4 h-4" %}
+                                Edit Attendance
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'event_export_pdf' event.pk %}" class="flex items-center gap-2">
+                                {% lucide "file-text" class="w-4 h-4" %}
+                                Export PDF
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{% url 'event_export' event.pk %}" class="flex items-center gap-2">
+                                {% lucide "calendar" class="w-4 h-4" %}
+                                Export iCal
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
@@ -114,4 +173,25 @@
         </div>
     </div>
 </div>
+
+<script>
+function shareEvent() {
+    const url = window.location.href;
+    const title = "{{ event.title|escapejs }}";
+
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            url: url
+        }).catch(err => console.log('Error sharing:', err));
+    } else {
+        // Fallback: copy to clipboard
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Event link copied to clipboard!');
+        }).catch(() => {
+            prompt('Copy this event link:', url);
+        });
+    }
+}
+</script>
 {% endblock %}

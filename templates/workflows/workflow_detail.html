@@ -84,24 +84,24 @@
                 <!-- Quick Actions -->
                 <div class="flex gap-2 flex-wrap">
                     {% if can_edit and allowed_child_configs %}
-                    <label for="bulk-create-modal" class="btn bg-gray-600 text-white">
+                    <label for="bulk-create-modal" class="btn btn-sm bg-gray-600 text-white">
                         {% lucide "plus" class="w-4 h-4 mr-1" %} Add Sub-workflow
                     </label>
                     {% endif %}
                     {% if can_refer %}
-                    <label for="refer-modal" class="btn btn-warning btn-outline">
+                    <label for="refer-modal" class="btn btn-sm btn-warning btn-outline">
                         {% lucide "send" class="w-4 h-4 mr-1" %}
                         {% if active_referral %}Re-refer{% else %}Refer{% endif %}
                     </label>
                     {% endif %}
                     {% if active_referral and can_edit %}
-                    <button id="recall-btn" class="btn btn-error btn-outline btn-sm self-center">
+                    <button id="recall-btn" class="btn btn-sm btn-error btn-outline self-center">
                         {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
                     </button>
                     {% endif %}
 
                     <div class="dropdown dropdown-end">
-                        <label tabindex="0" class="btn btn-neutral">
+                        <label tabindex="0" class="btn btn-sm btn-neutral">
                             {% lucide "chevron-down" class="w-5 h-5" %}
                             Actions
                         </label>

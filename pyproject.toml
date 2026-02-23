@@ -21,6 +21,7 @@ dependencies = [
     "python-decouple>=3.8",
     "python-ldap>=3.4.5",
     "python-multipart>=0.0.22",
+    "weasyprint>=68.1",
 ]
 
 [dependency-groups]

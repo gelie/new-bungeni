@@ -4,6 +4,7 @@ from mptt.admin import MPTTModelAdmin
 
 from .models import (
     AuditLog,
+    Building,
     Comment,
     Drive,
     Event,
@@ -343,10 +344,17 @@ class EventTypeAdmin(admin.ModelAdmin):
     search_fields = ["name"]
 
 
+@admin.register(Building)
+class BuildingAdmin(admin.ModelAdmin):
+    list_display = ["name", "address"]
+    search_fields = ["name", "address"]
+
+
 @admin.register(Venue)
 class VenueAdmin(admin.ModelAdmin):
-    list_display = ["name", "location", "capacity"]
-    search_fields = ["name", "location"]
+    list_display = ["name", "building", "floor", "room_number", "capacity"]
+    search_fields = ["name", "building__name", "room_number"]
+    list_filter = ["building"]
 
 
 @admin.register(Event)
