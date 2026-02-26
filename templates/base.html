@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
@@ -20,27 +20,23 @@
 
 <body class="bg-base-200">
   {% include 'navbar.html' %}
-  <!-- Drawer Layout -->
-  <div class="drawer lg:drawer-open">
-    <input id="sidebar-drawer" type="checkbox" class="drawer-toggle" />
-    <div class="drawer-content">
-      <!-- Main Content -->
-      <main class="p-6">
-        {% if messages %}
-        <div class="mb-4 space-y-2">
-          {% for message in messages %}
-          <div class="alert alert-{{ message.tags }}">
-            <span>{{ message }}</span>
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %}
+  {% include 'sidebar.html' %}
 
-        {% block content %}{% endblock %}
-      </main>
-    </div>
-    {% include 'sidebar.html' %}
-  </div>
+  <!-- Main Content -->
+  <div id="main-content" class="transition-all duration-300 ml-16">
+    <main class="p-6">
+      {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+          <span>{{ message }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
   </div>
   <script>
     // Initialize Lucide icons
@@ -50,7 +46,7 @@
     function toggleTheme() {
       const html = document.documentElement;
       const currentTheme = html.getAttribute('data-theme');
-      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      const newTheme = currentTheme === 'emerald' ? 'dim' : 'emerald';
       html.setAttribute('data-theme', newTheme);
       localStorage.setItem('theme', newTheme);
 
@@ -64,9 +60,9 @@
     }
 
     // Load saved theme
-    const savedTheme = localStorage.getItem('theme') || 'light';
+    const savedTheme = localStorage.getItem('theme') || 'emerald';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    if (savedTheme === 'dark') {
+    if (savedTheme === 'dim') {
       document.querySelectorAll('.theme-icon-light').forEach(el => {
         el.classList.add('hidden');
       });
@@ -108,6 +104,268 @@
           window.location.href = this.dataset.workflowUrl;
         });
       });
+    });
+
+    // Sidebar Panel Management
+    let activeSidebarPanel = null;
+    let isPanelOpen = false;
+
+    // Load sidebar state from localStorage
+    function loadSidebarState() {
+      const savedState = localStorage.getItem('sidebarState');
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        activeSidebarPanel = state.activePanel;
+        isPanelOpen = state.isOpen;
+
+        // Restore panel visibility if it should be open
+        if (isPanelOpen && activeSidebarPanel) {
+          showPanel(activeSidebarPanel, false); // false = don't save to localStorage
+        }
+      }
+    }
+
+    // Save sidebar state to localStorage
+    function saveSidebarState() {
+      const state = {
+        activePanel: activeSidebarPanel,
+        isOpen: isPanelOpen
+      };
+      localStorage.setItem('sidebarState', JSON.stringify(state));
+    }
+
+    function showPanel(panelName, saveState = true) {
+      const panel = document.getElementById(`panel-${panelName}`);
+      const panelContainer = document.getElementById('sidebar-panels');
+      const mainContent = document.getElementById('main-content');
+      const iconBtn = document.querySelector(`[data-panel="${panelName}"]`);
+
+      if (!panel || !panelContainer || !mainContent) return;
+
+      // Hide all panels
+      document.querySelectorAll('.sidebar-panel').forEach(p => {
+        p.classList.remove('active');
+      });
+
+      // Remove active state from all icon buttons
+      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Show selected panel and push content
+      panel.classList.add('active');
+      if (iconBtn) iconBtn.classList.add('active');
+      panelContainer.classList.add('open');
+      mainContent.classList.add('panel-open');
+      isPanelOpen = true;
+      activeSidebarPanel = panelName;
+
+      if (saveState) {
+        saveSidebarState();
+      }
+    }
+
+    function toggleSidebarPanels() {
+      if (isPanelOpen) {
+        closePanels();
+      } else {
+        // Open the last active panel or default to dashboard
+        const defaultPanel = activeSidebarPanel || 'dashboard';
+        showPanel(defaultPanel);
+      }
+    }
+
+    function closePanels() {
+      const panelContainer = document.getElementById('sidebar-panels');
+      const mainContent = document.getElementById('main-content');
+
+      document.querySelectorAll('.sidebar-panel').forEach(p => {
+        p.classList.remove('active');
+      });
+      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      if (panelContainer) panelContainer.classList.remove('open');
+      if (mainContent) mainContent.classList.remove('panel-open');
+      isPanelOpen = false;
+      // Don't clear activeSidebarPanel so we can reopen the same panel
+
+      saveSidebarState();
+    }
+
+    // Set active panel based on current page
+    function setActivePanelFromPage() {
+      const path = window.location.pathname;
+      let panelName = 'dashboard'; // default
+
+      if (path.includes('workflow')) {
+        panelName = 'workflows';
+      } else if (path.includes('event')) {
+        panelName = 'events';
+      } else if (path.includes('group')) {
+        panelName = 'groups';
+      } else if (path.includes('report')) {
+        panelName = 'reports';
+      } else if (path.includes('manage') || path.includes('admin')) {
+        panelName = 'admin';
+      } else if (path === '/' || path.includes('dashboard')) {
+        panelName = 'dashboard';
+      }
+
+      activeSidebarPanel = panelName;
+
+      // If sidebar should be open, show the panel
+      if (isPanelOpen) {
+        showPanel(panelName, false);
+      }
+    }
+
+    // Floating Popup Management
+    let popupTimeout = null;
+    let currentPopupPanel = null;
+
+    function showFloatingPopup(panelName, iconElement) {
+      if (isPanelOpen) return; // Don't show popup if sidebar is open
+
+      const popup = document.getElementById('sidebar-popup');
+      const panel = document.getElementById(`panel-${panelName}`);
+
+      if (!popup || !panel) return;
+
+      // Clone panel content for popup
+      const panelContent = panel.querySelector('.p-4').cloneNode(true);
+      popup.querySelector('.panel-content').innerHTML = '';
+      popup.querySelector('.panel-content').appendChild(panelContent);
+
+      // Position popup to align with the hovered icon
+      const iconRect = iconElement.getBoundingClientRect();
+      popup.style.left = ''; // Use CSS class (left-16 = 64px)
+      popup.style.top = `${iconRect.top}px`; // Align with the icon's top
+      popup.style.transform = '';
+
+      // Make popup opaque by removing pointer-events: none when visible
+      popup.classList.add('visible');
+      currentPopupPanel = panelName;
+    }
+
+    function hideFloatingPopup() {
+      const popup = document.getElementById('sidebar-popup');
+      if (popup) {
+        popup.classList.remove('visible');
+        currentPopupPanel = null;
+      }
+    }
+
+    function closePanels() {
+      const panelContainer = document.getElementById('sidebar-panels');
+      const mainContent = document.getElementById('main-content');
+
+      document.querySelectorAll('.sidebar-panel').forEach(p => {
+        p.classList.remove('active');
+      });
+      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      if (panelContainer) panelContainer.classList.remove('open');
+      if (mainContent) mainContent.classList.remove('panel-open');
+      isPanelOpen = false;
+      // Don't clear activeSidebarPanel so we can reopen the same panel
+
+      saveSidebarState();
+    }
+
+    // Set active panel based on current page
+    function setActivePanelFromPage() {
+      const path = window.location.pathname;
+      let panelName = 'dashboard'; // default
+
+      if (path.includes('workflow')) {
+        panelName = 'workflows';
+      } else if (path.includes('event')) {
+        panelName = 'events';
+      } else if (path.includes('group')) {
+        panelName = 'groups';
+      } else if (path.includes('report')) {
+        panelName = 'reports';
+      } else if (path.includes('manage') || path.includes('admin')) {
+        panelName = 'admin';
+      } else if (path === '/' || path.includes('dashboard')) {
+        panelName = 'dashboard';
+      }
+
+      activeSidebarPanel = panelName;
+
+      // If sidebar should be open, show the panel
+      if (isPanelOpen) {
+        showPanel(panelName, false);
+      }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Handle hamburger menu toggle
+      const hamburger = document.getElementById('hamburger-toggle');
+      if (hamburger) {
+        hamburger.addEventListener('click', function(e) {
+          e.preventDefault();
+          toggleSidebarPanels();
+        });
+      }
+
+      // Handle icon hover events for floating popup
+      const iconButtons = document.querySelectorAll('.sidebar-icon-btn');
+      iconButtons.forEach(btn => {
+        const panelName = btn.dataset.panel;
+
+        btn.addEventListener('mouseenter', function() {
+          clearTimeout(popupTimeout);
+          popupTimeout = setTimeout(() => {
+            showFloatingPopup(panelName, btn);
+          }, 300); // 300ms delay before showing popup
+        });
+
+        btn.addEventListener('mouseleave', function() {
+          clearTimeout(popupTimeout);
+          popupTimeout = setTimeout(() => {
+            hideFloatingPopup();
+          }, 200); // 200ms delay before hiding popup
+        });
+      });
+
+      // Handle popup hover to keep it visible
+      const popup = document.getElementById('sidebar-popup');
+      if (popup) {
+        popup.addEventListener('mouseenter', function() {
+          clearTimeout(popupTimeout);
+        });
+
+        popup.addEventListener('mouseleave', function() {
+          hideFloatingPopup();
+        });
+      }
+
+      // Hide popup when sidebar opens
+      const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          if (mutation.attributeName === 'class') {
+            const panelContainer = document.getElementById('sidebar-panels');
+            if (panelContainer && panelContainer.classList.contains('open')) {
+              hideFloatingPopup();
+            }
+          }
+        });
+      });
+
+      const panelContainer = document.getElementById('sidebar-panels');
+      if (panelContainer) {
+        observer.observe(panelContainer, { attributes: true });
+      }
+
+      // Load saved sidebar state and set active panel
+      loadSidebarState();
+      setActivePanelFromPage();
     });
   </script>
 </body>

@@ -1,0 +1,11 @@
+@import "tailwindcss" source(none);
+
+@source not "./tailwindcss";
+@source not "./daisyui{,*}.mjs";
+
+@source "../templates";
+/* @source "../tracker/templates"; */
+
+@plugin "./daisyui.mjs" {
+  themes: emerald --default, dim --prefers-dark;
+}

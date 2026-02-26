@@ -24,3 +24,7 @@ general.log
 
 # Diagrams
 workflows/diagrams/*.png
+daisyui/daisyui-theme.js
+daisyui/daisyui.js
+daisyui/input.css.backup
+static/css/style.css.backup

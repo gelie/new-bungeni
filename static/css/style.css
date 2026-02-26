@@ -1,4 +1,3 @@
-/* Custom CSS */
 /* Parliament of SA Color Scheme */
 :root {
     --parliament-green: #275937;
@@ -14,65 +13,179 @@
     --parliament-gray: #8a8a8a;
 }
 
-/* Light Theme */
-[data-theme="light"] {
-    --primary: var(--parliament-green);
-    --primary-focus: var(--parliament-green-dark);
-    --primary-content: var(--parliament-white);
-    --secondary: var(--parliament-gold);
-    --secondary-focus: var(--parliament-gold-dark);
-    --accent: var(--parliament-blue);
-    --neutral: var(--parliament-gray);
+/* Collapsible Sidebar Styles */
+.sidebar-icon-btn {
+    @apply w-14 h-14 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-base-300 relative no-underline text-base-content;
 }
 
-/* Dark Theme */
-[data-theme="dark"] {
-    --primary: var(--parliament-green-light);
-    --primary-focus: var(--parliament-green);
-    --primary-content: var(--parliament-white);
-    --secondary: var(--parliament-gold);
-    --secondary-focus: var(--parliament-gold-dark);
-    --accent: var(--parliament-blue);
-    --neutral: #1f2937;
-    --base-100: #111827;
-    --base-200: #1f2937;
-    --base-300: #374151;
+.sidebar-icon-btn.active {
+    @apply bg-primary text-primary-content;
 }
 
-body {
-    font-family: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
-    ;
-    /* font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Open Sans",
-        "Helvetica Neue", Arial, sans-serif; */
+.sidebar-icon-btn.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 32px;
+    @apply bg-primary;
 }
 
-.sidebar {
-    background: var(--parliament-green);
-    color: white;
+.sidebar-panel-container {
+    position: fixed;
+    left: 64px;
+    top: 80px;
+    height: calc(100vh - 80px);
+    width: 0;
+    overflow: hidden;
+    transition: width 0.3s ease-in-out;
+    @apply bg-base-100 border-r border-base-300 z-30;
 }
 
-.sidebar a {
-    color: white;
+@media (min-width: 1024px) {
+    .sidebar-panel-container {
+        top: 0;
+        height: 100vh;
+    }
+}
+
+.sidebar-panel-container.open {
+    width: 200px;
+}
+
+#main-content {
+    margin-left: 64px;
+}
+
+#main-content.panel-open {
+    margin-left: 264px;
+}
+
+.sidebar-panel {
+    width: 200px;
+    min-height: 100vh;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.sidebar-panel.active {
+    display: block;
+    opacity: 1;
+}
+
+/* Floating Popup Styles */
+.sidebar-popup {
+    position: fixed;
+    left: 64px;
+    top: 80px;
+    width: 240px;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    background: var(--parliament-gray);
+    border: 0 !important;
+    outline: none !important;
+    border-radius: 0.5rem;
+    /* box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); */
+    z-index: 1000;
+    display: none;
+    opacity: 1;
+    pointer-events: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* @media (prefers-color-scheme: dark) */
+[data-theme="dim"] {
+    .sidebar-popup {
+        background: var(--parliament-black);
+        border: 0 !important;
+        color: var(--parliament-white);
+    }
+}
+
+/* @media (prefers-color-scheme: light) */
+[data-theme="emerald"] {
+    .sidebar-popup {
+        background: var(--parliament-gray);
+        border: 0 !important;
+        color: var(--parliament-white);
+    }
+}
+
+@media (min-width: 1024px) {
+    .sidebar-popup {
+        top: 0;
+        max-height: 100vh;
+    }
+}
+
+.sidebar-popup.visible {
+    display: block;
+}
+
+.sidebar-popup .panel-content {
+    padding: 1rem;
+}
+
+.sidebar-popup h3 {
+    font-weight: bold;
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
+}
+
+.sidebar-popup .menu {
+    padding: 0;
+}
+
+.sidebar-popup .menu li {
+    margin-bottom: 0.25rem;
+}
+
+.sidebar-popup .menu a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s;
+}
+
+.sidebar-popup .menu a:hover {
+    background-color: var(--fallback-b2, oklch(var(--b2)));
+}
+
+aside {
+    background: var(--parliament-green) !important;
+    color: var(--parliament-white) !important;
+}
+aside a {
+    color: var(--parliament-white);
+    width: 100%;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     /* transition: all 0.05s; */
 }
 
-.sidebar a:hover {
+aside a:hover {
     background: var(--parliament-green-dark);
 }
 
-.sidebar a.active {
+aside a.active {
     background: var(--parliament-green-dark);
     border-left: 4px solid var(--parliament-gold);
 }
 
-.navbar-custom {
-    background: var(--parliament-green);
-    color: white;
-}
-
 .navbar {
     /* background-color: #b3995d; */
+    background-color: var(--parliament-gold-light) !important;
+    color: var(--parliament-green-dark) !important;
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
@@ -82,72 +195,8 @@ body {
     z-index: 1;
 }
 
-.btn-primary {
-    background: var(--parliament-green);
-    border-color: var(--parliament-green);
+div.alert.alert-warning {
+    background-color: rgba(170, 170, 127, 0.5) !important;
+    color: var(--parliament-black) !important;
+    border-color: rgba(170, 170, 127, 0.5) !important;
 }
-
-.btn-primary:hover {
-    background: var(--parliament-green-dark);
-    border-color: var(--parliament-green-dark);
-}
-
-.badge-urgent {
-    background: var(--parliament-red);
-    color: white;
-}
-
-.badge-high {
-    background: var(--parliament-gold);
-    color: black;
-}
-
-[data-theme="dark"] .sidebar {
-    background: var(--parliament-green-dark);
-}
-
-[data-theme="dark"] .navbar-custom {
-    background: var(--parliament-green-dark);
-}
-
-.navbar {
-    background-color: var(--parliament-gold-light) !important;
-    color: var(--parliament-green-dark) !important;
-}
-
-/* Workflow state badge styling */
-.workflow-state-badge {
-    color: white !important;
-}
-
-[data-theme="light"] .drawer-content {
-    background-color: lightgray !important;
-}
-
-[data-theme="light"] .tabs {
-    background-color: linen !important;
-    /* color: var(--parliament-green-dark) !important; */
-    border-radius: 5px !important;
-}
-
-
-[data-theme="dark"] .tabs {
-    background-color: var(--parliament-gold-dark) !important;
-    /* color: var(--parliament-green-dark) !important; */
-    color: black !important;
-    border-radius: 5px !important;
-}
-
-.tabs .tab-active {
-    background-color: var(--parliament-green-light) !important;
-    color: var(--parliament-white) !important;
-    border-radius: 5px !important;
-    margin-bottom: 0.5px !important;
-}
-
-[data-theme="dark"] .menu {
-    /* background-color: var(--parliament-green) !important; */
-    color: var(--parliament-white) !important;
-}
-
-/* This will be handled by JavaScript to set dynamic background colors */
