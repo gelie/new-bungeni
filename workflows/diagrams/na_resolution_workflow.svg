@@ -13,13 +13,13 @@
 <!-- Awaiting PO Signature -->
 <g id="node1" class="node">
 <title>Awaiting PO Signature</title>
-<polygon fill="#6b7280" stroke="black" points="142.75,-389 0,-389 0,-353 142.75,-353 142.75,-389"/>
+<polygon fill="#00aaff" stroke="black" points="142.75,-389 0,-389 0,-353 142.75,-353 142.75,-389"/>
 <text xml:space="preserve" text-anchor="middle" x="71.38" y="-365.95" font-family="Times,serif" font-size="14.00" fill="white">Awaiting PO Signature</text>
 </g>
 <!-- Signed Follow&#45;up -->
 <g id="node11" class="node">
 <title>Signed Follow&#45;up</title>
-<polygon fill="#6b7280" stroke="black" points="171.12,-302.75 57.62,-302.75 57.62,-266.75 171.12,-266.75 171.12,-302.75"/>
+<polygon fill="#00aaff" stroke="black" points="171.12,-302.75 57.62,-302.75 57.62,-266.75 171.12,-266.75 171.12,-302.75"/>
 <text xml:space="preserve" text-anchor="middle" x="114.38" y="-279.7" font-family="Times,serif" font-size="14.00" fill="white">Signed Follow&#45;up</text>
 </g>
 <!-- Awaiting PO Signature&#45;&gt;Signed Follow&#45;up -->
@@ -32,20 +32,20 @@
 <!-- Completed -->
 <g id="node2" class="node">
 <title>Completed</title>
-<polygon fill="#228b22" stroke="black" points="309.51,-14.54 309.51,-29.46 276.63,-40 230.12,-40 197.24,-29.46 197.24,-14.54 230.12,-4 276.63,-4 309.51,-14.54"/>
+<polygon fill="#00aaff" stroke="black" points="309.51,-14.54 309.51,-29.46 276.63,-40 230.12,-40 197.24,-29.46 197.24,-14.54 230.12,-4 276.63,-4 309.51,-14.54"/>
 <polygon fill="none" stroke="black" points="313.51,-11.63 313.51,-32.37 277.25,-44 229.5,-44 193.24,-32.37 193.24,-11.63 229.5,0 277.25,0 313.51,-11.63"/>
 <text xml:space="preserve" text-anchor="middle" x="253.38" y="-16.95" font-family="Times,serif" font-size="14.00" fill="white">Completed</text>
 </g>
 <!-- Draft -->
 <g id="node3" class="node">
 <title>Draft</title>
-<ellipse fill="#ff8c00" stroke="black" cx="246.38" cy="-543.5" rx="30.37" ry="18"/>
+<ellipse fill="#00aaff" stroke="black" cx="246.38" cy="-543.5" rx="30.37" ry="18"/>
 <text xml:space="preserve" text-anchor="middle" x="246.38" y="-538.45" font-family="Times,serif" font-size="14.00" fill="white">Draft</text>
 </g>
 <!-- In Review -->
 <g id="node5" class="node">
 <title>In Review</title>
-<polygon fill="#6b7280" stroke="black" points="282.5,-475.25 210.25,-475.25 210.25,-439.25 282.5,-439.25 282.5,-475.25"/>
+<polygon fill="#00aaff" stroke="black" points="282.5,-475.25 210.25,-475.25 210.25,-439.25 282.5,-439.25 282.5,-475.25"/>
 <text xml:space="preserve" text-anchor="middle" x="246.38" y="-452.2" font-family="Times,serif" font-size="14.00" fill="white">In Review</text>
 </g>
 <!-- Draft&#45;&gt;In Review -->
@@ -58,13 +58,13 @@
 <!-- Draft Follow&#45;up -->
 <g id="node4" class="node">
 <title>Draft Follow&#45;up</title>
-<polygon fill="#6b7280" stroke="black" points="158.62,-130.25 54.12,-130.25 54.12,-94.25 158.62,-94.25 158.62,-130.25"/>
+<polygon fill="#00aaff" stroke="black" points="158.62,-130.25 54.12,-130.25 54.12,-94.25 158.62,-94.25 158.62,-130.25"/>
 <text xml:space="preserve" text-anchor="middle" x="106.38" y="-107.2" font-family="Times,serif" font-size="14.00" fill="white">Draft Follow&#45;up</text>
 </g>
 <!-- Review Follow&#45;up -->
 <g id="node7" class="node">
 <title>Review Follow&#45;up</title>
-<polygon fill="#6b7280" stroke="black" points="138,-40 20.75,-40 20.75,-4 138,-4 138,-40"/>
+<polygon fill="#00aaff" stroke="black" points="138,-40 20.75,-40 20.75,-4 138,-4 138,-40"/>
 <text xml:space="preserve" text-anchor="middle" x="79.38" y="-16.95" font-family="Times,serif" font-size="14.00" fill="white">Review Follow&#45;up</text>
 </g>
 <!-- Draft Follow&#45;up&#45;&gt;Review Follow&#45;up -->
@@ -77,7 +77,7 @@
 <!-- Sent to Speaker -->
 <g id="node9" class="node">
 <title>Sent to Speaker</title>
-<polygon fill="#6b7280" stroke="black" points="297.12,-389 195.62,-389 195.62,-353 297.12,-353 297.12,-389"/>
+<polygon fill="#00aaff" stroke="black" points="297.12,-389 195.62,-389 195.62,-353 297.12,-353 297.12,-389"/>
 <text xml:space="preserve" text-anchor="middle" x="246.38" y="-365.95" font-family="Times,serif" font-size="14.00" fill="white">Sent to Speaker</text>
 </g>
 <!-- In Review&#45;&gt;Sent to Speaker -->
@@ -90,7 +90,7 @@
 <!-- Received Feedback -->
 <g id="node6" class="node">
 <title>Received Feedback</title>
-<polygon fill="#6b7280" stroke="black" points="298.25,-130.25 176.5,-130.25 176.5,-94.25 298.25,-94.25 298.25,-130.25"/>
+<polygon fill="#00aaff" stroke="black" points="298.25,-130.25 176.5,-130.25 176.5,-94.25 298.25,-94.25 298.25,-130.25"/>
 <text xml:space="preserve" text-anchor="middle" x="237.38" y="-107.2" font-family="Times,serif" font-size="14.00" fill="white">Received Feedback</text>
 </g>
 <!-- Received Feedback&#45;&gt;Completed -->
@@ -110,7 +110,7 @@
 <!-- Sent to Ministry -->
 <g id="node8" class="node">
 <title>Sent to Ministry</title>
-<polygon fill="#6b7280" stroke="black" points="273,-216.5 167.75,-216.5 167.75,-180.5 273,-180.5 273,-216.5"/>
+<polygon fill="#00aaff" stroke="black" points="273,-216.5 167.75,-216.5 167.75,-180.5 273,-180.5 273,-216.5"/>
 <text xml:space="preserve" text-anchor="middle" x="220.38" y="-193.45" font-family="Times,serif" font-size="14.00" fill="white">Sent to Ministry</text>
 </g>
 <!-- Sent to Ministry&#45;&gt;Draft Follow&#45;up -->
@@ -130,7 +130,7 @@
 <!-- Signed -->
 <g id="node10" class="node">
 <title>Signed</title>
-<polygon fill="#6b7280" stroke="black" points="273.38,-302.75 219.38,-302.75 219.38,-266.75 273.38,-266.75 273.38,-302.75"/>
+<polygon fill="#00aaff" stroke="black" points="273.38,-302.75 219.38,-302.75 219.38,-266.75 273.38,-266.75 273.38,-302.75"/>
 <text xml:space="preserve" text-anchor="middle" x="246.38" y="-279.7" font-family="Times,serif" font-size="14.00" fill="white">Signed</text>
 </g>
 <!-- Sent to Speaker&#45;&gt;Signed -->

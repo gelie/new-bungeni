@@ -108,6 +108,20 @@ def dashboard(request):
     my_workflows = workflows.filter(owner=user).count()
     assigned_to_me = workflows.filter(assigned_to=user).count()
 
+    # New workflows (is_initial state)
+    new_workflows = workflows.filter(current_state__is_initial=True).count()
+
+    # Active workflows (not terminal)
+    active = workflows.filter(current_state__is_terminal=False).count()
+
+    # Completed workflows (terminal states)
+    completed = workflows.filter(current_state__is_terminal=True).count()
+
+    # Workflows created this month
+    now = timezone.now()
+    this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    created_this_month = workflows.filter(created_at__gte=this_month_start).count()
+
     # Overdue workflows - count all workflows past deadline
     overdue_workflows = workflows.filter(
         deadline__lt=timezone.now(), current_state__is_terminal=False
@@ -125,27 +139,77 @@ def dashboard(request):
         group__in=user_groups, start_datetime__gte=timezone.now(), status="scheduled"
     ).order_by("start_datetime")[:5]
 
-    # Workflows by state (for chart)
-    workflows_by_state = workflows.values(
-        "current_state__name", "current_state__color"
+    # Workflows by state (for chart) - with grouped state info
+    workflows_by_state_raw = workflows.values(
+        "current_state__name",
+        "current_state__color",
+        "current_state__is_initial",
+        "current_state__is_terminal",
     ).annotate(count=Count("id"))
 
-    # Workflows by type
-    workflows_by_type = workflows.values("workflow_type__name").annotate(
+    # Group states for pie chart
+    state_new_count = 0
+    state_completed_count = 0
+    state_in_progress_count = 0
+
+    for item in workflows_by_state_raw:
+        if item.get("current_state__is_initial"):
+            state_new_count += item["count"]
+        elif item.get("current_state__is_terminal"):
+            state_completed_count += item["count"]
+        else:
+            state_in_progress_count += item["count"]
+
+    workflows_by_state_grouped = [
+        {"name": "New", "count": state_new_count, "color": "#3b82f6"},
+        {"name": "Completed", "count": state_completed_count, "color": "#10b981"},
+        {"name": "In Progress", "count": state_in_progress_count, "color": "#f59e0b"},
+    ]
+
+    # Workflows by type - with cumulative angles for pie chart
+    workflows_by_type_raw = workflows.values("workflow_type__name").annotate(
         count=Count("id")
     )
+
+    # Calculate angles and cumulative positions for pie chart
+    workflows_by_type_list = list(workflows_by_type_raw)
+    cumulative = 0
+    colors = [
+        "#3b82f6",
+        "#10b981",
+        "#f59e0b",
+        "#ef4444",
+        "#8b5cf6",
+        "#ec4899",
+        "#14b8a6",
+        "#f97316",
+    ]
+
+    for i, item in enumerate(workflows_by_type_list):
+        item["color"] = colors[i % len(colors)]
+        item["start_angle"] = (
+            int((cumulative / total_workflows) * 360) if total_workflows > 0 else 0
+        )
+        cumulative += item["count"]
+        item["end_angle"] = (
+            int((cumulative / total_workflows) * 360) if total_workflows > 0 else 0
+        )
 
     context = {
         "total_workflows": total_workflows,
         "my_workflows": my_workflows,
         "assigned_to_me": assigned_to_me,
+        "new_workflows": new_workflows,
+        "active": active,
+        "completed": completed,
+        "created_this_month": created_this_month,
         "overdue_workflows": overdue_workflows,
         "urgent_count": urgent_count,
         "high_count": high_count,
         "recent_workflows": recent_workflows,
         "upcoming_events": upcoming_events,
-        "workflows_by_state": workflows_by_state,
-        "workflows_by_type": workflows_by_type,
+        "workflows_by_state": workflows_by_state_grouped,
+        "workflows_by_type": workflows_by_type_list,
     }
 
     return render(request, "workflows/dashboard.html", context)
@@ -1602,6 +1666,7 @@ def reports(request):
     )
 
     context = {
+        "workflows": workflows,
         "total_workflows": total_workflows,
         "by_type": by_type,
         "by_state": by_state,
@@ -1617,6 +1682,7 @@ def reports(request):
         "workflow_types": workflow_types,
         "parent_workflows": parent_workflows,
         "filter_params": filter_params,
+        "now": now,
     }
 
     return render(request, "workflows/reports.html", context)
@@ -2001,6 +2067,90 @@ def reports_export_excel(request):
     response["Content-Disposition"] = (
         f'attachment; filename="workflows_report{filename_suffix}.xlsx"'
     )
+    return response
+
+
+@login_required
+def reports_recent_activity_pdf(request):
+    """Export recent activity or filtered workflows as a nicely formatted PDF using WeasyPrint"""
+    from django.template.loader import render_to_string
+    from weasyprint import HTML
+
+    # Get user's accessible workflows
+    user = request.user
+    user_groups = user.memberships.filter(is_active=True).values_list(
+        "group", flat=True
+    )
+    base_workflows = Workflow.objects.filter(
+        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+    )
+
+    # Check if this is a filtered report or recent activity
+    has_filters = any(
+        [
+            request.GET.get("period"),
+            request.GET.get("workflow_type"),
+            request.GET.get("overdue_only"),
+            request.GET.get("parent_workflow"),
+        ]
+    )
+
+    if has_filters:
+        # Apply custom report filters
+        workflows, filter_params = _apply_report_filters(base_workflows, request)
+
+        # Enrich filter_params with workflow type name if applicable
+        if filter_params.get("workflow_type_id"):
+            try:
+                wf_type = WorkflowType.objects.get(pk=filter_params["workflow_type_id"])
+                filter_params["workflow_type_name"] = wf_type.name
+            except WorkflowType.DoesNotExist:
+                filter_params["workflow_type_name"] = None
+
+        report_title = "Workflow Report"
+        report_type = "filtered"
+    else:
+        # Get recent transitions for recent activity report
+        workflows = base_workflows
+        recent_transitions = (
+            WorkflowTransitionLog.objects.filter(workflow__in=base_workflows)
+            .select_related("workflow", "user", "from_state", "to_state", "transition")
+            .order_by("-timestamp")[:50]
+        )
+        report_title = "Recent Activity Report"
+        report_type = "recent_activity"
+        filter_params = None
+
+    # Prepare context for template
+    context = {
+        "workflows": workflows if has_filters else None,
+        "recent_transitions": recent_transitions if not has_filters else None,
+        "generated_on": timezone.now(),
+        "generated_by": user,
+        "report_title": report_title,
+        "report_type": report_type,
+        "filter_params": filter_params,
+        "total_count": workflows.count()
+        if has_filters
+        else len(recent_transitions)
+        if not has_filters
+        else 0,
+    }
+
+    # Render HTML template
+    html_string = render_to_string("workflows/pdf/report_export.html", context)
+
+    # Generate PDF
+    html = HTML(string=html_string)
+    pdf = html.write_pdf()
+
+    # Create response
+    response = HttpResponse(pdf, content_type="application/pdf")
+    filename_prefix = "custom_report" if has_filters else "recent_activity"
+    response["Content-Disposition"] = 'attachment; filename="{}_{}.pdf"'.format(
+        filename_prefix, timezone.now().strftime("%Y%m%d_%H%M%S")
+    )
+
     return response
 
 

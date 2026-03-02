@@ -70,6 +70,11 @@ urlpatterns = [
         "reports/export/excel/", views.reports_export_excel, name="reports_export_excel"
     ),
     path(
+        "reports/recent-activity/pdf/",
+        views.reports_recent_activity_pdf,
+        name="reports_recent_activity_pdf",
+    ),
+    path(
         "workflows/<int:parent_pk>/bulk-create/",
         views.workflow_bulk_create,
         name="workflow_bulk_create",

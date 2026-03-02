@@ -200,3 +200,23 @@ div.alert.alert-warning {
     color: var(--parliament-black) !important;
     border-color: rgba(170, 170, 127, 0.5) !important;
 }
+
+[data-theme="emerald"] .tabs {
+    background-color: rgba(239, 189, 71, 0.3) !important;
+    color: var(--parliament-black) !important;
+    border-radius: 5px !important;
+}
+
+
+[data-theme="dim"] .tabs {
+    background-color: rgba(179, 153, 93, 0.6) !important;
+    color: var(--parliament-white) !important;
+    border-radius: 5px !important;
+}
+
+.tabs .tab-active {
+    background-color: var(--parliament-green-light) !important;
+    color: var(--parliament-white) !important;
+    border-radius: 5px !important;
+    margin-bottom: 0.5px !important;
+}

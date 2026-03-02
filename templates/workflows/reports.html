@@ -43,27 +43,15 @@
             </div>
         </div>
 
-        <!-- Active Workflows -->
+        <!-- Completed -->
         <div class="stats shadow bg-base-100">
             <div class="stat">
-                <div class="stat-figure text-info">
-                    {% lucide "activity" class="w-8 h-8" %}
-                </div>
-                <div class="stat-title">Active</div>
-                <div class="stat-value text-info">{{ active }}</div>
-                <div class="stat-desc">In progress</div>
-            </div>
-        </div>
-
-        <!-- Completed Workflows -->
-        <div class="stats shadow bg-base-100">
-            <div class="stat">
-                <div class="stat-figure text-success">
-                    {% lucide "circle-check" class="w-8 h-8" %}
+                <div class="stat-figure text-accent">
+                    {% lucide "calendar" class="w-8 h-8" %}
                 </div>
                 <div class="stat-title">Completed</div>
-                <div class="stat-value text-success">{{ completed }}</div>
-                <div class="stat-desc">Terminal states</div>
+                <div class="stat-value text-accent">{{ completed }}</div>
+                <div class="stat-desc">Out of {{ total_workflows }} total</div>
             </div>
         </div>
 
@@ -78,21 +66,8 @@
                 <div class="stat-desc">Past deadline</div>
             </div>
         </div>
-    </div>
 
-    <!-- Additional Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="stats shadow bg-base-100">
-            <div class="stat">
-                <div class="stat-figure text-secondary">
-                    {% lucide "trending-up" class="w-8 h-8" %}
-                </div>
-                <div class="stat-title">Created This Month</div>
-                <div class="stat-value text-secondary">{{ created_this_month }}</div>
-                <div class="stat-desc">New workflows</div>
-            </div>
-        </div>
-
+        <!-- Events -->
         <div class="stats shadow bg-base-100">
             <div class="stat">
                 <div class="stat-figure text-accent">
@@ -105,12 +80,18 @@
         </div>
     </div>
 
+    <!-- Additional Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+    </div>
+
     <!-- Custom Report Builder -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <h2 class="card-title mb-2">
                 {% lucide "sliders-horizontal" class="w-5 h-5" %}
-                Custom Report
+                Report Generator
             </h2>
             <p class="text-sm text-base-content/60 mb-4">Filter and export a tailored report</p>
 
@@ -198,10 +179,33 @@
                         Clear Filters
                     </a>
                     {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
 
-                    <div class="divider divider-horizontal mx-0"></div>
-
-                    <span class="text-sm text-base-content/60 font-medium">Export filtered data:</span>
+    <!-- Preview Table (shown when filters are applied or always) -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 class="card-title">
+                        {% lucide "table" class="w-5 h-5" %}
+                        {% if filter_params.period or filter_params.workflow_type_id or filter_params.overdue_only or filter_params.parent_workflow_id %}
+                        Filtered Report Preview
+                        {% else %}
+                        All Workflows
+                        {% endif %}
+                    </h2>
+                    <p class="text-sm text-base-content/60 mt-1">{{ workflows.count }} workflow{{ workflows.count|pluralize }} found</p>
+                </div>
+                <div class="flex gap-2">
+                    <span class="text-sm text-base-content/60 font-medium mr-2">Export as:</span>
+                    <a href="{% url 'reports_recent_activity_pdf' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                        class="btn btn-error btn-sm">
+                        {% lucide "file-text" class="w-4 h-4" %}
+                        PDF
+                    </a>
                     <a href="{% url 'reports_export_excel' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
                         class="btn btn-success btn-sm">
                         {% lucide "table" class="w-4 h-4" %}
@@ -213,7 +217,90 @@
                         CSV
                     </a>
                 </div>
-            </form>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="table table-sm table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Current State</th>
+                            <th>Priority</th>
+                            <th>Owner</th>
+                            <th>Assigned To</th>
+                            <th>Created</th>
+                            <th>Deadline</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for workflow in workflows %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'workflow_detail' workflow.pk %}" class="link link-hover font-medium">
+                                    {{ workflow.title|truncatechars:50 }}
+                                </a>
+                            </td>
+                            <td>{{ workflow.workflow_type.name }}</td>
+                            <td>
+                                <span class="badge badge-sm" style="background-color: {{ workflow.current_state.color }}; color: white;">
+                                    {{ workflow.current_state.name }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if workflow.priority == 'urgent' %}
+                                <span class="badge badge-error badge-sm">Urgent</span>
+                                {% elif workflow.priority == 'high' %}
+                                <span class="badge badge-warning badge-sm">High</span>
+                                {% elif workflow.priority == 'medium' %}
+                                <span class="badge badge-info badge-sm">Medium</span>
+                                {% else %}
+                                <span class="badge badge-ghost badge-sm">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ workflow.owner.get_full_name|default:workflow.owner.username }}</td>
+                            <td>
+                                {% if workflow.assigned_to %}
+                                    {{ workflow.assigned_to.get_full_name|default:workflow.assigned_to.username }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ workflow.created_at|date:"Y-m-d" }}</td>
+                            <td>
+                                {% if workflow.deadline %}
+                                {{ workflow.deadline|date:"Y-m-d" }}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if workflow.deadline and workflow.deadline < now and not workflow.current_state.is_terminal %}
+                                <span class="badge badge-error badge-sm">Overdue</span>
+                                {% elif workflow.current_state.is_terminal %}
+                                <span class="badge badge-success badge-sm">Complete</span>
+                                {% else %}
+                                <span class="badge badge-info badge-sm">Active</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center py-8 text-base-content/60">
+                                {% if filter_params.period or filter_params.workflow_type_id or filter_params.overdue_only or filter_params.parent_workflow_id %}
+                                No workflows match the selected filters
+                                {% else %}
+                                No workflows found
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -300,7 +387,7 @@
     <!-- Charts and Breakdowns -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Workflows by Type -->
-        <div class="card bg-base-100 shadow-xl">
+        {% comment %} <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
                 <h2 class="card-title">
                     {% lucide "chart-pie" class="w-5 h-5" %}
@@ -320,10 +407,10 @@
                     {% endfor %}
                 </div>
             </div>
-        </div>
+        </div> {% endcomment %}
 
         <!-- Workflows by State -->
-        <div class="card bg-base-100 shadow-xl">
+        {% comment %} <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
                 <h2 class="card-title">
                     {% lucide "chart-bar" class="w-5 h-5" %}
@@ -346,10 +433,10 @@
                     {% endfor %}
                 </div>
             </div>
-        </div>
+        </div> {% endcomment %}
 
         <!-- Workflows by Priority -->
-        <div class="card bg-base-100 shadow-xl">
+        {% comment %} <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
                 <h2 class="card-title">
                     {% lucide "flag" class="w-5 h-5" %}
@@ -380,10 +467,10 @@
                     {% endfor %}
                 </div>
             </div>
-        </div>
+        </div> {% endcomment %}
 
         <!-- Workflows by Group -->
-        <div class="card bg-base-100 shadow-xl">
+        {% comment %} <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
                 <h2 class="card-title">
                     {% lucide "users" class="w-5 h-5" %}
@@ -403,16 +490,25 @@
                     {% endfor %}
                 </div>
             </div>
-        </div>
+        </div> {% endcomment %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     </div>
 
     <!-- Recent Activity -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-            <h2 class="card-title">
-                {% lucide "clock" class="w-5 h-5" %}
-                Recent Activity
-            </h2>
+            <div class="flex justify-between items-center">
+                <h2 class="card-title">
+                    {% lucide "clock" class="w-5 h-5" %}
+                    Recent Activity
+                </h2>
+                <a href="{% url 'reports_recent_activity_pdf' %}" class="btn btn-sm btn-primary">
+                    {% lucide "file-text" class="w-4 h-4" %}
+                    Export PDF
+                </a>
+            </div>
             <div class="overflow-x-auto mt-4">
                 <table class="table table-zebra">
                     <thead>

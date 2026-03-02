@@ -51,15 +51,15 @@
       </a>
 
       {% if user.is_staff %}
-      <div class="divider my-2 w-10 mx-auto"></div>
-
+      {% comment %} <div class="divider my-2 w-10 mx-auto"></div> {% endcomment %}
+      <hr style="color: #e5e7eb;">
       <a href="/admin/"
          class="sidebar-icon-btn"
          data-panel="admin"
          title="Administration">
         <div class="flex flex-col items-center">
           {% lucide "settings" class="w-6 h-6" %}
-          <span class="text-xs">Administration</span>
+          <span class="text-xs">Admin</span>
         </div>
       </a>
       {% endif %}
