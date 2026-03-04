@@ -3,6 +3,7 @@
 {% block title %}{{ workflow.title }} - Bungeni{% endblock %}
 
 {% block content %}
+{% partialdef content %}
 <div class="space-y-6">
     <!-- Breadcrumb with Hierarchy -->
     <div class="text-sm breadcrumbs">
@@ -1070,7 +1071,7 @@
         </div>
     </div>
 </div>
-
+{% endpartialdef %}
 <style>
     /* Custom tab styling */
     .tabs {

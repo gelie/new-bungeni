@@ -3,6 +3,7 @@
 {% block title %}Manage Workflow Transitions - {{ workflow_type.name }} - Bungeni{% endblock %}
 
 {% block content %}
+{% partialdef content %}
 <div class="space-y-6">
   <!-- Header -->
   <div class="flex items-center justify-between">
@@ -174,6 +175,7 @@
     </div>
   </div>
 </div>
+{% partialdef content %}
 
 <!-- Add/Edit Transition Modal -->
 <div id="transitionModal" class="modal">

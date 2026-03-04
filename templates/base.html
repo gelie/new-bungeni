@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="">
 
 <head>
   <meta charset="UTF-8" />
@@ -23,8 +23,8 @@
   {% include 'sidebar.html' %}
 
   <!-- Main Content -->
-  <div id="main-content" class="transition-all duration-300 ml-16">
-    <main class="p-6">
+  <div id="main-content" class="ml-16">
+    <main id="content-area" class="p-6" hx-target="this" hx-swap="innerHTML">
       {% if messages %}
       <div class="mb-4 space-y-2">
         {% for message in messages %}
@@ -45,7 +45,7 @@
     // Theme toggle
     function toggleTheme() {
       const html = document.documentElement;
-      const currentTheme = html.getAttribute('data-theme');
+      const currentTheme = html.getAttribute('data-theme') || 'emerald';
       const newTheme = currentTheme === 'emerald' ? 'dim' : 'emerald';
       html.setAttribute('data-theme', newTheme);
       localStorage.setItem('theme', newTheme);
@@ -82,6 +82,9 @@
           window.location.href = this.dataset.workflowUrl;
         });
       });
+
+      // Update active panel based on current URL after HTMX navigation
+      setActivePanelFromPage();
     });
 
     // Apply dynamic background colors to workflow state badges
@@ -120,7 +123,12 @@
 
         // Restore panel visibility if it should be open
         if (isPanelOpen && activeSidebarPanel) {
-          showPanel(activeSidebarPanel, false); // false = don't save to localStorage
+          setActivePanel(activeSidebarPanel, false);
+          // Ensure the panel container and main content are in the correct state
+          const panelContainer = document.getElementById('sidebar-panels');
+          const mainContent = document.getElementById('main-content');
+          if (panelContainer) panelContainer.classList.add('open');
+          if (mainContent) mainContent.classList.add('panel-open');
         }
       }
     }
@@ -134,7 +142,34 @@
       localStorage.setItem('sidebarState', JSON.stringify(state));
     }
 
-    function showPanel(panelName, saveState = true) {
+    function setActivePanel(panelName, saveState = true) {
+      const panel = document.getElementById(`panel-${panelName}`);
+      const iconBtn = document.querySelector(`[data-panel="${panelName}"]`);
+
+      if (!panel) return;
+
+      // Hide all panels
+      document.querySelectorAll('.sidebar-panel').forEach(p => {
+        p.classList.remove('active');
+      });
+
+      // Remove active state from all icon buttons
+      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Show selected panel (without affecting container visibility)
+      panel.classList.add('active');
+      if (iconBtn) iconBtn.classList.add('active');
+
+      activeSidebarPanel = panelName;
+
+      if (saveState) {
+        saveSidebarState();
+      }
+    }
+
+    function showPanel(panelName, saveState = true, forceOpen = false) {
       const panel = document.getElementById(`panel-${panelName}`);
       const panelContainer = document.getElementById('sidebar-panels');
       const mainContent = document.getElementById('main-content');
@@ -152,26 +187,21 @@
         btn.classList.remove('active');
       });
 
-      // Show selected panel and push content
+      // Show selected panel
       panel.classList.add('active');
       if (iconBtn) iconBtn.classList.add('active');
-      panelContainer.classList.add('open');
-      mainContent.classList.add('panel-open');
-      isPanelOpen = true;
+
+      // Only open panel container and slide main content if forceOpen is true
+      if (forceOpen) {
+        panelContainer.classList.add('open');
+        mainContent.classList.add('panel-open');
+        isPanelOpen = true;
+      }
+
       activeSidebarPanel = panelName;
 
       if (saveState) {
         saveSidebarState();
-      }
-    }
-
-    function toggleSidebarPanels() {
-      if (isPanelOpen) {
-        closePanels();
-      } else {
-        // Open the last active panel or default to dashboard
-        const defaultPanel = activeSidebarPanel || 'dashboard';
-        showPanel(defaultPanel);
       }
     }
 
@@ -194,6 +224,16 @@
       saveSidebarState();
     }
 
+    function toggleSidebarPanels() {
+      if (isPanelOpen) {
+        closePanels();
+      } else {
+        // Open the last active panel or default to dashboard
+        const defaultPanel = activeSidebarPanel || 'dashboard';
+        showPanel(defaultPanel, true, true); // forceOpen = true
+      }
+    }
+
     // Set active panel based on current page
     function setActivePanelFromPage() {
       const path = window.location.pathname;
@@ -207,7 +247,7 @@
         panelName = 'groups';
       } else if (path.includes('report')) {
         panelName = 'reports';
-      } else if (path.includes('manage') || path.includes('admin')) {
+      } else if (path.includes('manage')) {
         panelName = 'admin';
       } else if (path === '/' || path.includes('dashboard')) {
         panelName = 'dashboard';
@@ -215,9 +255,12 @@
 
       activeSidebarPanel = panelName;
 
-      // If sidebar should be open, show the panel
+      // If sidebar should be open, set the active panel and ensure main content has correct margin
       if (isPanelOpen) {
-        showPanel(panelName, false);
+        setActivePanel(panelName, false);
+        // Ensure main content has the correct margin to avoid overlap
+        const mainContent = document.getElementById('main-content');
+        if (mainContent) mainContent.classList.add('panel-open');
       }
     }
 
@@ -257,52 +300,6 @@
       }
     }
 
-    function closePanels() {
-      const panelContainer = document.getElementById('sidebar-panels');
-      const mainContent = document.getElementById('main-content');
-
-      document.querySelectorAll('.sidebar-panel').forEach(p => {
-        p.classList.remove('active');
-      });
-      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-
-      if (panelContainer) panelContainer.classList.remove('open');
-      if (mainContent) mainContent.classList.remove('panel-open');
-      isPanelOpen = false;
-      // Don't clear activeSidebarPanel so we can reopen the same panel
-
-      saveSidebarState();
-    }
-
-    // Set active panel based on current page
-    function setActivePanelFromPage() {
-      const path = window.location.pathname;
-      let panelName = 'dashboard'; // default
-
-      if (path.includes('workflow')) {
-        panelName = 'workflows';
-      } else if (path.includes('event')) {
-        panelName = 'events';
-      } else if (path.includes('group')) {
-        panelName = 'groups';
-      } else if (path.includes('report')) {
-        panelName = 'reports';
-      } else if (path.includes('manage') || path.includes('admin')) {
-        panelName = 'admin';
-      } else if (path === '/' || path.includes('dashboard')) {
-        panelName = 'dashboard';
-      }
-
-      activeSidebarPanel = panelName;
-
-      // If sidebar should be open, show the panel
-      if (isPanelOpen) {
-        showPanel(panelName, false);
-      }
-    }
-
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
       // Handle hamburger menu toggle
@@ -314,11 +311,20 @@
         });
       }
 
-      // Handle icon hover events for floating popup
+      // Handle aside button clicks and hover events
       const iconButtons = document.querySelectorAll('.sidebar-icon-btn');
       iconButtons.forEach(btn => {
         const panelName = btn.dataset.panel;
 
+        // Click handler - update active panel without affecting panel visibility
+        btn.addEventListener('click', function(e) {
+          if (panelName) {
+            // Set active panel (HTMX will handle navigation)
+            setActivePanel(panelName, true);
+          }
+        });
+
+        // Hover events for floating popup
         btn.addEventListener('mouseenter', function() {
           clearTimeout(popupTimeout);
           popupTimeout = setTimeout(() => {

@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@plugin ./daisyui.mjs");
+@plugin "./daisyui.mjs" {themes: emerald --default, dim --prefers-dark};
 
 @source not "./tailwindcss";
 @source not "./daisyui{,*}.mjs";

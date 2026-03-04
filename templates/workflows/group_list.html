@@ -3,7 +3,8 @@
 {% block title %}Groups - Bungeni{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+{% partialdef content %}
+<div id="content" class="space-y-6">
     <div class="flex justify-between items-center">
         <div>
             <h1 class="text-3xl font-bold">Groups</h1>
@@ -36,4 +37,5 @@
         {% endfor %}
     </div>
 </div>
+{% endpartialdef %}
 {% endblock %}

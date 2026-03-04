@@ -3,7 +3,8 @@
 {% block title %}Dashboard - Bungeni{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+{% partialdef content %}
+<div id="content" class="space-y-6">
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
@@ -130,6 +131,7 @@
         </div>
 
     </div>
+    {% endpartialdef %}
 
     <style>
 .pie-chart {

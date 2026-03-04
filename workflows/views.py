@@ -212,7 +212,12 @@ def dashboard(request):
         "workflows_by_type": workflows_by_type_list,
     }
 
-    return render(request, "workflows/dashboard.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/dashboard.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/dashboard.html", context)
 
 
 # ============================================================================
@@ -300,7 +305,12 @@ def workflow_list(request):
         "selected_priorities": priority,
     }
 
-    return render(request, "workflows/workflow_list.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/workflow_list.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/workflow_list.html", context)
 
 
 @login_required
@@ -1431,7 +1441,12 @@ def event_list(request):
         "event_types": event_types,
     }
 
-    return render(request, "workflows/event_list.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/event_list.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/event_list.html", context)
 
 
 @login_required
@@ -1474,7 +1489,12 @@ def group_list(request):
         "groups": groups,
     }
 
-    return render(request, "workflows/group_list.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/group_list.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/group_list.html", context)
 
 
 @login_required
@@ -1685,7 +1705,12 @@ def reports(request):
         "now": now,
     }
 
-    return render(request, "workflows/reports.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/reports.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/reports.html", context)
 
 
 @login_required
@@ -2562,7 +2587,12 @@ def sharepoint_admin_sites(request):
         "personal_sites_count": personal_sites_count,
     }
 
-    return render(request, "workflows/admin/sharepoint_sites.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/admin/sharepoint_sites.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/sharepoint_sites.html", context)
 
 
 @login_required
@@ -2615,7 +2645,14 @@ def sharepoint_admin_members(request):
         "personal_sites_count": personal_sites_count,
     }
 
-    return render(request, "workflows/admin/sharepoint_members.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request, "workflows/admin/sharepoint_members.html#content", context
+        )
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/sharepoint_members.html", context)
 
 
 @login_required
@@ -2939,7 +2976,12 @@ def user_admin(request):
         "employee_types": User.EMPLOYEE_TYPE_CHOICES,
     }
 
-    return render(request, "workflows/admin/user_admin.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/admin/user_admin.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/user_admin.html", context)
 
 
 @login_required
@@ -2976,7 +3018,14 @@ def user_admin_groups(request):
         "roles": roles,
     }
 
-    return render(request, "workflows/admin/user_admin_groups.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request, "workflows/admin/user_admin_groups.html#content", context
+        )
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/user_admin_groups.html", context)
 
 
 @login_required
@@ -2992,7 +3041,12 @@ def user_admin_roles(request):
         "roles": roles,
     }
 
-    return render(request, "workflows/admin/user_admin_roles.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/admin/user_admin_roles.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/user_admin_roles.html", context)
 
 
 @login_required
@@ -3015,7 +3069,16 @@ def user_admin_workflow_types(request):
         "active_workflow_types": active_workflow_types,
     }
 
-    return render(request, "workflows/admin/user_admin_workflow_types.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request, "workflows/admin/user_admin_workflow_types.html#content", context
+        )
+    else:
+        # Regular request - return full page
+        return render(
+            request, "workflows/admin/user_admin_workflow_types.html", context
+        )
 
 
 @login_required
@@ -3131,7 +3194,14 @@ def workflow_type_create(request):
         "group_roles": json.dumps(group_roles),
     }
 
-    return render(request, "workflows/admin/workflow_type_create.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request, "workflows/admin/workflow_type_create.html#content", context
+        )
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/workflow_type_create.html", context)
 
 
 @login_required
@@ -3274,7 +3344,14 @@ def workflow_type_edit(request, pk):
         "is_edit": True,
     }
 
-    return render(request, "workflows/admin/workflow_type_edit.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request, "workflows/admin/workflow_type_edit.html#content", context
+        )
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/workflow_type_edit.html", context)
 
 
 def get_field_type_from_schema(field_config):
@@ -3327,7 +3404,12 @@ def group_admin(request):
         "groups": groups,
     }
 
-    return render(request, "workflows/admin/group_admin.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/admin/group_admin.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/group_admin.html", context)
 
 
 @login_required
@@ -3553,7 +3635,14 @@ def workflow_type_states(request, pk):
         "states": states,
     }
 
-    return render(request, "workflows/admin/workflow_type_states.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request, "workflows/admin/workflow_type_states.html#content", context
+        )
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/workflow_type_states.html", context)
 
 
 @login_required
@@ -3755,7 +3844,16 @@ def workflow_type_transitions(request, pk):
         "available_roles": available_roles,
     }
 
-    return render(request, "workflows/admin/workflow_type_transitions.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request, "workflows/admin/workflow_type_transitions.html#content", context
+        )
+    else:
+        # Regular request - return full page
+        return render(
+            request, "workflows/admin/workflow_type_transitions.html", context
+        )
 
 
 @login_required
@@ -3919,9 +4017,18 @@ def workflow_type_referral_configs(request, pk):
         "all_groups": all_groups,
         "all_roles": all_roles,
     }
-    return render(
-        request, "workflows/admin/workflow_type_referral_configs.html", context
-    )
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(
+            request,
+            "workflows/admin/workflow_type_referral_configs.html#content",
+            context,
+        )
+    else:
+        # Regular request - return full page
+        return render(
+            request, "workflows/admin/workflow_type_referral_configs.html", context
+        )
 
 
 @login_required
@@ -3943,4 +4050,9 @@ def role_admin(request):
         "roles": roles,
     }
 
-    return render(request, "workflows/admin/role_admin.html", context)
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the content partial
+        return render(request, "workflows/admin/role_admin.html#content", context)
+    else:
+        # Regular request - return full page
+        return render(request, "workflows/admin/role_admin.html", context)
