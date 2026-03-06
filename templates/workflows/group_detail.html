@@ -2,7 +2,6 @@
 
 {% block title %}{{ group.name }} - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="space-y-6">
     <div class="text-sm breadcrumbs">
@@ -108,4 +107,7 @@
     {% endif %}
 </div>
 {% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

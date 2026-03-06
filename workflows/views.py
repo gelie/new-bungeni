@@ -34,6 +34,7 @@ from .models import (
     State,
     Transition,
     User,
+    Venue,
     Workflow,
     WorkflowReferral,
     WorkflowTransitionLog,
@@ -48,6 +49,39 @@ from .sharepoint import (
     get_site_drives,
     upload_file,
 )
+
+
+# HTMX Partial Rendering Decorator
+def htmx_partial(template_name):
+    """
+    Decorator that enables HTMX partial rendering for views.
+    Returns template partial for HTMX requests, full template otherwise.
+    """
+    from functools import wraps
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            # Call the original view function
+            response = view_func(request, *args, **kwargs)
+
+            # If the view returned a response (not a dict), return it as-is
+            if not isinstance(response, dict):
+                return response
+
+            # Handle HTMX partial rendering
+            if request.headers.get("HX-Request"):
+                # HTMX request - return only the content partial
+                partial_template = f"{template_name}#content"
+                return render(request, partial_template, response)
+            else:
+                # Regular request - return full page
+                return render(request, template_name, response)
+
+        return wrapper
+
+    return decorator
+
 
 # ============================================================================
 # AUTHENTICATION VIEWS
@@ -89,6 +123,7 @@ def logout_view(request):
 
 
 @login_required
+@htmx_partial("workflows/dashboard.html")
 def dashboard(request):
     """Main dashboard view with workflow overview"""
     user = request.user
@@ -212,12 +247,7 @@ def dashboard(request):
         "workflows_by_type": workflows_by_type_list,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/dashboard.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/dashboard.html", context)
+    return context
 
 
 # ============================================================================
@@ -226,6 +256,7 @@ def dashboard(request):
 
 
 @login_required
+@htmx_partial("workflows/workflow_list.html")
 def workflow_list(request):
     """List all workflows user can access"""
     user = request.user
@@ -233,9 +264,10 @@ def workflow_list(request):
         "group", flat=True
     )
 
-    # Base queryset with hierarchy support
+    # Base queryset - show only top-level parent workflows
     workflows = Workflow.objects.filter(
-        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups),
+        parent_workflow__isnull=True,
     ).select_related(
         "workflow_type",
         "current_state",
@@ -305,12 +337,7 @@ def workflow_list(request):
         "selected_priorities": priority,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/workflow_list.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/workflow_list.html", context)
+    return context
 
 
 @login_required
@@ -389,6 +416,8 @@ def workflow_create(request):
             "preselected_type": preselected_type,
             "preselected_type_name": preselected_type_name,
         }
+        if request.headers.get("HX-Request"):
+            return render(request, "workflows/workflow_create.html#content", context)
         return render(request, "workflows/workflow_create.html", context)
 
     # POST
@@ -590,6 +619,7 @@ def workflow_bulk_create(request, parent_pk):
 
 
 @login_required
+@htmx_partial("workflows/workflow_detail.html")
 def workflow_detail(request, pk):
     """Detailed view of a workflow"""
     workflow = get_object_or_404(Workflow, pk=pk)
@@ -691,6 +721,19 @@ def workflow_detail(request, pk):
     ).select_related("target_group")
     can_refer = workflow.can_user_edit(request.user) and referral_configs.exists()
 
+    # Get custom fields schema and data
+    workflow_schema = workflow.workflow_type.json_schema or {}
+    custom_fields = {}
+    if workflow_schema and workflow.data:
+        properties = workflow_schema.get("properties", {})
+        for field_name, field_config in properties.items():
+            if field_name in workflow.data:
+                custom_fields[field_name] = {
+                    "title": field_config.get("title", field_name),
+                    "value": workflow.data[field_name],
+                    "type": field_config.get("type", "string"),
+                }
+
     context = {
         "workflow": workflow,
         "available_transitions": available_transitions,
@@ -713,12 +756,14 @@ def workflow_detail(request, pk):
         "referral_history": referral_history,
         "referral_configs": referral_configs,
         "can_refer": can_refer,
+        "custom_fields": custom_fields,
     }
 
-    return render(request, "workflows/workflow_detail.html", context)
+    return context
 
 
 @login_required
+@htmx_partial("workflows/event_create.html")
 def event_create(request):
     """Create a new event."""
     from .forms import EventForm
@@ -731,11 +776,13 @@ def event_create(request):
             return redirect("event_detail", pk=event.pk)
     else:
         form = EventForm(request.user)
-
-    return render(request, "workflows/event_create.html", {"form": form})
+    context = {"form": form}
+    return context
+    # return render(request, "workflows/event_create.html", context )
 
 
 @login_required
+@htmx_partial("workflows/event_update_status.html")
 def event_update_status(request, pk, status):
     """Update event status."""
     event = get_object_or_404(Event, pk=pk)
@@ -770,6 +817,7 @@ def event_update_status(request, pk, status):
 
 
 @login_required
+@htmx_partial("workflows/event_edit.html")
 def event_edit(request, pk):
     """Edit an existing event."""
     event = get_object_or_404(Event, pk=pk)
@@ -792,18 +840,14 @@ def event_edit(request, pk):
             return redirect("event_detail", pk=pk)
     else:
         form = EventForm(request.user, instance=event)
-
-    return render(
-        request,
-        "workflows/event_edit.html",
-        {
-            "form": form,
-            "event": event,
-            "attendances": event.attendances.select_related("user").order_by(
-                "user__first_name", "user__last_name"
-            ),
-        },
-    )
+    context = {
+        "form": form,
+        "event": event,
+        "attendances": event.attendances.select_related("user").order_by(
+            "user__first_name", "user__last_name"
+        ),
+    }
+    return context
 
 
 @login_required
@@ -924,6 +968,7 @@ def event_export_pdf(request, pk):
 
 
 @login_required
+@htmx_partial("workflows/event_attendance_edit.html")
 def event_attendance_edit(request, pk):
     """Edit attendance records for an event."""
     event = get_object_or_404(Event, pk=pk)
@@ -949,17 +994,14 @@ def event_attendance_edit(request, pk):
     else:
         form = EventAttendanceBulkForm(event)
 
-    return render(
-        request,
-        "workflows/event_attendance_edit.html",
-        {
-            "form": form,
-            "event": event,
-            "attendances": event.attendances.select_related("user").order_by(
-                "user__first_name", "user__last_name"
-            ),
-        },
-    )
+    context = {
+        "form": form,
+        "event": event,
+        "attendances": event.attendances.select_related("user").order_by(
+            "user__first_name", "user__last_name"
+        ),
+    }
+    return context
 
 
 @login_required
@@ -974,6 +1016,7 @@ def comment_delete(request, pk, comment_pk):
 
 
 @login_required
+@htmx_partial("workflows/workflow_edit.html")
 def workflow_edit(request, pk):
     """Edit a workflow"""
     workflow = get_object_or_404(Workflow, pk=pk)
@@ -995,9 +1038,9 @@ def workflow_edit(request, pk):
             "workflow": workflow,
             "workflow_types": WorkflowType.objects.all(),
             "workflow_type_schemas": workflow_type_schemas,
-            "existing_data": json.dumps(workflow.data or {}),
+            "existing_data": workflow.data or {},
         }
-        return render(request, "workflows/workflow_edit.html", context)
+        return context
 
     # POST
     workflow_type_id = request.POST.get("workflow_type")
@@ -1402,6 +1445,7 @@ def workflow_transition(request, pk, transition_id):
 
 
 @login_required
+@htmx_partial("workflows/event_list.html")
 def event_list(request):
     """List all events"""
     user = request.user
@@ -1430,23 +1474,29 @@ def event_list(request):
 
     # Separate upcoming and past events
     now = timezone.now()
-    upcoming_events = events.filter(start_datetime__gte=now).order_by("start_datetime")
-    past_events = events.filter(start_datetime__lt=now).order_by("-start_datetime")
+    # Note: upcoming_events and past_events are calculated but not used in current context
+    # They can be used if needed for template enhancements
+    # upcoming_events = events.filter(start_datetime__gte=now).order_by("start_datetime")
+    # past_events = events.filter(start_datetime__lt=now).order_by("-start_datetime")
 
     event_types = EventType.objects.all()
 
     context = {
-        "upcoming_events": upcoming_events,
-        "past_events": past_events,
+        "events": events,
         "event_types": event_types,
+        "venues": Venue.objects.all(),
+        "organizers": User.objects.all(),  # Organizer is a foreign key to User model
+        "groups": Group.objects.all(),
+        "filter_params": {
+            "event_type": event_type,
+            "status": status,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
+        "now": now,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/event_list.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/event_list.html", context)
+    return context
 
 
 @login_required
@@ -1475,6 +1525,7 @@ def event_detail(request, pk):
 
 
 @login_required
+@htmx_partial("workflows/group_list.html")
 def group_list(request):
     """List all groups"""
     user = request.user
@@ -1489,12 +1540,7 @@ def group_list(request):
         "groups": groups,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/group_list.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/group_list.html", context)
+    return context
 
 
 @login_required
@@ -1604,6 +1650,7 @@ def _apply_report_filters(workflows, request):
 
 
 @login_required
+@htmx_partial("workflows/reports.html")
 def reports(request):
     """Reports and analytics view"""
     user = request.user
@@ -1705,12 +1752,7 @@ def reports(request):
         "now": now,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/reports.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/reports.html", context)
+    return context
 
 
 @login_required
@@ -1739,6 +1781,7 @@ def reports_export_csv(request):
     response["Content-Disposition"] = (
         f'attachment; filename="workflows_report{filename_suffix}.csv"'
     )
+    response["HX-Trigger"] = "exportComplete"
 
     writer = csv.writer(response)
     now = timezone.now()
@@ -2092,6 +2135,7 @@ def reports_export_excel(request):
     response["Content-Disposition"] = (
         f'attachment; filename="workflows_report{filename_suffix}.xlsx"'
     )
+    response["HX-Trigger"] = "exportComplete"
     return response
 
 
@@ -2175,6 +2219,7 @@ def reports_recent_activity_pdf(request):
     response["Content-Disposition"] = 'attachment; filename="{}_{}.pdf"'.format(
         filename_prefix, timezone.now().strftime("%Y%m%d_%H%M%S")
     )
+    response["HX-Trigger"] = "exportComplete"
 
     return response
 
@@ -2546,6 +2591,7 @@ def sharepoint_folder_items(request, folder_id):
 
 
 @login_required
+@htmx_partial("workflows/admin/sharepoint_sites.html")
 def sharepoint_admin_sites(request):
     """SharePoint administration - manage SharePoint sites"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -2587,15 +2633,12 @@ def sharepoint_admin_sites(request):
         "personal_sites_count": personal_sites_count,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/admin/sharepoint_sites.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/sharepoint_sites.html", context)
+    return context
+    # return render(request, "workflows/admin/sharepoint_sites.html", context)
 
 
 @login_required
+@htmx_partial("workflows/admin/sharepoint_members.html")
 def sharepoint_admin_members(request):
     """SharePoint administration - manage site memberships"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -2645,14 +2688,7 @@ def sharepoint_admin_members(request):
         "personal_sites_count": personal_sites_count,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request, "workflows/admin/sharepoint_members.html#content", context
-        )
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/sharepoint_members.html", context)
+    return context
 
 
 @login_required
@@ -2925,6 +2961,7 @@ def attachment_detail(request, pk):
 
 
 @login_required
+@htmx_partial("workflows/attachments.html")
 def workflow_attachments(request, pk):
     """View and manage attachments for a specific workflow."""
     workflow = get_object_or_404(Workflow, pk=pk)
@@ -2938,7 +2975,7 @@ def workflow_attachments(request, pk):
         "workflow": workflow,
     }
 
-    return render(request, "workflows/attachments.html", context)
+    return context
 
 
 # ============================================================================
@@ -2947,6 +2984,7 @@ def workflow_attachments(request, pk):
 
 
 @login_required
+@htmx_partial("workflows/admin/user_admin.html")
 def user_admin(request):
     """User administration - manage users and their basic information"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -2976,15 +3014,11 @@ def user_admin(request):
         "employee_types": User.EMPLOYEE_TYPE_CHOICES,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/admin/user_admin.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/user_admin.html", context)
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/user_admin_groups.html")
 def user_admin_groups(request):
     """User administration - manage user group memberships"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -3018,17 +3052,11 @@ def user_admin_groups(request):
         "roles": roles,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request, "workflows/admin/user_admin_groups.html#content", context
-        )
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/user_admin_groups.html", context)
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/user_admin_roles.html")
 def user_admin_roles(request):
     """User administration - manage user roles and permissions"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -3041,15 +3069,11 @@ def user_admin_roles(request):
         "roles": roles,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/admin/user_admin_roles.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/user_admin_roles.html", context)
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/user_admin_workflow_types.html")
 def user_admin_workflow_types(request):
     """User administration - manage workflow types"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -3069,19 +3093,11 @@ def user_admin_workflow_types(request):
         "active_workflow_types": active_workflow_types,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request, "workflows/admin/user_admin_workflow_types.html#content", context
-        )
-    else:
-        # Regular request - return full page
-        return render(
-            request, "workflows/admin/user_admin_workflow_types.html", context
-        )
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/workflow_type_create.html")
 def workflow_type_create(request):
     """Create a new workflow type template"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -3194,17 +3210,11 @@ def workflow_type_create(request):
         "group_roles": json.dumps(group_roles),
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request, "workflows/admin/workflow_type_create.html#content", context
-        )
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/workflow_type_create.html", context)
+    return render(request, "workflows/admin/workflow_type_create.html", context)
 
 
 @login_required
+@htmx_partial("workflows/admin/workflow_type_edit.html")
 def workflow_type_edit(request, pk):
     """Edit an existing workflow type template"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -3344,14 +3354,7 @@ def workflow_type_edit(request, pk):
         "is_edit": True,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request, "workflows/admin/workflow_type_edit.html#content", context
-        )
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/workflow_type_edit.html", context)
+    return context
 
 
 def get_field_type_from_schema(field_config):
@@ -3382,6 +3385,7 @@ def get_field_type_from_schema(field_config):
 
 
 @login_required
+@htmx_partial("workflows/admin/group_admin.html")
 def group_admin(request):
     """Group administration - manage groups and their hierarchies"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -3404,15 +3408,11 @@ def group_admin(request):
         "groups": groups,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/admin/group_admin.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/group_admin.html", context)
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/workflow_type_states.html")
 def workflow_type_states(request, pk):
     """Manage workflow states for a workflow type"""
     workflow_type = get_object_or_404(WorkflowType, pk=pk)
@@ -3635,17 +3635,11 @@ def workflow_type_states(request, pk):
         "states": states,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request, "workflows/admin/workflow_type_states.html#content", context
-        )
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/workflow_type_states.html", context)
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/workflow_type_transitions.html")
 def workflow_type_transitions(request, pk):
     """Manage workflow transitions for a workflow type"""
     workflow_type = get_object_or_404(WorkflowType, pk=pk)
@@ -3844,19 +3838,11 @@ def workflow_type_transitions(request, pk):
         "available_roles": available_roles,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request, "workflows/admin/workflow_type_transitions.html#content", context
-        )
-    else:
-        # Regular request - return full page
-        return render(
-            request, "workflows/admin/workflow_type_transitions.html", context
-        )
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/workflow_type_referral_configs.html")
 def workflow_type_referral_configs(request, pk):
     """Manage referral targets for a workflow type"""
     workflow_type = get_object_or_404(WorkflowType, pk=pk)
@@ -4017,21 +4003,11 @@ def workflow_type_referral_configs(request, pk):
         "all_groups": all_groups,
         "all_roles": all_roles,
     }
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(
-            request,
-            "workflows/admin/workflow_type_referral_configs.html#content",
-            context,
-        )
-    else:
-        # Regular request - return full page
-        return render(
-            request, "workflows/admin/workflow_type_referral_configs.html", context
-        )
+    return context
 
 
 @login_required
+@htmx_partial("workflows/admin/role_admin.html")
 def role_admin(request):
     """Role administration - manage roles and their permissions"""
     if not request.user.is_staff and not request.user.is_superuser:
@@ -4050,9 +4026,4 @@ def role_admin(request):
         "roles": roles,
     }
 
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the content partial
-        return render(request, "workflows/admin/role_admin.html#content", context)
-    else:
-        # Regular request - return full page
-        return render(request, "workflows/admin/role_admin.html", context)
+    return context

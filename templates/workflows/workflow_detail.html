@@ -2,7 +2,6 @@
 
 {% block title %}{{ workflow.title }} - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="space-y-6">
     <!-- Breadcrumb with Hierarchy -->
@@ -258,6 +257,67 @@
                         </h3>
                         <div class="bg-base-200 rounded-lg p-4">
                             <div class="prose max-w-none">{{ workflow.description|linebreaks }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Custom Fields -->
+                    {% if custom_fields %}
+                    <div class="mt-6">
+                        <div class="card bg-base-100 shadow-sm">
+                            <div class="card-body">
+                                <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                                    {% lucide "settings" class="w-5 h-5" %}
+                                    Additional Information
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {% for field_name, field_data in custom_fields.items %}
+                                        {% if field_name == "event_start_date" or field_name == "event_end_date" %}
+                                            {% if field_name == "event_start_date" %}
+                                            <div class="form-control md:col-span-2">
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label class="label">
+                                                            <span class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
+                                                        </label>
+                                                        <div class="bg-base-200 rounded-lg p-3">
+                                                            <span class="text-base-content">{{ field_data.value|default:"—" }}</span>
+                                                        </div>
+                                                    </div>
+                                                    {% if custom_fields.event_end_date %}
+                                                    <div>
+                                                        <label class="label">
+                                                            <span class="label-text font-semibold text-base-content/80">{{ custom_fields.event_end_date.title }}</span>
+                                                        </label>
+                                                        <div class="bg-base-200 rounded-lg p-3">
+                                                            <span class="text-base-content">{{ custom_fields.event_end_date.value|default:"—" }}</span>
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        {% else %}
+                                        <div class="form-control">
+                                            <label class="label">
+                                                <span class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
+                                            </label>
+                                            <div class="bg-base-200 rounded-lg p-3">
+                                                {% if field_data.type == "boolean" %}
+                                                    {% if field_data.value %}
+                                                        <span class="badge badge-success">Yes</span>
+                                                    {% else %}
+                                                        <span class="badge badge-ghost">No</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-base-content">{{ field_data.value|default:"—" }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {% endif %}
@@ -1071,7 +1131,6 @@
         </div>
     </div>
 </div>
-{% endpartialdef %}
 <style>
     /* Custom tab styling */
     .tabs {
@@ -2724,5 +2783,8 @@
   });
 </script>
 {% endif %}
+{% endpartialdef %}
 
-{% endblock %}
+{% block content %}
+{% partial content %}
+{% endblock content %}

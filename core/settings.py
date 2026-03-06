@@ -260,12 +260,12 @@ LOGGING = {
     },
     "loggers": {
         "": {  # ← root logger = catch-all
-            "handlers": ["file"],
+            "handlers": ["file", "console"],
             "level": "INFO",  # or 'DEBUG' if you want even more
         },
         "django": {  # optional – keep Django quieter
             "level": "WARNING",
-            "handlers": ["file"],
+            "handlers": ["file", "console"],
             "propagate": False,
         },
     },

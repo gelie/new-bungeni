@@ -2,7 +2,6 @@
 
 {% block title %}Dashboard - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div id="content" class="space-y-6">
     <!-- Page Header -->
@@ -131,7 +130,6 @@
         </div>
 
     </div>
-    {% endpartialdef %}
 
     <style>
 .pie-chart {
@@ -408,4 +406,8 @@
         </div>
     </div>
 </div>
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

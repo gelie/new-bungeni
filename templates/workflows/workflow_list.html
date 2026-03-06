@@ -2,7 +2,6 @@
 
 {% block title %}Workflows - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div id="content" class="space-y-6">
     <!-- Page Header -->
@@ -57,7 +56,7 @@
 
                 <div class="form-control">
                     <select name="state" class="select">
-                        <option value="">All States</option>
+                        <option value="">All Statuses</option>
                         {% for state in states %}
                         <option value="{{ state.id }}"
                             {% if request.GET.state == state.id|stringformat:"s" %}selected{% endif %}>
@@ -138,7 +137,7 @@
                                     </div>
                                     {% elif workflow.has_sub_workflows %}
                                     <div class="flex items-center text-base-content/40 mt-1">
-                                        <span class="text-xs">📁</span>
+                                        <span class="text-xs">{% lucide 'folder' class='w-4 h-4 text-accent fill-current' %}</span>
                                     </div>
                                     {% endif %}
                                     <div class="flex-1">
@@ -289,4 +288,7 @@
 })();
 </script>
 {% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

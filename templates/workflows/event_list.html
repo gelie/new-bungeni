@@ -2,7 +2,6 @@
 
 {% block title %}Events - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div id="content" class="space-y-6">
     <div class="flex justify-between items-center">
@@ -101,4 +100,7 @@
     {% endif %}
 </div>
 {% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

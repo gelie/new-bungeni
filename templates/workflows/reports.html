@@ -2,7 +2,6 @@
 
 {% block title %}Reports & Analytics - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div id="content" class="space-y-6">
     <!-- Page Header -->
@@ -20,11 +19,17 @@
                 <li><a onclick="window.print(); return false;" href="#">
                     {% lucide "file-text" class="w-4 h-4" %} Export as PDF
                 </a></li>
-                <li><a href="{% url 'reports_export_excel' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}">
+                <li><a hx-get="{% url 'reports_export_excel' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                    hx-indicator="#export-spinner"
+                    class="cursor-pointer">
                     {% lucide "table" class="w-4 h-4" %} Export as Excel
+                    <span id="export-spinner" class="htmx-indicator loading loading-spinner loading-xs ml-2"></span>
                 </a></li>
-                <li><a href="{% url 'reports_export_csv' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}">
+                <li><a hx-get="{% url 'reports_export_csv' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                    hx-indicator="#export-csv-spinner"
+                    class="cursor-pointer">
                     {% lucide "file" class="w-4 h-4" %} Export as CSV
+                    <span id="export-csv-spinner" class="htmx-indicator loading loading-spinner loading-xs ml-2"></span>
                 </a></li>
             </ul>
         </div>
@@ -202,21 +207,27 @@
                 </div>
                 <div class="flex gap-2">
                     <span class="text-sm text-base-content/60 font-medium mr-2">Export as:</span>
-                    <a href="{% url 'reports_recent_activity_pdf' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                    <button hx-get="{% url 'reports_recent_activity_pdf' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                        hx-indicator="#pdf-spinner"
                         class="btn btn-error btn-sm">
                         {% lucide "file-text" class="w-4 h-4" %}
                         PDF
-                    </a>
-                    <a href="{% url 'reports_export_excel' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                        <span id="pdf-spinner" class="htmx-indicator loading loading-spinner loading-xs ml-1"></span>
+                    </button>
+                    <button hx-get="{% url 'reports_export_excel' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                        hx-indicator="#excel-spinner"
                         class="btn btn-success btn-sm">
                         {% lucide "table" class="w-4 h-4" %}
                         Excel
-                    </a>
-                    <a href="{% url 'reports_export_csv' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                        <span id="excel-spinner" class="htmx-indicator loading loading-spinner loading-xs ml-1"></span>
+                    </button>
+                    <button hx-get="{% url 'reports_export_csv' %}?period={{ filter_params.period }}&workflow_type={{ filter_params.workflow_type_id }}&overdue_only={% if filter_params.overdue_only %}1{% endif %}&parent_workflow={{ filter_params.parent_workflow_id }}"
+                        hx-indicator="#csv-spinner"
                         class="btn btn-outline btn-sm">
                         {% lucide "file" class="w-4 h-4" %}
                         CSV
-                    </a>
+                        <span id="csv-spinner" class="htmx-indicator loading loading-spinner loading-xs ml-1"></span>
+                    </button>
                 </div>
             </div>
 
@@ -505,10 +516,13 @@
                     {% lucide "clock" class="w-5 h-5" %}
                     Recent Activity
                 </h2>
-                <a href="{% url 'reports_recent_activity_pdf' %}" class="btn btn-sm btn-primary">
+                <button hx-get="{% url 'reports_recent_activity_pdf' %}"
+                    hx-indicator="#activity-pdf-spinner"
+                    class="btn btn-sm btn-primary">
                     {% lucide "file-text" class="w-4 h-4" %}
                     Export PDF
-                </a>
+                    <span id="activity-pdf-spinner" class="htmx-indicator loading loading-spinner loading-xs ml-1"></span>
+                </button>
             </div>
             <div class="overflow-x-auto mt-4">
                 <table class="table table-zebra">
@@ -571,4 +585,7 @@
     </div>
 </div>
 {% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

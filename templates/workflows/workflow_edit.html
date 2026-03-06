@@ -2,7 +2,6 @@
 
 {% block title %}Edit Workflow - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="max-w-4xl mx-auto space-y-6">
     <!-- Header -->
@@ -42,22 +41,33 @@
                             maxlength="500" />
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-1 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                        <!-- Workflow Type -->
+                        <!-- Workflow Type (Read-only) -->
                         <div class="form-control">
                             <label class="label">
                                 <span class="label-text font-semibold">Workflow Type</span>
-                                <span class="label-text-alt text-error">*</span>
                             </label>
-                            <select name="workflow_type" class="select select-bordered h-12 w-full" required>
-                                {% for wf_type in workflow_types %}
-                                <option value="{{ wf_type.id }}" {% if wf_type.id == workflow.workflow_type.id %}selected{% endif %}>{{ wf_type.name }}</option>
-                                {% empty %}
-                                <option value="" disabled>No workflow types configured</option>
-                                {% endfor %}
-                            </select>
-                            <div class="text-xs text-base-content/60 mt-1">The template/type that defines states and transitions</div>
+                            <input type="hidden" name="workflow_type" value="{{ workflow.workflow_type.id }}">
+                            <input
+                                type="text"
+                                class="input input-bordered h-12 w-full bg-base-200"
+                                value="{{ workflow.workflow_type.name }}"
+                                disabled />
+                            <div class="text-xs text-base-content/60 mt-1">Workflow type cannot be changed after creation</div>
+                        </div>
+
+                        <!-- Parent Workflow -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text font-semibold">Parent Workflow</span>
+                            </label>
+                            <input
+                                type="text"
+                                class="input input-bordered h-12 w-full bg-base-200"
+                                value="{% if workflow.parent_workflow %}{{ workflow.parent_workflow.title }}{% else %}None (Top-level workflow){% endif %}"
+                                disabled />
+                            <div class="text-xs text-base-content/60 mt-1">Parent workflow relationship is set at creation</div>
                         </div>
                     </div>
 
@@ -142,7 +152,6 @@
         </div>
     </div>
 </div>
-{% endpartialdef %}
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -153,8 +162,13 @@ document.addEventListener('DOMContentLoaded', function () {
   const allSchemas = JSON.parse(document.getElementById('workflow-type-schemas').textContent || '{}');
   const existingData = JSON.parse(document.getElementById('existing-workflow-data').textContent || '{}');
 
-  const workflowTypeSelect = document.querySelector('select[name="workflow_type"]');
-  const typeId = workflowTypeSelect ? workflowTypeSelect.value : '';
+  console.log('All Schemas:', allSchemas);
+  console.log('Existing Data:', existingData);
+
+  const workflowTypeInput = document.querySelector('input[name="workflow_type"]');
+  const typeId = workflowTypeInput ? workflowTypeInput.value : '';
+
+  console.log('Workflow Type ID:', typeId);
 
   const workflowDataInput = document.createElement('input');
   workflowDataInput.type = 'hidden';
@@ -162,19 +176,26 @@ document.addEventListener('DOMContentLoaded', function () {
   form.appendChild(workflowDataInput);
 
   function renderFields(typeId) {
+    console.log('renderFields called with typeId:', typeId);
     dynamicFieldsContainer.innerHTML = '';
     const schema = typeId ? (allSchemas[typeId] || null) : null;
+    console.log('Schema found:', schema);
     const properties = schema && schema.properties ? schema.properties : {};
     const required = schema && schema.required ? schema.required : [];
 
+    console.log('Properties:', properties);
+    console.log('Number of properties:', Object.keys(properties).length);
+
     if (Object.keys(properties).length === 0) {
       dynamicFieldsSection.style.display = 'none';
+      console.log('No properties found, hiding section');
       return;
     }
 
     Object.entries(properties).forEach(([fieldName, fieldConfig]) => {
       fieldConfig.required = required.includes(fieldName);
       const existingValue = existingData[fieldName] !== undefined ? existingData[fieldName] : '';
+      console.log(`Field: ${fieldName}, Existing Value:`, existingValue);
 
       const fieldDiv = document.createElement('div');
       fieldDiv.className = 'form-control';
@@ -247,13 +268,8 @@ document.addEventListener('DOMContentLoaded', function () {
     dynamicFieldsSection.style.display = 'block';
   }
 
+  // Render fields on page load with the current workflow type
   renderFields(typeId);
-
-  if (workflowTypeSelect) {
-    workflowTypeSelect.addEventListener('change', function () {
-      renderFields(this.value);
-    });
-  }
 
   form.addEventListener('submit', function () {
     const workflowData = {};
@@ -271,4 +287,8 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 </script>
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

@@ -3,7 +3,6 @@
 
 {% block title %}User Group Memberships - BUNGENI{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="max-w-7xl mx-auto">
   <!-- Breadcrumb -->
@@ -165,5 +164,8 @@
     </div>
   </div>
 </div>
-{% partialdef content %}
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}
