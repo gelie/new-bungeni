@@ -21,7 +21,7 @@
                 <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-56 p-2 shadow-lg border border-base-200 mt-1">
                     {% for wt in creatable_workflow_types %}
                     <li>
-                        <a href="{% url 'workflow_create' %}?type={{ wt.pk }}">
+                        <a hx-get="{% url 'workflow_create' %}?type={{ wt.pk }}" hx-target="#content-area" hx-push-url="true">
                             {% lucide "file-plus" class="w-4 h-4" %}
                             {{ wt.name }}
                         </a>
@@ -100,7 +100,7 @@
                     <button type="submit" class="btn btn-primary flex-1">
                         {% lucide "search" class="w-4 h-4" %} <span>Search</span>
                     </button>
-                    <a href="{% url 'workflow_list' %}" class="btn btn-ghost">
+                    <a hx-get="{% url 'workflow_list' %}" hx-target="#content-area" class="btn btn-ghost">
                         {% lucide "filter-x" class="w-4 h-4" %}
                     </a>
                 </div>

@@ -363,6 +363,13 @@ class WorkflowType(models.Model):
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
     enabled = models.BooleanField(default=True)
+    event = models.ForeignKey(
+        "Event",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="workflow_types",
+    )
 
     # Group ownership - all workflows of this type belong to this group
     group = models.ForeignKey(
@@ -427,7 +434,7 @@ class State(models.Model):
 
     # Visual properties
     color = models.CharField(
-        max_length=7, default="#6B7280", help_text="Hex color code"
+        max_length=7, default="#5b8f22", help_text="Hex color code"
     )
 
     class Meta:
@@ -601,6 +608,16 @@ class Workflow(models.Model):
         blank=True,
         related_name="workflow_instances",
         help_text="Predefined relationship type to parent workflow",
+    )
+
+    # Event association
+    event = models.ForeignKey(
+        "Event",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="workflows",
+        help_text="Event this workflow is associated with",
     )
 
     # Workflow-specific data stored as JSON
@@ -1135,6 +1152,22 @@ class Venue(models.Model):
         return " - ".join(parts)
 
 
+class Location(models.Model):
+    """
+    Locations for events.
+    """
+
+    name = models.CharField(max_length=255)
+    address = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return str(self.name)
+
+
 class Event(models.Model):
     """
     Events as workflows - Plenary sessions, meetings, briefings, etc.
@@ -1142,7 +1175,11 @@ class Event(models.Model):
 
     # Link to workflow system
     workflow = models.OneToOneField(
-        Workflow, on_delete=models.CASCADE, related_name="event", null=True, blank=True
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name="event_instance",
+        null=True,
+        blank=True,
     )
 
     event_type = models.ForeignKey(EventType, on_delete=models.PROTECT)
@@ -1152,6 +1189,9 @@ class Event(models.Model):
     # Event details
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="events")
     venue = models.ForeignKey(Venue, on_delete=models.PROTECT, null=True, blank=True)
+    location = models.ForeignKey(
+        Location, on_delete=models.PROTECT, null=True, blank=True
+    )
 
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()

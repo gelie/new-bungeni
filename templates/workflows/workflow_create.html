@@ -2,7 +2,6 @@
 
 {% block title %}Create Workflow - Bungeni{% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="space-y-6">
   <!-- Header -->
@@ -90,6 +89,23 @@
             </div>
 
           </div>
+
+          <!-- Event Association -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Associated Event</span>
+              <span class="label-text-alt text-base-content/70">Optional</span>
+            </label>
+            <select name="event" class="select select-bordered w-full">
+              <option value="">No event association</option>
+              {% for event in available_events %}
+              <option value="{{ event.pk }}">{{ event.title }} - {{ event.start_datetime|date:"M d, Y" }}</option>
+              {% endfor %}
+            </select>
+            <label class="label">
+              <span class="label-text-alt text-base-content/70">Link this workflow to a specific event</span>
+            </label>
+          </div>
         </div>
 
         <!-- Parent Workflow (if applicable) -->
@@ -163,14 +179,26 @@
     </div>
   </div>
 </div>
-{% endpartialdef %}
 
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
+  (function() {
+    console.log('Script initializing...');
     const workflowTypeSelect = document.getElementById('workflow-type-select');
     const dynamicFieldsSection = document.getElementById('dynamic-fields-section');
     const dynamicFieldsContainer = document.getElementById('dynamic-fields-container');
     const form = document.getElementById('workflow-create-form');
+
+    console.log('Elements found:', {
+      workflowTypeSelect: !!workflowTypeSelect,
+      dynamicFieldsSection: !!dynamicFieldsSection,
+      dynamicFieldsContainer: !!dynamicFieldsContainer,
+      form: !!form
+    });
+
+    if (!form || !workflowTypeSelect || !dynamicFieldsSection || !dynamicFieldsContainer) {
+      console.error('Required elements not found!');
+      return;
+    }
 
     // Hidden input for JSON data
     const workflowDataInput = document.createElement('input');
@@ -300,18 +328,24 @@
 
     function updateDynamicFields() {
       const typeId = workflowTypeSelect.value;
+      console.log('updateDynamicFields called, typeId:', typeId);
 
       dynamicFieldsContainer.innerHTML = '';
 
       const allSchemas = JSON.parse(document.getElementById('workflow-type-schemas').textContent || '{}');
+      console.log('All schemas:', allSchemas);
       const schema = typeId ? (allSchemas[typeId] || null) : null;
+      console.log('Schema for typeId', typeId, ':', schema);
       const properties = schema && schema.properties ? schema.properties : {};
       const required = schema && schema.required ? schema.required : [];
+      console.log('Properties:', properties, 'Required:', required);
 
       if (Object.keys(properties).length === 0) {
+        console.log('No properties found, hiding dynamic fields section');
         dynamicFieldsSection.style.display = 'none';
         return;
       }
+      console.log('Found', Object.keys(properties).length, 'properties, showing dynamic fields');
 
       Object.keys(properties).forEach(fieldName => {
         properties[fieldName].required = required.includes(fieldName);
@@ -348,10 +382,30 @@
     workflowTypeSelect.addEventListener('change', updateDynamicFields);
 
     // Trigger dynamic fields immediately if a type is pre-selected
-    if (workflowTypeSelect.value) {
-      updateDynamicFields();
-    }
-  });
-</script>
+    // Check both the select value and the hidden input (for disabled selects)
+    const hiddenTypeInput = document.querySelector('input[name="workflow_type"]');
+    console.log('Hidden input:', hiddenTypeInput);
+    console.log('Hidden input value:', hiddenTypeInput ? hiddenTypeInput.value : 'null');
+    console.log('Select value:', workflowTypeSelect.value);
 
+    const typeValue = workflowTypeSelect.value || (hiddenTypeInput ? hiddenTypeInput.value : '');
+    console.log('Final typeValue:', typeValue);
+
+    if (typeValue) {
+      console.log('TypeValue exists, initializing dynamic fields');
+      // Set the select value to match the hidden input if it's disabled
+      if (!workflowTypeSelect.value && hiddenTypeInput) {
+        console.log('Setting select value from hidden input');
+        workflowTypeSelect.value = hiddenTypeInput.value;
+      }
+      updateDynamicFields();
+    } else {
+      console.log('No typeValue found, skipping dynamic fields initialization');
+    }
+  })();
+</script>
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

@@ -409,12 +409,21 @@ def workflow_create(request):
                 (wt.name for wt in workflow_types if str(wt.pk) == preselected_type), ""
             )
 
+        # Get available events for the user's groups
+        user_groups = user.memberships.filter(is_active=True).values_list(
+            "group", flat=True
+        )
+        available_events = Event.objects.filter(
+            group__in=user_groups, status__in=["scheduled", "in_progress"]
+        ).order_by("start_datetime")
+
         context = {
             "workflow_types": workflow_types,
             "parent_workflow": parent_workflow,
             "workflow_type_schemas": workflow_type_schemas,
             "preselected_type": preselected_type,
             "preselected_type_name": preselected_type_name,
+            "available_events": available_events,
         }
         if request.headers.get("HX-Request"):
             return render(request, "workflows/workflow_create.html#content", context)
@@ -427,6 +436,7 @@ def workflow_create(request):
     title = (request.POST.get("title") or "").strip()
     description = (request.POST.get("description") or "").strip()
     priority = request.POST.get("priority") or "medium"
+    event_id = request.POST.get("event") or None
 
     if not workflow_type_id or not title:
         messages.error(request, "Workflow type and title are required.")
@@ -497,6 +507,27 @@ def workflow_create(request):
         )
         return redirect("workflow_list")
 
+    # Parse deadline
+    deadline_str = request.POST.get("deadline")
+    deadline = None
+    if deadline_str:
+        try:
+            deadline = timezone.datetime.fromisoformat(
+                deadline_str.replace("Z", "+00:00")
+            )
+            if timezone.is_naive(deadline):
+                deadline = timezone.make_aware(deadline)
+        except (ValueError, AttributeError):
+            pass
+
+    # Get event if provided
+    event = None
+    if event_id:
+        try:
+            event = Event.objects.get(pk=event_id)
+        except Event.DoesNotExist:
+            pass
+
     workflow = Workflow.objects.create(
         workflow_type=workflow_type,
         title=title,
@@ -507,6 +538,8 @@ def workflow_create(request):
         parent_workflow=parent_workflow,
         relationship_type=relationship_type if parent_workflow else None,
         data=workflow_data,
+        deadline=deadline,
+        event=event,
     )
 
     messages.success(request, f"Workflow created: {workflow.title}")
@@ -1034,11 +1067,20 @@ def workflow_edit(request, pk):
             else {}
         )
 
+        # Get available events for the user's groups
+        user_groups = request.user.memberships.filter(is_active=True).values_list(
+            "group", flat=True
+        )
+        available_events = Event.objects.filter(
+            group__in=user_groups, status__in=["scheduled", "in_progress"]
+        ).order_by("start_datetime")
+
         context = {
             "workflow": workflow,
             "workflow_types": WorkflowType.objects.all(),
             "workflow_type_schemas": workflow_type_schemas,
             "existing_data": workflow.data or {},
+            "available_events": available_events,
         }
         return context
 
@@ -1048,6 +1090,7 @@ def workflow_edit(request, pk):
     description = (request.POST.get("description") or "").strip()
     priority = request.POST.get("priority") or "medium"
     deadline = request.POST.get("deadline")
+    event_id = request.POST.get("event") or None
 
     if not workflow_type_id or not title:
         messages.error(request, "Workflow type and title are required.")
@@ -1090,6 +1133,14 @@ def workflow_edit(request, pk):
         except Group.DoesNotExist:
             pass
 
+    # Get event if provided
+    new_event = None
+    if event_id:
+        try:
+            new_event = Event.objects.get(pk=event_id)
+        except Event.DoesNotExist:
+            pass
+
     # Update workflow
     workflow.workflow_type = workflow_type
     workflow.title = title
@@ -1098,6 +1149,7 @@ def workflow_edit(request, pk):
     workflow.data = workflow_data
     workflow.assigned_to = new_assigned_to
     workflow.referred_to = new_referred_to
+    workflow.event = new_event
     if deadline:
         workflow.deadline = deadline
     workflow.save()
@@ -1474,15 +1526,15 @@ def event_list(request):
 
     # Separate upcoming and past events
     now = timezone.now()
-    # Note: upcoming_events and past_events are calculated but not used in current context
-    # They can be used if needed for template enhancements
-    # upcoming_events = events.filter(start_datetime__gte=now).order_by("start_datetime")
-    # past_events = events.filter(start_datetime__lt=now).order_by("-start_datetime")
+    upcoming_events = events.filter(start_datetime__gte=now).order_by("start_datetime")
+    past_events = events.filter(start_datetime__lt=now).order_by("-start_datetime")
 
     event_types = EventType.objects.all()
 
     context = {
         "events": events,
+        "upcoming_events": upcoming_events,
+        "past_events": past_events,
         "event_types": event_types,
         "venues": Venue.objects.all(),
         "organizers": User.objects.all(),  # Organizer is a foreign key to User model

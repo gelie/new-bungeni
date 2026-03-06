@@ -85,11 +85,11 @@
                 <div class="flex gap-2 flex-wrap">
                     {% if can_edit and allowed_child_configs %}
                     <label for="bulk-create-modal" class="btn btn-sm bg-gray-600 text-white">
-                        {% lucide "plus" class="w-4 h-4 mr-1" %} Add Sub-workflow
+                        {% lucide "plus" class="w-4 h-4 mr-1" %} Sub Process
                     </label>
                     {% endif %}
                     {% if can_refer %}
-                    <label for="refer-modal" class="btn btn-sm btn-warning btn-outline">
+                    <label for="refer-modal" class="btn btn-sm btn-warning">
                         {% lucide "send" class="w-4 h-4 mr-1" %}
                         {% if active_referral %}Re-refer{% else %}Refer{% endif %}
                     </label>

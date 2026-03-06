@@ -114,6 +114,23 @@
                                 {% if workflow.deadline %}value="{{ workflow.deadline|date:'Y-m-d\TH:i' }}" {% endif %} />
                         </div>
                     </div>
+
+                    <!-- Event Association -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-semibold">Associated Event</span>
+                            <span class="label-text-alt text-base-content/60">(optional)</span>
+                        </label>
+                        <select name="event" class="select select-bordered h-12 w-full">
+                            <option value="">No event association</option>
+                            {% for event in available_events %}
+                            <option value="{{ event.pk }}" {% if workflow.event and workflow.event.pk == event.pk %}selected{% endif %}>
+                                {{ event.title }} - {{ event.start_datetime|date:"M d, Y" }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="text-xs text-base-content/60 mt-1">Link this workflow to a specific event</div>
+                    </div>
                 </div>
 
                 <!-- Custom Fields Section -->
