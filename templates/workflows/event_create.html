@@ -42,22 +42,8 @@
                     {% endif %}
                 </div>
 
-                <!-- Description -->
+                <!-- Group -->
                 <div class="form-control">
-                    <label class="label">
-                        <span class="label-text font-medium">Description</span>
-                    </label>
-                    {{ form.description }}
-                    {% if form.description.errors %}
-                    <label class="label">
-                        <span class="label-text-alt text-error">{{ form.description.errors.0 }}</span>
-                    </label>
-                    {% endif %}
-                </div>
-
-                <!-- Group and Venue Row -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="form-control">
                         <label class="label">
                             <span class="label-text font-medium">Group *</span>
                         </label>
@@ -67,19 +53,6 @@
                             <span class="label-text-alt text-error">{{ form.group.errors.0 }}</span>
                         </label>
                         {% endif %}
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-medium">Venue</span>
-                        </label>
-                        {{ form.venue }}
-                        {% if form.venue.errors %}
-                        <label class="label">
-                            <span class="label-text-alt text-error">{{ form.venue.errors.0 }}</span>
-                        </label>
-                        {% endif %}
-                    </div>
                 </div>
 
                 <!-- Date and Time Row -->
@@ -107,6 +80,45 @@
                         </label>
                         {% endif %}
                     </div>
+                </div>
+
+                <!-- Description -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Description</span>
+                    </label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <label class="label">
+                        <span class="label-text-alt text-error">{{ form.description.errors.0 }}</span>
+                    </label>
+                    {% endif %}
+                </div>
+
+                <!-- Location -->
+                <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">Location</span>
+                        </label>
+                        {{ form.location }}
+                        {% if form.location.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.location.errors.0 }}</span>
+                        </label>
+                        {% endif %}
+                </div>
+
+                <!-- Venue -->
+                <div class="form-control">
+                        <label class="label">
+                            <span class="label-text font-medium">Venue</span>
+                        </label>
+                        {{ form.venue }}
+                        {% if form.venue.errors %}
+                        <label class="label">
+                            <span class="label-text-alt text-error">{{ form.venue.errors.0 }}</span>
+                        </label>
+                        {% endif %}
                 </div>
 
                 <!-- Status -->

@@ -14,6 +14,7 @@ class EventForm(forms.ModelForm):
             "description",
             "group",
             "venue",
+            "location",
             "start_datetime",
             "end_datetime",
             "status",
@@ -27,6 +28,7 @@ class EventForm(forms.ModelForm):
                 attrs={"class": "select select-bordered w-full"}
             ),
             "group": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "location": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
             "venue": forms.Select(attrs={"class": "select select-bordered w-full"}),
             "start_datetime": forms.DateTimeInput(
                 attrs={"class": "input input-bordered w-full", "type": "datetime-local"}

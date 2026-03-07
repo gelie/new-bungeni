@@ -815,7 +815,7 @@ def event_create(request):
 
 
 @login_required
-@htmx_partial("workflows/event_update_status.html")
+@htmx_partial("workflows/event_detail.html")
 def event_update_status(request, pk, status):
     """Update event status."""
     event = get_object_or_404(Event, pk=pk)
@@ -846,7 +846,13 @@ def event_update_status(request, pk, status):
         message += f" Attendance records created for {attendance_count} group members."
 
     messages.success(request, message)
-    return redirect("event_detail", pk=pk)
+
+    return {
+        "event": event,
+        "attendances": event.attendances.select_related("user").order_by(
+            "user__first_name", "user__last_name"
+        ),
+    }
 
 
 @login_required
@@ -1710,6 +1716,9 @@ def reports(request):
         "group", flat=True
     )
 
+    # Get report type (activity or overview)
+    report_type = request.GET.get("report_type", "activity")
+
     # Get workflows user can view
     base_workflows = Workflow.objects.filter(
         Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
@@ -1717,6 +1726,7 @@ def reports(request):
 
     # Apply custom report filters
     workflows, filter_params = _apply_report_filters(base_workflows, request)
+    filter_params["report_type"] = report_type
 
     # Workflow statistics
     total_workflows = workflows.count()
@@ -1764,12 +1774,27 @@ def reports(request):
     # Active workflows
     active = workflows.filter(current_state__is_terminal=False).count()
 
-    # Recent activity (transition logs)
-    recent_transitions = (
-        WorkflowTransitionLog.objects.filter(workflow__in=workflows)
-        .select_related("workflow", "user", "from_state", "to_state")
-        .order_by("-timestamp")[:20]
-    )
+    # Recent activity (transition logs) - for activity report
+    recent_transitions = None
+    hierarchical_parents = None
+    if report_type == "activity":
+        recent_transitions = (
+            WorkflowTransitionLog.objects.filter(workflow__in=workflows)
+            .select_related("workflow", "user", "from_state", "to_state", "transition")
+            .order_by("-timestamp")[:50]
+        )
+    elif report_type == "overview":
+        # Build hierarchical structure for parent-child workflows
+        hierarchical_parents = (
+            workflows.filter(parent_workflow__isnull=True)
+            .select_related("workflow_type", "current_state", "owner")
+            .prefetch_related(
+                "sub_workflows__workflow_type",
+                "sub_workflows__current_state",
+                "sub_workflows__owner",
+            )
+            .order_by("created_at")
+        )
 
     # Events statistics
     events = Event.objects.filter(group__in=user_groups)
@@ -1796,11 +1821,13 @@ def reports(request):
         "completed": completed,
         "active": active,
         "recent_transitions": recent_transitions,
+        "hierarchical_parents": hierarchical_parents,
         "total_events": total_events,
         "upcoming_events": upcoming_events,
         "workflow_types": workflow_types,
         "parent_workflows": parent_workflows,
         "filter_params": filter_params,
+        "report_type": report_type,
         "now": now,
     }
 
@@ -2193,7 +2220,7 @@ def reports_export_excel(request):
 
 @login_required
 def reports_recent_activity_pdf(request):
-    """Export recent activity or filtered workflows as a nicely formatted PDF using WeasyPrint"""
+    """Export activity or overview report as a nicely formatted PDF using WeasyPrint"""
     from django.template.loader import render_to_string
     from weasyprint import HTML
 
@@ -2204,9 +2231,12 @@ def reports_recent_activity_pdf(request):
     )
     base_workflows = Workflow.objects.filter(
         Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-    )
+    ).select_related("workflow_type", "current_state", "owner")
 
-    # Check if this is a filtered report or recent activity
+    # Get report type (activity or overview)
+    report_type = request.GET.get("report_type", "activity")
+
+    # Check if this is a filtered report
     has_filters = any(
         [
             request.GET.get("period"),
@@ -2216,46 +2246,78 @@ def reports_recent_activity_pdf(request):
         ]
     )
 
-    if has_filters:
-        # Apply custom report filters
-        workflows, filter_params = _apply_report_filters(base_workflows, request)
+    # Apply custom report filters
+    workflows, filter_params = _apply_report_filters(base_workflows, request)
 
-        # Enrich filter_params with workflow type name if applicable
-        if filter_params.get("workflow_type_id"):
-            try:
-                wf_type = WorkflowType.objects.get(pk=filter_params["workflow_type_id"])
-                filter_params["workflow_type_name"] = wf_type.name
-            except WorkflowType.DoesNotExist:
-                filter_params["workflow_type_name"] = None
+    # Enrich filter_params with workflow type name if applicable
+    if filter_params.get("workflow_type_id"):
+        try:
+            wf_type = WorkflowType.objects.get(pk=filter_params["workflow_type_id"])
+            filter_params["workflow_type_name"] = wf_type.name
+        except WorkflowType.DoesNotExist:
+            filter_params["workflow_type_name"] = None
 
-        report_title = "Workflow Report"
-        report_type = "filtered"
-    else:
-        # Get recent transitions for recent activity report
-        workflows = base_workflows
+    # Prepare data based on report type
+    recent_transitions = None
+    overview_stats = None
+
+    if report_type == "activity":
+        # Get recent transitions for activity report
         recent_transitions = (
-            WorkflowTransitionLog.objects.filter(workflow__in=base_workflows)
+            WorkflowTransitionLog.objects.filter(workflow__in=workflows)
             .select_related("workflow", "user", "from_state", "to_state", "transition")
             .order_by("-timestamp")[:50]
         )
-        report_title = "Recent Activity Report"
-        report_type = "recent_activity"
-        filter_params = None
+        report_title = "Activity Report" if has_filters else "Recent Activity Report"
+    else:
+        # Overview report - collect statistics
+        now = timezone.now()
+        overview_stats = {
+            "by_type": workflows.values("workflow_type__name")
+            .annotate(count=Count("id"))
+            .order_by("-count"),
+            "by_state": workflows.values("current_state__name", "current_state__color")
+            .annotate(count=Count("id"))
+            .order_by("-count"),
+            "by_priority": workflows.values("priority")
+            .annotate(count=Count("id"))
+            .order_by("priority"),
+            "total": workflows.count(),
+            "completed": workflows.filter(current_state__is_terminal=True).count(),
+            "active": workflows.filter(current_state__is_terminal=False).count(),
+            "overdue": workflows.filter(
+                deadline__lt=now, current_state__is_terminal=False
+            ).count(),
+        }
+
+        # Build hierarchical structure for parent-child workflows
+        parent_workflows = (
+            workflows.filter(parent_workflow__isnull=True)
+            .select_related("workflow_type", "current_state", "owner")
+            .prefetch_related(
+                "sub_workflows__workflow_type",
+                "sub_workflows__current_state",
+                "sub_workflows__owner",
+            )
+            .order_by("created_at")
+        )
+
+        report_title = "Overview Report"
 
     # Prepare context for template
     context = {
-        "workflows": workflows if has_filters else None,
-        "recent_transitions": recent_transitions if not has_filters else None,
+        "workflows": workflows if report_type == "overview" else None,
+        "recent_transitions": recent_transitions,
+        "overview_stats": overview_stats,
+        "parent_workflows": parent_workflows if report_type == "overview" else None,
         "generated_on": timezone.now(),
         "generated_by": user,
         "report_title": report_title,
         "report_type": report_type,
-        "filter_params": filter_params,
+        "filter_params": filter_params if has_filters else None,
         "total_count": workflows.count()
-        if has_filters
-        else len(recent_transitions)
-        if not has_filters
-        else 0,
+        if report_type == "overview"
+        else (len(recent_transitions) if recent_transitions else 0),
     }
 
     # Render HTML template
@@ -2267,7 +2329,7 @@ def reports_recent_activity_pdf(request):
 
     # Create response
     response = HttpResponse(pdf, content_type="application/pdf")
-    filename_prefix = "custom_report" if has_filters else "recent_activity"
+    filename_prefix = f"{report_type}_report"
     response["Content-Disposition"] = 'attachment; filename="{}_{}.pdf"'.format(
         filename_prefix, timezone.now().strftime("%Y%m%d_%H%M%S")
     )

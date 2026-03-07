@@ -363,13 +363,6 @@ class WorkflowType(models.Model):
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
     enabled = models.BooleanField(default=True)
-    event = models.ForeignKey(
-        "Event",
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="workflow_types",
-    )
 
     # Group ownership - all workflows of this type belong to this group
     group = models.ForeignKey(
@@ -1152,22 +1145,6 @@ class Venue(models.Model):
         return " - ".join(parts)
 
 
-class Location(models.Model):
-    """
-    Locations for events.
-    """
-
-    name = models.CharField(max_length=255)
-    address = models.TextField(blank=True)
-    description = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ["name"]
-
-    def __str__(self):
-        return str(self.name)
-
-
 class Event(models.Model):
     """
     Events as workflows - Plenary sessions, meetings, briefings, etc.
@@ -1189,10 +1166,7 @@ class Event(models.Model):
     # Event details
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="events")
     venue = models.ForeignKey(Venue, on_delete=models.PROTECT, null=True, blank=True)
-    location = models.ForeignKey(
-        Location, on_delete=models.PROTECT, null=True, blank=True
-    )
-
+    location = models.CharField(max_length=255, null=True, blank=True)
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
 

@@ -29,6 +29,7 @@
                                 {% for status_choice in event.STATUS_CHOICES %}
                                 <li>
                                     <a hx-get="{% url 'event_update_status' event.pk status_choice.0 %}"
+                                       hx-target="#content-area"
                                        class="flex items-center justify-between">
                                         {{ status_choice.1|title }}
                                         {% if status_choice.0 == event.status %}

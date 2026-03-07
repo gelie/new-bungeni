@@ -132,11 +132,36 @@
             color: #666;
             text-align: center;
         }
+
+        .section {
+            page-break-inside: avoid;
+        }
+
+        h3 {
+            page-break-after: avoid;
+        }
+
+        table {
+            page-break-inside: auto;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tfoot {
+            display: table-footer-group;
+        }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="system-name">Parliamentary Workflow Management System</div>
+        <div class="system-name">Parliament Workflow System</div>
         <div class="report-title">{{ report_title }}</div>
     </div>
 
@@ -167,8 +192,199 @@
     </div>
     {% endif %}
 
-    {% if report_type == 'filtered' %}
-    <!-- Filtered Workflows Report -->
+    {% if report_type == 'overview' %}
+    <!-- Overview Report with Statistics -->
+    <div class="section" style="margin-bottom: 20px;">
+        <h3 style="color: #1e3a8a; margin-bottom: 10px;">Summary Statistics</h3>
+        <table style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Total Workflows</strong></td>
+                    <td>{{ overview_stats.total }}</td>
+                    <td>100%</td>
+                </tr>
+                <tr>
+                    <td>Active Workflows</td>
+                    <td>{{ overview_stats.active }}</td>
+                    <td>{% widthratio overview_stats.active overview_stats.total 100 %}%</td>
+                </tr>
+                <tr>
+                    <td>Completed Workflows</td>
+                    <td>{{ overview_stats.completed }}</td>
+                    <td>{% widthratio overview_stats.completed overview_stats.total 100 %}%</td>
+                </tr>
+                <tr>
+                    <td>Overdue Workflows</td>
+                    <td>{{ overview_stats.overdue }}</td>
+                    <td>{% widthratio overview_stats.overdue overview_stats.total 100 %}%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section" style="margin-bottom: 20px;">
+        <h3 style="color: #1e3a8a; margin-bottom: 10px;">Breakdown by Type</h3>
+        <table style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th>Workflow Type</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in overview_stats.by_type %}
+                <tr>
+                    <td>{{ item.workflow_type__name }}</td>
+                    <td>{{ item.count }}</td>
+                    <td>{% widthratio item.count overview_stats.total 100 %}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section" style="margin-bottom: 20px;">
+        <h3 style="color: #1e3a8a; margin-bottom: 10px;">Breakdown by State</h3>
+        <table style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th>State</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in overview_stats.by_state %}
+                <tr>
+                    <td>{{ item.current_state__name }}</td>
+                    <td>{{ item.count }}</td>
+                    <td>{% widthratio item.count overview_stats.total 100 %}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section" style="margin-bottom: 20px;">
+        <h3 style="color: #1e3a8a; margin-bottom: 10px;">Breakdown by Priority</h3>
+        <table style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th>Priority</th>
+                    <th>Count</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in overview_stats.by_priority %}
+                <tr>
+                    <td class="capitalize">{{ item.priority|title }}</td>
+                    <td>{{ item.count }}</td>
+                    <td>{% widthratio item.count overview_stats.total 100 %}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Hierarchical Workflow Structure -->
+    {% if parent_workflows %}
+    <div class="section" style="margin-bottom: 20px; margin-top: 30px;">
+        <h3 style="color: #1e3a8a; margin-bottom: 10px;">Workflow Hierarchy</h3>
+        <table style="margin-top: 10px;">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Workflow Title</th>
+                    <th style="width: 10%;">Type</th>
+                    <th style="width: 12%;">State</th>
+                    <th style="width: 8%;">Priority</th>
+                    <th style="width: 12%;">Owner</th>
+                    <th style="width: 10%;">Created</th>
+                    <th style="width: 10%;">Deadline</th>
+                    <th style="width: 8%;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for parent in parent_workflows %}
+                <tr style="background-color: #e0e7ff; font-weight: bold;">
+                    <td>📁 {{ parent.title }}</td>
+                    <td>{{ parent.workflow_type.name }}</td>
+                    <td>{{ parent.current_state.name }}</td>
+                    <td>
+                        {% if parent.priority == 'urgent' %}
+                        <span class="badge badge-urgent">Urgent</span>
+                        {% elif parent.priority == 'high' %}
+                        <span class="badge badge-high">High</span>
+                        {% elif parent.priority == 'medium' %}
+                        <span class="badge badge-medium">Medium</span>
+                        {% else %}
+                        <span class="badge badge-low">Low</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ parent.owner.get_full_name|default:parent.owner.username }}</td>
+                    <td>{{ parent.created_at|date:"Y-m-d" }}</td>
+                    <td>{{ parent.deadline|date:"Y-m-d"|default:"—" }}</td>
+                    <td>
+                        {% if parent.deadline and parent.deadline < generated_on and not parent.current_state.is_terminal %}
+                        <span class="badge badge-overdue">Overdue</span>
+                        {% elif parent.current_state.is_terminal %}
+                        <span class="badge badge-complete">Complete</span>
+                        {% else %}
+                        <span class="badge badge-active">Active</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% for child in parent.sub_workflows.all %}
+                <tr>
+                    <td style="padding-left: 30px;">└─ {{ child.title }}</td>
+                    <td>{{ child.workflow_type.name }}</td>
+                    <td>{{ child.current_state.name }}</td>
+                    <td>
+                        {% if child.priority == 'urgent' %}
+                        <span class="badge badge-urgent">Urgent</span>
+                        {% elif child.priority == 'high' %}
+                        <span class="badge badge-high">High</span>
+                        {% elif child.priority == 'medium' %}
+                        <span class="badge badge-medium">Medium</span>
+                        {% else %}
+                        <span class="badge badge-low">Low</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ child.owner.get_full_name|default:child.owner.username }}</td>
+                    <td>{{ child.created_at|date:"Y-m-d" }}</td>
+                    <td>{{ child.deadline|date:"Y-m-d"|default:"—" }}</td>
+                    <td>
+                        {% if child.deadline and child.deadline < generated_on and not child.current_state.is_terminal %}
+                        <span class="badge badge-overdue">Overdue</span>
+                        {% elif child.current_state.is_terminal %}
+                        <span class="badge badge-complete">Complete</span>
+                        {% else %}
+                        <span class="badge badge-active">Active</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 20px; color: #666;">
+                        No parent workflows found
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <h3 style="color: #1e3a8a; margin-bottom: 10px; margin-top: 30px;">Detailed Workflow List</h3>
     <table>
         <thead>
             <tr>
@@ -223,8 +439,8 @@
             {% endfor %}
         </tbody>
     </table>
-    {% else %}
-    <!-- Recent Activity Report -->
+    {% elif report_type == 'activity' %}
+    <!-- Activity Report -->
     <table>
         <thead>
             <tr>
@@ -258,7 +474,7 @@
     {% endif %}
 
     <div class="footer">
-        This report contains workflow data from the Parliamentary Workflow Management System.
+        This report contains workflow data from the Parliament Workflow System.
     </div>
 </body>
 </html>
