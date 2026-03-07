@@ -23,13 +23,13 @@
 <!-- Draft -->
 <g id="node1" class="node">
 <title>Draft</title>
-<ellipse fill="#00aaff" stroke="black" cx="151.75" cy="-407.5" rx="30.37" ry="18"/>
+<ellipse fill="#b3995d" stroke="black" cx="151.75" cy="-407.5" rx="30.37" ry="18"/>
 <text xml:space="preserve" text-anchor="middle" x="151.75" y="-402.45" font-family="Times,serif" font-size="14.00" fill="white">Draft</text>
 </g>
 <!-- Approved -->
 <g id="node3" class="node">
 <title>Approved</title>
-<polygon fill="#00aaff" stroke="black" points="186.75,-310.75 116.75,-310.75 116.75,-274.75 186.75,-274.75 186.75,-310.75"/>
+<polygon fill="#b3995d" stroke="black" points="186.75,-310.75 116.75,-310.75 116.75,-274.75 186.75,-274.75 186.75,-310.75"/>
 <text xml:space="preserve" text-anchor="middle" x="151.75" y="-287.7" font-family="Times,serif" font-size="14.00" fill="white">Approved</text>
 </g>
 <!-- Draft&#45;&gt;Approved -->
@@ -42,13 +42,13 @@
 <!-- Adoption -->
 <g id="node2" class="node">
 <title>Adoption</title>
-<polygon fill="#00aaff" stroke="black" points="194.25,-52 127.25,-52 127.25,-16 194.25,-16 194.25,-52"/>
+<polygon fill="#b3995d" stroke="black" points="194.25,-52 127.25,-52 127.25,-16 194.25,-16 194.25,-52"/>
 <text xml:space="preserve" text-anchor="middle" x="160.75" y="-28.95" font-family="Times,serif" font-size="14.00" fill="white">Adoption</text>
 </g>
 <!-- Sent for Tabling -->
 <g id="node5" class="node">
 <title>Sent for Tabling</title>
-<polygon fill="#00aaff" stroke="black" points="213,-224.5 108.5,-224.5 108.5,-188.5 213,-188.5 213,-224.5"/>
+<polygon fill="#b3995d" stroke="black" points="213,-224.5 108.5,-224.5 108.5,-188.5 213,-188.5 213,-224.5"/>
 <text xml:space="preserve" text-anchor="middle" x="160.75" y="-201.45" font-family="Times,serif" font-size="14.00" fill="white">Sent for Tabling</text>
 </g>
 <!-- Approved&#45;&gt;Sent for Tabling -->
@@ -61,7 +61,7 @@
 <!-- Scheduled -->
 <g id="node4" class="node">
 <title>Scheduled</title>
-<polygon fill="#00aaff" stroke="black" points="196.88,-138.25 124.62,-138.25 124.62,-102.25 196.88,-102.25 196.88,-138.25"/>
+<polygon fill="#b3995d" stroke="black" points="196.88,-138.25 124.62,-138.25 124.62,-102.25 196.88,-102.25 196.88,-138.25"/>
 <text xml:space="preserve" text-anchor="middle" x="160.75" y="-115.2" font-family="Times,serif" font-size="14.00" fill="white">Scheduled</text>
 </g>
 <!-- Scheduled&#45;&gt;Adoption -->
