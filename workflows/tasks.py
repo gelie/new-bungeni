@@ -28,7 +28,7 @@ def send_transition_alert(
         return 0
 
     subject = (
-        f"[Bungeni] {workflow_type_name}: '{workflow_title}' moved to {to_state_name}"
+        f"[PWMS] {workflow_type_name}: '{workflow_title}' moved to {to_state_name}"
     )
 
     message = (
@@ -42,7 +42,7 @@ def send_transition_alert(
         f"View the workflow:\n"
         f"{site_url}/workflows/{workflow_id}/\n\n"
         f"--\n"
-        f"This is an automated notification from Bungeni."
+        f"This is an automated notification from Parliament Workflow System."
     )
 
     html_message = (
@@ -66,7 +66,7 @@ def send_transition_alert(
         f"style='background:#1d4ed8;color:#fff;padding:8px 16px;border-radius:6px;"
         f"text-decoration:none;font-size:14px'>View Workflow</a></p>"
         f"<p style='margin-top:24px;font-size:12px;color:#9ca3af'>"
-        f"This is an automated notification from Bungeni.</p>"
+        f"This is an automated notification from Parliament Workflow System.</p>"
     )
 
     sent = send_mail(
@@ -167,7 +167,9 @@ def notify_overdue_workflows(
 
             # Send email if user has an address
             if user.email:
-                email_subject = f"[Bungeni] Overdue: {workflow.workflow_type.name} — {workflow.title}"
+                email_subject = (
+                    f"[PWS] Overdue: {workflow.workflow_type.name} — {workflow.title}"
+                )
                 plain = (
                     f"This is a reminder that the following workflow is overdue.\n\n"
                     f"Workflow:      {workflow.title}\n"
@@ -180,7 +182,7 @@ def notify_overdue_workflows(
                         if site_url
                         else ""
                     )
-                    + "--\nThis is an automated notification from Bungeni."
+                    + "--\nThis is an automated notification from Parliament Workflow System."
                 )
                 html_message = (
                     f"<p>This is a reminder that the following workflow is <strong>overdue</strong>.</p>"
@@ -205,7 +207,7 @@ def notify_overdue_workflows(
                         else ""
                     )
                     + "<p style='margin-top:24px;font-size:12px;color:#9ca3af'>"
-                    "This is an automated notification from Bungeni.</p>"
+                    "This is an automated notification from Parliament Workflow System.</p>"
                 )
                 send_mail(
                     subject=email_subject,

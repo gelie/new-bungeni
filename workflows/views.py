@@ -891,9 +891,9 @@ def event_export(request, pk):
     # Create iCal content
     ical_content = f"""BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Bungeni//Event Export//EN
+PRODID:-//PWS//Event Export//EN
 BEGIN:VEVENT
-UID:{event.pk}@bungeni.local
+UID:{event.pk}@pws.local
 DTSTART:{event.start_datetime.strftime("%Y%m%dT%H%M%S")}
 DTEND:{event.end_datetime.strftime("%Y%m%dT%H%M%S")}
 SUMMARY:{event.title}
@@ -4079,3 +4079,112 @@ def role_admin(request):
     }
 
     return context
+
+
+@login_required
+def workflow_report(request, pk):
+    """Generate comprehensive workflow report."""
+    workflow = get_object_or_404(Workflow, pk=pk)
+
+    # Check if user can view this workflow
+    if not workflow.can_user_view(request.user):
+        messages.error(request, "You do not have permission to view this workflow.")
+        return redirect("workflow_list")
+
+    export_format = request.GET.get("format", "html")
+
+    if export_format == "pdf":
+        from .report_utils import export_workflow_to_pdf
+
+        return export_workflow_to_pdf(workflow, request.user)
+    else:
+        from .report_utils import generate_workflow_report_html
+
+        html_content = generate_workflow_report_html(workflow, request.user)
+        return HttpResponse(html_content)
+
+
+@login_required
+@require_http_methods(["POST"])
+def workflow_share_email(request, pk):
+    """Share workflow via email."""
+    workflow = get_object_or_404(Workflow, pk=pk)
+
+    # Check if user can view this workflow
+    if not workflow.can_user_view(request.user):
+        return JsonResponse(
+            {"success": False, "error": "Permission denied"}, status=403
+        )
+
+    recipient_email = request.POST.get("email")
+    custom_message = request.POST.get("message", "")
+
+    if not recipient_email:
+        return JsonResponse({"success": False, "error": "Email address is required"})
+
+    try:
+        from django.core.mail import send_mail
+
+        # Build the workflow URL
+        workflow_url = request.build_absolute_uri(f"/workflows/{workflow.pk}/")
+        report_url = request.build_absolute_uri(
+            f"/workflows/{workflow.pk}/report/?format=html"
+        )
+
+        # Render email content
+        # For HTML email
+        # context = {
+        #     "workflow": workflow,
+        #     "workflow_url": workflow_url,
+        #     "report_url": report_url,
+        #     "sender": request.user,
+        #     "custom_message": custom_message,
+        # }
+
+        # # Render HTML email from template
+        # from django.template.loader import render_to_string
+        # html_message = render_to_string('emails/workflow_share.html', context)
+
+        # Plain text fallback (for email clients that don't support HTML)
+        subject = f"Workflow Shared: {workflow.title}"
+        plain_message = f"""
+Hello,
+
+{request.user.get_full_name() or request.user.username} has shared a workflow with you:
+
+Workflow: {workflow.title}
+Type: {workflow.workflow_type.name}
+Status: {workflow.current_state.name}
+
+{custom_message}
+
+View Workflow: {workflow_url}
+View Report: {report_url}
+
+---
+Parliament Workflow System
+"""
+
+        # Send email
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=None,  # Uses DEFAULT_FROM_EMAIL from settings
+            recipient_list=[recipient_email],
+            # html_message=html_message,  # This is the key parameter for HTML emails
+            fail_silently=False,
+        )
+
+        # Log the share action
+        AuditLog.objects.create(
+            object_id=workflow.pk,
+            content_type=ContentType.objects.get_for_model(workflow),
+            user=request.user,
+            action="shared",
+            changes={"shared_via_email": recipient_email},
+        )
+
+        return JsonResponse({"success": True})
+
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})

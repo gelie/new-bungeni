@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ workflow.title }} - Bungeni{% endblock %}
+{% block title %}{{ workflow.title }} {% endblock %}
 
 {% partialdef content %}
 <div class="space-y-6">
@@ -105,11 +105,21 @@
                             {% lucide "chevron-down" class="w-5 h-5" %}
                             Actions
                         </label>
-                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
+                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
                             <li><a href="{% url 'workflow_edit' workflow.pk %}">{% lucide "pencil" class="w-4 h-4" %}
                                     Edit</a></li>
-                            <li><a>{% lucide "share-2" class="w-4 h-4" %} Share</a></li>
-                            <li><a>{% lucide "download" class="w-4 h-4" %} Export</a></li>
+                            <li><a onclick="showShareModal()">{% lucide "share-2" class="w-4 h-4" %} Share</a></li>
+                            <li>
+                                <details>
+                                    <summary>{% lucide "download" class="w-4 h-4" %} Export</summary>
+                                    <ul>
+                                        <li><a href="{% url 'workflow_report' workflow.pk %}?format=html" target="_blank">
+                                            {% lucide "file-text" class="w-4 h-4" %} View Report (HTML)</a></li>
+                                        <li><a href="{% url 'workflow_report' workflow.pk %}?format=pdf">
+                                            {% lucide "file-down" class="w-4 h-4" %} Download PDF</a></li>
+                                    </ul>
+                                </details>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -2783,6 +2793,144 @@
   });
 </script>
 {% endif %}
+
+<!-- Share Modal -->
+<div id="share-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-base-100 rounded-lg p-6 w-full max-w-md">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Share Workflow</h3>
+            <button onclick="hideShareModal()" class="text-base-content/50 hover:text-base-content">
+                {% lucide "x" class="w-5 h-5" %}
+            </button>
+        </div>
+
+        <!-- Share Options -->
+        <div class="space-y-4">
+            <!-- Copy Link -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Share Link</label>
+                <div class="flex gap-2">
+                    <input type="text" id="share-link" readonly
+                        value="{{ request.scheme }}://{{ request.get_host }}{% url 'workflow_detail' workflow.pk %}"
+                        class="input input-bordered flex-1 text-sm">
+                    <button onclick="copyShareLink()" class="btn btn-primary">
+                        {% lucide "copy" class="w-4 h-4" %}
+                    </button>
+                </div>
+                <p class="text-xs text-base-content/60 mt-1">Anyone with this link can view the workflow</p>
+            </div>
+
+            <!-- Report Link -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Report Link</label>
+                <div class="flex gap-2">
+                    <input type="text" id="report-link" readonly
+                        value="{{ request.scheme }}://{{ request.get_host }}{% url 'workflow_report' workflow.pk %}?format=html"
+                        class="input input-bordered flex-1 text-sm">
+                    <button onclick="copyReportLink()" class="btn btn-primary">
+                        {% lucide "copy" class="w-4 h-4" %}
+                    </button>
+                </div>
+                <p class="text-xs text-base-content/60 mt-1">Share the comprehensive report view</p>
+            </div>
+
+            <!-- Email Share -->
+            <div>
+                <label class="block text-sm font-medium mb-2">Share via Email</label>
+                <form id="email-share-form" class="space-y-3">
+                    {% csrf_token %}
+                    <input type="email" name="email" placeholder="recipient@example.com"
+                        class="input input-bordered w-full" required>
+                    <textarea name="message" placeholder="Optional message..."
+                        class="textarea textarea-bordered w-full" rows="3"></textarea>
+                    <button type="submit" class="btn btn-primary w-full">
+                        {% lucide "mail" class="w-4 h-4 mr-2" %}
+                        Send Email
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showShareModal() {
+        document.getElementById('share-modal').classList.remove('hidden');
+    }
+
+    function hideShareModal() {
+        document.getElementById('share-modal').classList.add('hidden');
+    }
+
+    function copyShareLink() {
+        const input = document.getElementById('share-link');
+        input.select();
+        document.execCommand('copy');
+
+        // Show feedback
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '✓';
+        btn.classList.add('btn-success');
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+        }, 2000);
+    }
+
+    function copyReportLink() {
+        const input = document.getElementById('report-link');
+        input.select();
+        document.execCommand('copy');
+
+        // Show feedback
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '✓';
+        btn.classList.add('btn-success');
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+        }, 2000);
+    }
+
+    // Handle email share form submission
+    document.getElementById('email-share-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalHTML = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Sending...';
+
+        fetch('{% url "workflow_share_email" workflow.pk %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Email sent successfully!');
+                this.reset();
+                hideShareModal();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to send email'));
+            }
+        })
+        .catch(error => {
+            alert('Error sending email: ' + error.message);
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHTML;
+        });
+    });
+</script>
+
 {% endpartialdef %}
 
 {% block content %}
