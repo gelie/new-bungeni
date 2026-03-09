@@ -48,8 +48,8 @@
               placeholder="Describe the purpose and scope of this workflow..."></textarea>
           </div>
 
-          <!-- Workflow Type / Priority / Deadline row -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Workflow Type / Group / Priority / Deadline row -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
             <!-- Workflow Type (read-only display) -->
             <div class="form-control">
@@ -64,6 +64,23 @@
                 {% endfor %}
               </select>
               <input type="hidden" name="workflow_type" value="{{ preselected_type }}" />
+            </div>
+
+            <!-- Group Selection -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Owning Group *</span>
+                <span class="label-text-alt text-base-content/70">Required</span>
+              </label>
+              <select name="group" class="select select-bordered w-full" required>
+                <option value="">Select a group...</option>
+                {% for group in user_groups %}
+                <option value="{{ group.pk }}">{{ group.name }}</option>
+                {% endfor %}
+              </select>
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">Which group owns this workflow</span>
+              </label>
             </div>
 
             <!-- Priority -->

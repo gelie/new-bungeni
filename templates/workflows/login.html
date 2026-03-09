@@ -1,7 +1,6 @@
 {% extends 'base.html' %}
-{% load lucide %}
 
-{% block content %}
+{% partialdef content%}
 <style>
     :root {
         --parliament-green: #006838;
@@ -119,5 +118,8 @@
 
     });
 </script>
+{% endpartialdef content %}
 
+{% block content %}
+{% partial content %}
 {% endblock content %}

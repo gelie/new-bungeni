@@ -88,6 +88,7 @@ def htmx_partial(template_name):
 # ============================================================================
 
 
+@htmx_partial("workflows/login.html")
 def login_view(request):
     """User login view"""
     if request.user.is_authenticated:
@@ -106,8 +107,8 @@ def login_view(request):
             return redirect("dashboard")
         else:
             messages.error(request, "Invalid username or password.")
-
-    return render(request, "workflows/login.html")
+    return {}
+    # return render(request, "workflows/login.html")
 
 
 def logout_view(request):
@@ -140,9 +141,17 @@ def dashboard(request):
             "workflow_type", "current_state", "owner"
         )
     else:
-        workflows = Workflow.objects.filter(
-            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-        ).select_related("workflow_type", "current_state", "owner")
+        # Use new RBAC system: workflows where user's groups have access
+        # OR legacy system: workflows from user's groups or referred to user's groups
+        workflows = (
+            Workflow.objects.filter(
+                Q(group_access__group__in=user_groups)
+                | Q(workflow_type__group__in=user_groups)
+                | Q(referred_to__in=user_groups)
+            )
+            .distinct()
+            .select_related("workflow_type", "current_state", "owner")
+        )
 
     # Statistics
     total_workflows = workflows.count()
@@ -294,15 +303,22 @@ def workflow_list(request):
             "parent_workflow",
         )
     else:
-        workflows = Workflow.objects.filter(
-            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups),
-            parent_workflow__isnull=True,
-        ).select_related(
-            "workflow_type",
-            "current_state",
-            "owner",
-            "assigned_to",
-            "parent_workflow",
+        # Use new RBAC system with fallback to legacy
+        workflows = (
+            Workflow.objects.filter(
+                Q(group_access__group__in=user_groups)
+                | Q(workflow_type__group__in=user_groups)
+                | Q(referred_to__in=user_groups),
+                parent_workflow__isnull=True,
+            )
+            .distinct()
+            .select_related(
+                "workflow_type",
+                "current_state",
+                "owner",
+                "assigned_to",
+                "parent_workflow",
+            )
         )
 
     # Filters
@@ -449,12 +465,15 @@ def workflow_create(request):
             )
 
         # Get available events for the user's groups
-        user_groups = user.memberships.filter(is_active=True).values_list(
+        user_group_ids = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
         )
         available_events = Event.objects.filter(
-            group__in=user_groups, status__in=["scheduled", "in_progress"]
+            group__in=user_group_ids, status__in=["scheduled", "in_progress"]
         ).order_by("start_datetime")
+
+        # Get user's groups for group selection
+        user_groups = Group.objects.filter(id__in=user_group_ids).order_by("name")
 
         context = {
             "workflow_types": workflow_types,
@@ -463,6 +482,7 @@ def workflow_create(request):
             "preselected_type": preselected_type,
             "preselected_type_name": preselected_type_name,
             "available_events": available_events,
+            "user_groups": user_groups,
         }
         if request.headers.get("HX-Request"):
             return render(request, "workflows/workflow_create.html#content", context)
@@ -570,6 +590,27 @@ def workflow_create(request):
         except Event.DoesNotExist:
             pass
 
+    # Get selected group
+    group_id = request.POST.get("group")
+    if not group_id:
+        messages.error(request, "Please select an owning group for the workflow.")
+        return redirect("workflow_create")
+
+    try:
+        selected_group = Group.objects.get(pk=group_id)
+        # Verify user is a member of the selected group
+        if (
+            not user.is_superuser
+            and not user.memberships.filter(
+                group=selected_group, is_active=True
+            ).exists()
+        ):
+            messages.error(request, "You must be a member of the selected group.")
+            return redirect("workflow_create")
+    except Group.DoesNotExist:
+        messages.error(request, "Invalid group selected.")
+        return redirect("workflow_create")
+
     workflow = Workflow.objects.create(
         workflow_type=workflow_type,
         title=title,
@@ -584,9 +625,17 @@ def workflow_create(request):
         event=event,
     )
 
+    # Create RBAC group access for the selected group
+    # Permissions are now determined by the user's Role within the group
+    workflow.add_group_access(
+        group=selected_group,
+        is_primary=True,
+        granted_by=user,
+        notes=f"Primary group selected at creation by {user.get_full_name() or user.username}",
+    )
+
     messages.success(request, f"Workflow created: {workflow.title}")
-    return context
-    # return redirect("workflow_detail", pk=workflow.pk)
+    return redirect("workflow_detail", pk=workflow.pk)
 
 
 @login_required
@@ -685,6 +734,25 @@ def workflow_bulk_create(request, parent_pk):
             parent_workflow=parent,
             relationship_type=relationship_type,
         )
+
+        # Create group access - inherit from parent's primary group
+        parent_primary_access = parent.group_access.filter(is_primary=True).first()
+        if parent_primary_access:
+            wf.add_group_access(
+                group=parent_primary_access.group,
+                is_primary=True,
+                granted_by=request.user,
+                notes=f"Inherited from parent workflow: {parent.title}",
+            )
+        else:
+            # Fallback: use WorkflowType's group (legacy)
+            wf.add_group_access(
+                group=workflow_type.group,
+                is_primary=True,
+                granted_by=request.user,
+                notes="Auto-assigned from WorkflowType (parent had no group access)",
+            )
+
         created.append({"id": wf.pk, "title": wf.title})
 
     if not created:
@@ -1781,9 +1849,15 @@ def reports(request):
             "workflow_type", "current_state", "owner"
         )
     else:
-        base_workflows = Workflow.objects.filter(
-            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-        ).select_related("workflow_type", "current_state", "owner")
+        base_workflows = (
+            Workflow.objects.filter(
+                Q(group_access__group__in=user_groups)
+                | Q(workflow_type__group__in=user_groups)
+                | Q(referred_to__in=user_groups)
+            )
+            .distinct()
+            .select_related("workflow_type", "current_state", "owner")
+        )
 
     # Apply custom report filters
     workflows, filter_params = _apply_report_filters(base_workflows, request)
@@ -1916,9 +1990,15 @@ def reports_export_csv(request):
             "workflow_type", "current_state", "owner"
         )
     else:
-        base_workflows = Workflow.objects.filter(
-            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-        ).select_related("workflow_type", "current_state", "owner")
+        base_workflows = (
+            Workflow.objects.filter(
+                Q(group_access__group__in=user_groups)
+                | Q(workflow_type__group__in=user_groups)
+                | Q(referred_to__in=user_groups)
+            )
+            .distinct()
+            .select_related("workflow_type", "current_state", "owner")
+        )
 
     workflows, filter_params = _apply_report_filters(base_workflows, request)
 
@@ -2055,9 +2135,15 @@ def reports_export_excel(request):
             "workflow_type", "current_state", "owner"
         )
     else:
-        base_workflows = Workflow.objects.filter(
-            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-        ).select_related("workflow_type", "current_state", "owner")
+        base_workflows = (
+            Workflow.objects.filter(
+                Q(group_access__group__in=user_groups)
+                | Q(workflow_type__group__in=user_groups)
+                | Q(referred_to__in=user_groups)
+            )
+            .distinct()
+            .select_related("workflow_type", "current_state", "owner")
+        )
 
     workflows, filter_params = _apply_report_filters(base_workflows, request)
 
@@ -2312,9 +2398,15 @@ def reports_recent_activity_pdf(request):
             "workflow_type", "current_state", "owner"
         )
     else:
-        base_workflows = Workflow.objects.filter(
-            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-        ).select_related("workflow_type", "current_state", "owner")
+        base_workflows = (
+            Workflow.objects.filter(
+                Q(group_access__group__in=user_groups)
+                | Q(workflow_type__group__in=user_groups)
+                | Q(referred_to__in=user_groups)
+            )
+            .distinct()
+            .select_related("workflow_type", "current_state", "owner")
+        )
 
     # Get report type (activity or overview)
     report_type = request.GET.get("report_type", "activity")

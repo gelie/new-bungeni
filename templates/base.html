@@ -39,16 +39,17 @@
     </main>
   </div>
   <script>
+    (function() {
     // Initialize Lucide icons
     // lucide.createIcons();
 
     // Theme toggle
-    function toggleTheme() {
+    window.toggleTheme = function() {
       const html = document.documentElement;
       const currentTheme = html.getAttribute('data-theme') || 'emerald';
       const newTheme = currentTheme === 'emerald' ? 'dim' : 'emerald';
       html.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
+      localStorage.setItem('daisyui-theme', newTheme);
 
       // Toggle icon visibility
       document.querySelectorAll('.theme-icon-light').forEach(el => {
@@ -60,7 +61,7 @@
     }
 
     // Load saved theme
-    const savedTheme = localStorage.getItem('theme') || 'emerald';
+    const savedTheme = localStorage.getItem('daisyui-theme') || 'emerald';
     document.documentElement.setAttribute('data-theme', savedTheme);
     if (savedTheme === 'dim') {
       document.querySelectorAll('.theme-icon-light').forEach(el => {
@@ -376,6 +377,7 @@
       loadSidebarState();
       setActivePanelFromPage();
     });
+    })();
   </script>
 </body>
 

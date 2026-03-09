@@ -303,11 +303,47 @@ class Role(models.Model):
     """
     Roles that users can have within groups.
     Examples: Chairperson, Secretary, Member, Speaker, Minister, etc.
+
+    Workflow Permissions:
+    These fields define the default workflow permissions for users with this role.
+    When a user with this role is a member of a group that has access to a workflow,
+    these permissions determine what actions they can perform.
     """
 
     name = models.CharField(max_length=100, unique=True)
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
+
+    # Workflow permissions - define what users with this role can do
+    can_view_workflows = models.BooleanField(
+        default=True,
+        help_text="Users with this role can view workflows in their groups",
+    )
+    can_edit_workflows = models.BooleanField(
+        default=False,
+        help_text="Users with this role can edit workflows in their groups",
+    )
+    can_delete_workflows = models.BooleanField(
+        default=False,
+        help_text="Users with this role can delete workflows in their groups",
+    )
+    can_transition_workflows = models.BooleanField(
+        default=False,
+        help_text="Users with this role can perform state transitions on workflows",
+    )
+    can_create_workflows = models.BooleanField(
+        default=False,
+        help_text="Users with this role can create new workflows for their groups",
+    )
+    can_assign_workflows = models.BooleanField(
+        default=False,
+        help_text="Users with this role can assign workflows to other users",
+    )
+    can_manage_permissions = models.BooleanField(
+        default=False,
+        help_text="Users with this role can grant/revoke workflow access to other groups",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -319,6 +355,18 @@ class Role(models.Model):
 
     def get_absolute_url(self):
         return reverse("bungeni:role_detail", kwargs={"slug": self.slug})
+
+    def get_workflow_permissions(self):
+        """Return a dictionary of workflow permissions for this role."""
+        return {
+            "can_view": self.can_view_workflows,
+            "can_edit": self.can_edit_workflows,
+            "can_delete": self.can_delete_workflows,
+            "can_transition": self.can_transition_workflows,
+            "can_create": self.can_create_workflows,
+            "can_assign": self.can_assign_workflows,
+            "can_manage_permissions": self.can_manage_permissions,
+        }
 
 
 class GroupMembership(models.Model):
@@ -797,11 +845,31 @@ class Workflow(models.Model):
 
     def get_available_transitions(self, user):
         """Get transitions available to a user from current state"""
-        user_roles = list(
-            user.memberships.filter(
-                group=self.effective_group, is_active=True
-            ).values_list("role", flat=True)
-        )
+        user_roles = []
+
+        # Check RBAC WorkflowGroupAccess first
+        if self.group_access.exists():
+            # Get user's roles in groups that have access to this workflow
+            user_memberships = user.memberships.filter(is_active=True).select_related(
+                "role", "group"
+            )
+            accessible_groups = self.group_access.filter(
+                group__in=user_memberships.values_list("group", flat=True)
+            )
+
+            for group_access in accessible_groups:
+                # Get user's roles in this specific group
+                roles_in_group = user_memberships.filter(
+                    group=group_access.group
+                ).values_list("role", flat=True)
+                user_roles.extend(roles_in_group)
+        else:
+            # Fallback to legacy system: check effective_group
+            user_roles = list(
+                user.memberships.filter(
+                    group=self.effective_group, is_active=True
+                ).values_list("role", flat=True)
+            )
 
         # Referred group: only roles explicitly allowed by the referral config
         if self.referred_to:
@@ -852,12 +920,89 @@ class Workflow(models.Model):
             self.referred_to and self.referred_to.id in user_groups
         )
 
+    def _check_rbac_permission(self, user, permission_type):
+        """
+        Check RBAC permissions using Role-based system.
+        permission_type: 'view', 'edit', 'delete', 'transition', 'assign', or 'manage_permissions'
+        Returns True if user has the specified permission.
+
+        Permission hierarchy:
+        1. Check if workflow owner (always has full permissions except manage_permissions)
+        2. Check WorkflowRolePermission overrides (if configured for this workflow)
+        3. Check Role's default workflow permissions
+        4. Fallback to WorkflowGroupAccess group-level permissions (legacy)
+        """
+        # Owner always has full permissions (except manage_permissions which is role-based)
+        if user == self.owner and permission_type != "manage_permissions":
+            return True
+
+        # Get all group access records for this workflow where user is a member
+        user_memberships = user.memberships.filter(is_active=True).select_related(
+            "role", "group"
+        )
+        accessible_groups = self.group_access.filter(
+            group__in=user_memberships.values_list("group", flat=True)
+        ).prefetch_related("role_permissions")
+
+        for group_access in accessible_groups:
+            # Get user's memberships in this specific group
+            memberships_in_group = user_memberships.filter(group=group_access.group)
+
+            for membership in memberships_in_group:
+                role = membership.role
+
+                # 1. Check WorkflowRolePermission overrides first (workflow-specific)
+                role_perm = group_access.role_permissions.filter(role=role).first()
+                if role_perm:
+                    # If state-specific permissions are defined, check current state
+                    if role_perm.allowed_states.exists():
+                        if self.current_state not in role_perm.allowed_states.all():
+                            continue
+
+                    # Check the specific permission from override
+                    if permission_type == "view" and role_perm.can_view:
+                        return True
+                    elif permission_type == "edit" and role_perm.can_edit:
+                        return True
+                    elif permission_type == "delete" and role_perm.can_delete:
+                        return True
+                    elif permission_type == "transition" and role_perm.can_transition:
+                        return True
+                    continue  # Override exists, don't check role defaults
+
+                # 2. Check Role's default workflow permissions
+                if permission_type == "view" and role.can_view_workflows:
+                    return True
+                elif permission_type == "edit" and role.can_edit_workflows:
+                    return True
+                elif permission_type == "delete" and role.can_delete_workflows:
+                    return True
+                elif permission_type == "transition" and role.can_transition_workflows:
+                    return True
+                elif permission_type == "assign" and role.can_assign_workflows:
+                    return True
+                elif (
+                    permission_type == "manage_permissions"
+                    and role.can_manage_permissions
+                ):
+                    return True
+
+        return False
+
     def can_user_view(self, user):
-        """Check if user can view this workflow."""
+        """Check if user can view this workflow using RBAC system."""
         if user.is_superuser:
             return True
+
+        # Check new RBAC system first
+        if self.group_access.exists():
+            if self._check_rbac_permission(user, "view"):
+                return True
+
+        # Fallback to legacy permission system for backward compatibility
         if not self._user_in_workflow_groups(user):
             return False
+
         # Members of the referred group always get view access
         if self.referred_to:
             referred_member = user.memberships.filter(
@@ -865,6 +1010,7 @@ class Workflow(models.Model):
             ).exists()
             if referred_member:
                 return True
+
         user_roles = self._user_roles_for_workflow(user)
         state_perms = self.current_state.permissions.all()
         if not state_perms.exists():
@@ -872,12 +1018,21 @@ class Workflow(models.Model):
         return state_perms.filter(role__in=user_roles, can_view=True).exists()
 
     def can_user_edit(self, user):
-        """Check if user can edit this workflow."""
+        """Check if user can edit this workflow using RBAC system."""
         if user.is_superuser:
             return True
+
+        # Check new RBAC system first
+        if self.group_access.exists():
+            if self._check_rbac_permission(user, "edit"):
+                return True
+
+        # Fallback to legacy permission system
         if not self._user_in_workflow_groups(user):
             return False
+
         user_roles = self._user_roles_for_workflow(user)
+
         # Check referral config for edit permission on referred group members
         if self.referred_to:
             referral = self.active_referral
@@ -890,20 +1045,78 @@ class Workflow(models.Model):
                 ).exists()
                 if in_referred:
                     return True
+
         return self.current_state.permissions.filter(
             role__in=user_roles, can_edit=True
         ).exists()
 
     def can_user_delete(self, user):
-        """Check if user can delete this workflow."""
+        """Check if user can delete this workflow using RBAC system."""
         if user.is_superuser:
             return True
+
+        # Check new RBAC system first
+        if self.group_access.exists():
+            if self._check_rbac_permission(user, "delete"):
+                return True
+
+        # Fallback to legacy permission system
         if not self._user_in_workflow_groups(user):
             return False
+
         user_roles = self._user_roles_for_workflow(user)
         return self.current_state.permissions.filter(
             role__in=user_roles, can_delete=True
         ).exists()
+
+    def get_accessible_groups(self):
+        """Get all groups that have access to this workflow."""
+        return Group.objects.filter(workflow_access__workflow=self).distinct()
+
+    def add_group_access(self, group, is_primary=False, granted_by=None, notes=""):
+        """
+        Helper method to add group access to this workflow.
+
+        NOTE: Permissions are now determined by the user's Role within the group.
+        This method only grants ACCESS to the workflow for the group.
+        Use WorkflowRolePermission to override Role defaults if needed.
+
+        Returns the created WorkflowGroupAccess instance.
+        """
+        from workflows.models import WorkflowGroupAccess
+
+        access, created = WorkflowGroupAccess.objects.get_or_create(
+            workflow=self,
+            group=group,
+            defaults={
+                "is_primary": is_primary,
+                "granted_by": granted_by,
+                "notes": notes,
+            },
+        )
+
+        if not created:
+            # Update existing access metadata
+            access.is_primary = is_primary
+            if granted_by:
+                access.granted_by = granted_by
+            if notes:
+                access.notes = notes
+            access.save()
+
+        return access
+
+    def can_user_assign(self, user):
+        """Check if user can assign this workflow to other users."""
+        if user.is_superuser or user == self.owner:
+            return True
+        return self._check_rbac_permission(user, "assign")
+
+    def can_user_manage_permissions(self, user):
+        """Check if user can grant/revoke group access to this workflow."""
+        if user.is_superuser:
+            return True
+        return self._check_rbac_permission(user, "manage_permissions")
 
 
 # ============================================================================
@@ -1011,6 +1224,144 @@ class WorkflowReferral(models.Model):
     @property
     def is_active(self):
         return self.recalled_at is None
+
+
+# ============================================================================
+# WORKFLOW PERMISSION MODELS (RBAC)
+# ============================================================================
+
+
+class WorkflowGroupAccess(models.Model):
+    """
+    Defines which groups have access to a specific workflow instance.
+    This decouples workflow access from WorkflowType, allowing instance-level
+    group assignment and multi-group access.
+
+    NOTE: Actual permissions are determined by the user's Role within the group.
+    This model only tracks WHICH groups have access, not WHAT they can do.
+    Use WorkflowRolePermission to override Role defaults for specific workflows.
+    """
+
+    workflow = models.ForeignKey(
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name="group_access",
+    )
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="workflow_access",
+    )
+
+    # Track if this was inherited from WorkflowType default or explicitly set
+    is_primary = models.BooleanField(
+        default=False, help_text="Primary owning group (typically selected at creation)"
+    )
+    inherited_from_type = models.BooleanField(
+        default=False,
+        help_text="Access was inherited from WorkflowType configuration (legacy)",
+    )
+
+    # Metadata
+    granted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="granted_workflow_access",
+        help_text="User who granted this access",
+    )
+    granted_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-is_primary", "group__name"]
+        unique_together = [["workflow", "group"]]
+        indexes = [
+            models.Index(fields=["workflow", "group"]),
+            models.Index(fields=["group"]),
+        ]
+
+    def __str__(self):
+        primary = " [PRIMARY]" if self.is_primary else ""
+        return f"{self.workflow.title} → {self.group.name}{primary}"
+
+    def get_role_permissions_summary(self):
+        """Get a summary of which roles have which permissions for this group access."""
+        from collections import defaultdict
+
+        summary = defaultdict(list)
+
+        # Get all role permissions configured for this workflow
+        for role_perm in self.role_permissions.all():
+            perms = []
+            if role_perm.can_view:
+                perms.append("view")
+            if role_perm.can_edit:
+                perms.append("edit")
+            if role_perm.can_delete:
+                perms.append("delete")
+            if role_perm.can_transition:
+                perms.append("transition")
+            summary[role_perm.role.name] = perms
+
+        return dict(summary)
+
+
+class WorkflowRolePermission(models.Model):
+    """
+    Fine-grained role-based permissions within a group's access to a workflow.
+    This allows specific roles within a group to have different permission levels.
+
+    If no role permissions are defined for a WorkflowGroupAccess, the group-level
+    permissions apply to all roles. If role permissions exist, they override
+    the group-level defaults for those specific roles.
+    """
+
+    group_access = models.ForeignKey(
+        WorkflowGroupAccess,
+        on_delete=models.CASCADE,
+        related_name="role_permissions",
+    )
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.CASCADE,
+        related_name="workflow_permissions",
+    )
+
+    # Override permissions for this specific role
+    can_view = models.BooleanField(default=True)
+    can_edit = models.BooleanField(default=False)
+    can_delete = models.BooleanField(default=False)
+    can_transition = models.BooleanField(default=False)
+
+    # State-specific permissions (optional, overrides state permissions)
+    allowed_states = models.ManyToManyField(
+        State,
+        blank=True,
+        related_name="role_workflow_permissions",
+        help_text="If specified, these permissions only apply in these states",
+    )
+
+    class Meta:
+        ordering = ["role__name"]
+        unique_together = [["group_access", "role"]]
+        indexes = [
+            models.Index(fields=["group_access", "role"]),
+        ]
+
+    def __str__(self):
+        perms = []
+        if self.can_view:
+            perms.append("view")
+        if self.can_edit:
+            perms.append("edit")
+        if self.can_delete:
+            perms.append("delete")
+        if self.can_transition:
+            perms.append("transition")
+        perm_str = ", ".join(perms) if perms else "none"
+        return f"{self.group_access.group.name} - {self.role.name}: [{perm_str}]"
 
 
 # ============================================================================

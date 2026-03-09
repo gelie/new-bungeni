@@ -23,7 +23,9 @@ from .models import (
     User,
     Venue,
     Workflow,
+    WorkflowGroupAccess,
     WorkflowReferral,
+    WorkflowRolePermission,
     WorkflowTransitionLog,
     WorkflowType,
     WorkflowTypeChildConfig,
@@ -85,8 +87,48 @@ class GroupAdmin(MPTTModelAdmin):
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
-    list_display = ["name", "description"]
-    search_fields = ["name"]
+    list_display = [
+        "name",
+        "can_view_workflows",
+        "can_edit_workflows",
+        "can_transition_workflows",
+        "can_create_workflows",
+        "can_delete_workflows",
+    ]
+    list_filter = [
+        "can_view_workflows",
+        "can_edit_workflows",
+        "can_transition_workflows",
+        "can_create_workflows",
+        "can_delete_workflows",
+        "can_assign_workflows",
+        "can_manage_permissions",
+    ]
+    search_fields = ["name", "description"]
+
+    fieldsets = (
+        (
+            "Basic Information",
+            {
+                "fields": ("name", "description"),
+            },
+        ),
+        (
+            "Workflow Permissions",
+            {
+                "fields": (
+                    "can_view_workflows",
+                    "can_edit_workflows",
+                    "can_delete_workflows",
+                    "can_transition_workflows",
+                    "can_create_workflows",
+                    "can_assign_workflows",
+                    "can_manage_permissions",
+                ),
+                "description": "Define what users with this role can do with workflows in their groups.",
+            },
+        ),
+    )
 
 
 @admin.register(GroupMembership)
@@ -211,6 +253,22 @@ class StatePermissionAdmin(admin.ModelAdmin):
     autocomplete_fields = ["state", "role"]
 
 
+class WorkflowGroupAccessInline(admin.TabularInline):
+    model = WorkflowGroupAccess
+    extra = 1
+    autocomplete_fields = ["group", "granted_by"]
+    fields = [
+        "group",
+        "is_primary",
+        "inherited_from_type",
+        "granted_by",
+        "notes",
+    ]
+    readonly_fields = ["granted_at"]
+    verbose_name = "Group Access"
+    verbose_name_plural = "Group Access (Permissions determined by Role)"
+
+
 @admin.register(Workflow)
 class WorkflowAdmin(admin.ModelAdmin):
     list_display = [
@@ -234,6 +292,7 @@ class WorkflowAdmin(admin.ModelAdmin):
     search_fields = ["title", "description"]
     date_hierarchy = "created_at"
     readonly_fields = ["created_at", "updated_at"]
+    inlines = [WorkflowGroupAccessInline]
 
     fieldsets = (
         ("Basic Information", {"fields": ("workflow_type", "title", "description")}),
@@ -287,6 +346,118 @@ class WorkflowTypeReferralConfigAdmin(admin.ModelAdmin):
     search_fields = ["workflow_type__name", "target_group__name", "label"]
     autocomplete_fields = ["workflow_type", "target_group"]
     filter_horizontal = ["referred_transition_roles", "referred_edit_roles"]
+
+
+class WorkflowRolePermissionInline(admin.TabularInline):
+    model = WorkflowRolePermission
+    extra = 0
+    autocomplete_fields = ["role"]
+    filter_horizontal = ["allowed_states"]
+    fields = [
+        "role",
+        "can_view",
+        "can_edit",
+        "can_delete",
+        "can_transition",
+        "allowed_states",
+    ]
+
+
+@admin.register(WorkflowGroupAccess)
+class WorkflowGroupAccessAdmin(admin.ModelAdmin):
+    list_display = [
+        "workflow",
+        "group",
+        "is_primary",
+        "inherited_from_type",
+        "granted_at",
+        "granted_by",
+    ]
+    list_filter = [
+        "is_primary",
+        "inherited_from_type",
+        "group",
+    ]
+    search_fields = ["workflow__title", "group__name", "notes"]
+    autocomplete_fields = ["workflow", "group", "granted_by"]
+    readonly_fields = ["granted_at"]
+    date_hierarchy = "granted_at"
+    inlines = [WorkflowRolePermissionInline]
+
+    fieldsets = (
+        (
+            "Access Configuration",
+            {
+                "fields": ("workflow", "group"),
+                "description": "Grant this group access to the workflow. Actual permissions are determined by user Roles.",
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": (
+                    "is_primary",
+                    "inherited_from_type",
+                    "granted_by",
+                    "granted_at",
+                    "notes",
+                ),
+            },
+        ),
+    )
+
+
+@admin.register(WorkflowRolePermission)
+class WorkflowRolePermissionAdmin(admin.ModelAdmin):
+    list_display = [
+        "group_access",
+        "role",
+        "can_view",
+        "can_edit",
+        "can_delete",
+        "can_transition",
+    ]
+    list_filter = [
+        "can_view",
+        "can_edit",
+        "can_delete",
+        "can_transition",
+        "role",
+    ]
+    search_fields = [
+        "group_access__workflow__title",
+        "group_access__group__name",
+        "role__name",
+    ]
+    autocomplete_fields = ["group_access", "role"]
+    filter_horizontal = ["allowed_states"]
+
+    fieldsets = (
+        (
+            "Role Permission",
+            {
+                "fields": ("group_access", "role"),
+            },
+        ),
+        (
+            "Permissions",
+            {
+                "fields": (
+                    "can_view",
+                    "can_edit",
+                    "can_delete",
+                    "can_transition",
+                ),
+            },
+        ),
+        (
+            "State Restrictions",
+            {
+                "fields": ("allowed_states",),
+                "description": "If specified, these permissions only apply when the workflow is in one of these states",
+            },
+        ),
+    )
 
 
 @admin.register(WorkflowReferral)
