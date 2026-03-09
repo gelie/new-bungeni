@@ -3,7 +3,6 @@
 
 {% block title %}Create Workflow Template {% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="max-w-4xl mx-auto">
   <!-- Breadcrumb -->
@@ -320,7 +319,6 @@
     </div>
   </div>
 </div>
-{% endpartialdef %}
 
 <script>
   document.addEventListener('DOMContentLoaded', function () {
@@ -334,7 +332,9 @@
     // Parse group data from data attribute
     let groupMap = {};
     try {
-      groupMap = JSON.parse(groupDataElement.getAttribute('data-groups') || '{}');
+      if (groupDataElement) {
+        groupMap = JSON.parse(groupDataElement.getAttribute('data-groups') || '{}');
+      }
     } catch (e) {
       console.error('Error parsing group data:', e);
     }
@@ -342,7 +342,9 @@
     // Parse group-roles mapping
     let groupRolesMap = {};
     try {
-      groupRolesMap = JSON.parse(groupRolesDataElement.getAttribute('data-group-roles') || '{}');
+      if (groupRolesDataElement) {
+        groupRolesMap = JSON.parse(groupRolesDataElement.getAttribute('data-group-roles') || '{}');
+      }
     } catch (e) {
       console.error('Error parsing group roles data:', e);
     }
@@ -374,18 +376,20 @@
       });
     }
 
-    groupInput.addEventListener('change', function () {
-      const selectedValue = this.value.toLowerCase();
-      const selectedId = groupMap[selectedValue];
+    if (groupInput && selectedGroupInput) {
+      groupInput.addEventListener('change', function () {
+        const selectedValue = this.value.toLowerCase();
+        const selectedId = groupMap[selectedValue];
 
-      if (selectedId) {
-        selectedGroupInput.value = selectedId;
-        filterRolesByGroup(selectedId);
-      } else {
-        selectedGroupInput.value = '';
-        filterRolesByGroup(null);
-      }
-    });
+        if (selectedId) {
+          selectedGroupInput.value = selectedId;
+          filterRolesByGroup(selectedId);
+        } else {
+          selectedGroupInput.value = '';
+          filterRolesByGroup(null);
+        }
+      });
+    }
 
     // Role dropdown functionality
     const roleDropdown = document.getElementById('role-dropdown');
@@ -395,55 +399,61 @@
     const selectedRolesInput = document.getElementById('selected-roles');
 
     // Toggle dropdown
-    roleDropdown.addEventListener('click', function () {
-      roleDropdownMenu.classList.toggle('hidden');
-      if (!roleDropdownMenu.classList.contains('hidden')) {
-        roleSearchInput.focus();
-      }
-    });
+    if (roleDropdown && roleDropdownMenu && roleSearchInput) {
+      roleDropdown.addEventListener('click', function () {
+        roleDropdownMenu.classList.toggle('hidden');
+        if (!roleDropdownMenu.classList.contains('hidden')) {
+          roleSearchInput.focus();
+        }
+      });
+    }
 
     // Close dropdown when clicking outside
-    document.addEventListener('click', function (event) {
-      if (!roleDropdown.contains(event.target) && !roleDropdownMenu.contains(event.target)) {
-        roleDropdownMenu.classList.add('hidden');
-      }
-    });
+    if (roleDropdown && roleDropdownMenu) {
+      document.addEventListener('click', function (event) {
+        if (!roleDropdown.contains(event.target) && !roleDropdownMenu.contains(event.target)) {
+          roleDropdownMenu.classList.add('hidden');
+        }
+      });
+    }
 
     // Search functionality (combined with group filtering)
-    roleSearchInput.addEventListener('input', function () {
-      const searchTerm = this.value.toLowerCase();
-      const selectedGroupId = selectedGroupInput.value;
+    if (roleSearchInput && selectedGroupInput) {
+      roleSearchInput.addEventListener('input', function () {
+        const searchTerm = this.value.toLowerCase();
+        const selectedGroupId = selectedGroupInput.value;
 
-      roleOptions.forEach(function (option) {
-        const roleName = option.getAttribute('data-role-name');
-        const roleId = option.getAttribute('data-role-id');
-        let isVisible = true;
+        roleOptions.forEach(function (option) {
+          const roleName = option.getAttribute('data-role-name');
+          const roleId = option.getAttribute('data-role-id');
+          let isVisible = true;
 
-        // Check if role matches search
-        if (searchTerm && !roleName.includes(searchTerm)) {
-          isVisible = false;
-        }
-
-        // Check if role is available in selected group
-        if (selectedGroupId && groupRolesMap[selectedGroupId]) {
-          const availableRoleIds = groupRolesMap[selectedGroupId].map(role => role.id.toString());
-          if (!availableRoleIds.includes(roleId)) {
+          // Check if role matches search
+          if (searchTerm && !roleName.includes(searchTerm)) {
             isVisible = false;
           }
-        }
 
-        option.style.display = isVisible ? 'flex' : 'none';
+          // Check if role is available in selected group
+          if (selectedGroupId && groupRolesMap[selectedGroupId]) {
+            const availableRoleIds = groupRolesMap[selectedGroupId].map(role => role.id.toString());
+            if (!availableRoleIds.includes(roleId)) {
+              isVisible = false;
+            }
+          }
+
+          option.style.display = isVisible ? 'flex' : 'none';
+        });
       });
-    });
+    }
 
     // Handle checkbox changes
     roleOptions.forEach(function (option) {
       const checkbox = option.querySelector('input[type="checkbox"]');
-      const roleName = option.querySelector('span').textContent;
-
-      checkbox.addEventListener('change', function () {
-        updateSelectedRolesDisplay();
-      });
+      if (checkbox) {
+        checkbox.addEventListener('change', function () {
+          updateSelectedRolesDisplay();
+        });
+      }
     });
 
     // Update the display and hidden input
@@ -453,22 +463,29 @@
 
       roleOptions.forEach(function (option) {
         const checkbox = option.querySelector('input[type="checkbox"]');
-        if (checkbox.checked) {
+        if (checkbox && checkbox.checked) {
           selectedRoles.push(checkbox.value);
-          selectedNames.push(option.querySelector('span').textContent);
+          const spanElement = option.querySelector('span');
+          if (spanElement) {
+            selectedNames.push(spanElement.textContent);
+          }
         }
       });
 
       // Update hidden input
-      selectedRolesInput.value = selectedRoles.join(',');
+      if (selectedRolesInput) {
+        selectedRolesInput.value = selectedRoles.join(',');
+      }
 
       // Update display
-      if (selectedNames.length > 0) {
-        roleDropdown.value = selectedNames.length === 1 ?
-          selectedNames[0] :
-          `${selectedNames.length} roles selected`;
-      } else {
-        roleDropdown.value = '';
+      if (roleDropdown) {
+        if (selectedNames.length > 0) {
+          roleDropdown.value = selectedNames.length === 1 ?
+            selectedNames[0] :
+            `${selectedNames.length} roles selected`;
+        } else {
+          roleDropdown.value = '';
+        }
       }
     }
 
@@ -649,32 +666,43 @@
 
     function handleFieldTypeChange(fieldId) {
       const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
+      if (!fieldElement) return;
+
       const typeSelect = fieldElement.querySelector(`[name="field_type_${fieldId}"]`);
       const optionsContainer = fieldElement.querySelector('.field-options-container');
 
-      if (['select', 'radio'].includes(typeSelect.value)) {
-        optionsContainer.style.display = 'block';
-      } else {
-        optionsContainer.style.display = 'none';
+      if (typeSelect && optionsContainer) {
+        if (['select', 'radio'].includes(typeSelect.value)) {
+          optionsContainer.style.display = 'block';
+        } else {
+          optionsContainer.style.display = 'none';
+        }
       }
     }
 
     // Add field button handler
-    addFieldBtn.addEventListener('click', () => {
-      addField();
-    });
+    if (addFieldBtn) {
+      addFieldBtn.addEventListener('click', () => {
+        addField();
+      });
+    }
 
     // Add hidden input for JSON schema
-    const jsonSchemaInput = document.createElement('input');
-    jsonSchemaInput.type = 'hidden';
-    jsonSchemaInput.name = 'json_schema';
-    jsonSchemaInput.id = 'json-schema-input';
-    document.querySelector('form').appendChild(jsonSchemaInput);
+    const formElement = document.querySelector('form');
+    if (formElement) {
+      const jsonSchemaInput = document.createElement('input');
+      jsonSchemaInput.type = 'hidden';
+      jsonSchemaInput.name = 'json_schema';
+      jsonSchemaInput.id = 'json-schema-input';
+      formElement.appendChild(jsonSchemaInput);
+    }
 
     // Form submission handler to build JSON schema
-    document.querySelector('form').addEventListener('submit', function (e) {
-      const fields = [];
-      const fieldElements = optionalFieldsContainer.querySelectorAll('[data-field-id]');
+    const formElement2 = document.querySelector('form');
+    if (formElement2 && optionalFieldsContainer) {
+      formElement2.addEventListener('submit', function (e) {
+        const fields = [];
+        const fieldElements = optionalFieldsContainer.querySelectorAll('[data-field-id]');
 
       fieldElements.forEach(element => {
         const fieldId = element.getAttribute('data-field-id');
@@ -728,8 +756,12 @@
         }
       });
 
-      jsonSchemaInput.value = JSON.stringify(jsonSchema, null, 2);
-    });
+      const jsonSchemaInput = document.getElementById('json-schema-input');
+      if (jsonSchemaInput) {
+        jsonSchemaInput.value = JSON.stringify(jsonSchema, null, 2);
+      }
+      });
+    }
 
     function getFieldSchemaType(fieldType) {
       const typeMapping = {
@@ -748,7 +780,7 @@
     }
 
     // Pre-select the first group and filter roles
-    if (groupsList.children.length > 0) {
+    if (groupsList && groupsList.children.length > 0 && groupInput && selectedGroupInput) {
       const firstOption = groupsList.children[0];
       groupInput.value = firstOption.value;
       selectedGroupInput.value = firstOption.getAttribute('data-id');
@@ -803,4 +835,8 @@
   }
 </script>
 
-{% endblock %}
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
+{% endblock content %}

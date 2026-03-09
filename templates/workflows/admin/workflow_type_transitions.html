@@ -2,7 +2,6 @@
 
 {% block title %}Manage Workflow Transitions - {{ workflow_type.name }} {% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="space-y-6">
   <!-- Header -->
@@ -175,7 +174,6 @@
     </div>
   </div>
 </div>
-{% partialdef content %}
 
 <!-- Add/Edit Transition Modal -->
 <div id="transitionModal" class="modal">
@@ -480,5 +478,8 @@
     return cookieValue;
   }
 </script>
+{% endpartialdef content %}
 
+{% block content %}
+{% partial content %}
 {% endblock %}

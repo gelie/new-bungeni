@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="emerald">
 
 <head>
   <meta charset="UTF-8" />
@@ -93,6 +93,9 @@
         const color = badge.getAttribute('data-state-color');
         if (color) {
           badge.style.backgroundColor = color;
+          badge.style.color = '#ffffff';
+          badge.style.borderColor = color;
+          badge.style.fontWeight = '500';
         }
       });
     }

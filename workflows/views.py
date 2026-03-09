@@ -134,9 +134,15 @@ def dashboard(request):
     )
 
     # Get workflows user can view
-    workflows = Workflow.objects.filter(
-        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "owner")
+    if user.is_superuser:
+        # Superusers can see all workflows on dashboard
+        workflows = Workflow.objects.all().select_related(
+            "workflow_type", "current_state", "owner"
+        )
+    else:
+        workflows = Workflow.objects.filter(
+            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+        ).select_related("workflow_type", "current_state", "owner")
 
     # Statistics
     total_workflows = workflows.count()
@@ -170,9 +176,20 @@ def dashboard(request):
     recent_workflows = workflows.order_by("-created_at")[:10]
 
     # Upcoming events
-    upcoming_events = Event.objects.filter(
-        group__in=user_groups, start_datetime__gte=timezone.now(), status="scheduled"
-    ).order_by("start_datetime")[:5]
+    if user.is_superuser:
+        upcoming_events = (
+            Event.objects.filter(start_datetime__gte=timezone.now())
+            .exclude(status="cancelled")
+            .order_by("start_datetime")[:5]
+        )
+    else:
+        upcoming_events = (
+            Event.objects.filter(
+                group__in=user_groups, start_datetime__gte=timezone.now()
+            )
+            .exclude(status="cancelled")
+            .order_by("start_datetime")[:5]
+        )
 
     # Workflows by state (for chart) - with grouped state info
     workflows_by_state_raw = workflows.values(
@@ -265,16 +282,28 @@ def workflow_list(request):
     )
 
     # Base queryset - show only top-level parent workflows
-    workflows = Workflow.objects.filter(
-        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups),
-        parent_workflow__isnull=True,
-    ).select_related(
-        "workflow_type",
-        "current_state",
-        "owner",
-        "assigned_to",
-        "parent_workflow",
-    )
+    if user.is_superuser:
+        # Superusers can see all workflows
+        workflows = Workflow.objects.filter(
+            parent_workflow__isnull=True,
+        ).select_related(
+            "workflow_type",
+            "current_state",
+            "owner",
+            "assigned_to",
+            "parent_workflow",
+        )
+    else:
+        workflows = Workflow.objects.filter(
+            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups),
+            parent_workflow__isnull=True,
+        ).select_related(
+            "workflow_type",
+            "current_state",
+            "owner",
+            "assigned_to",
+            "parent_workflow",
+        )
 
     # Filters
     workflow_type = request.GET.get("type")
@@ -307,13 +336,22 @@ def workflow_list(request):
         "name"
     )
     states = State.objects.filter(id__in=accessible_state_ids).order_by("name")
-    groups = Group.objects.filter(id__in=user_groups)
+    groups = (
+        Group.objects.all()
+        if user.is_superuser
+        else Group.objects.filter(id__in=user_groups)
+    )
 
     # Workflow types the user can create
-    user_roles = user.memberships.filter(is_active=True).values_list("role", flat=True)
-    creatable_workflow_types = WorkflowType.objects.filter(
-        enabled=True, create_roles__in=user_roles
-    ).distinct()
+    if user.is_superuser:
+        creatable_workflow_types = WorkflowType.objects.filter(enabled=True)
+    else:
+        user_roles = user.memberships.filter(is_active=True).values_list(
+            "role", flat=True
+        )
+        creatable_workflow_types = WorkflowType.objects.filter(
+            enabled=True, create_roles__in=user_roles
+        ).distinct()
 
     # Attach available transitions per workflow for the status dropdown
     workflows_list = list(workflows)
@@ -459,7 +497,10 @@ def workflow_create(request):
         workflow_data = {}
 
     # Check if user has a role that can create this specific workflow type
-    if not workflow_type.create_roles.filter(id__in=user_roles).exists():
+    if (
+        not user.is_superuser
+        and not workflow_type.create_roles.filter(id__in=user_roles).exists()
+    ):
         messages.error(
             request, "You do not have permission to create this type of workflow."
         )
@@ -574,17 +615,18 @@ def workflow_bulk_create(request, parent_pk):
             status=400,
         )
 
-    user_roles = request.user.memberships.filter(is_active=True).values_list(
-        "role", flat=True
-    )
-    if not workflow_type.create_roles.filter(id__in=user_roles).exists():
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "You do not have permission to create this workflow type.",
-            },
-            status=403,
+    if not request.user.is_superuser:
+        user_roles = request.user.memberships.filter(is_active=True).values_list(
+            "role", flat=True
         )
+        if not workflow_type.create_roles.filter(id__in=user_roles).exists():
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "You do not have permission to create this workflow type.",
+                },
+                status=403,
+            )
 
     relationship_type = parent.get_child_config(workflow_type)
     if not relationship_type:
@@ -1511,9 +1553,15 @@ def event_list(request):
         "group", flat=True
     )
 
-    events = Event.objects.filter(group__in=user_groups).select_related(
-        "event_type", "group", "venue", "organizer"
-    )
+    if user.is_superuser:
+        # Superusers can see all events
+        events = Event.objects.all().select_related(
+            "event_type", "group", "venue", "organizer"
+        )
+    else:
+        events = Event.objects.filter(group__in=user_groups).select_related(
+            "event_type", "group", "venue", "organizer"
+        )
 
     # Filters
     event_type = request.GET.get("type")
@@ -1592,7 +1640,11 @@ def group_list(request):
     )
 
     # Get groups user can access (their groups and descendants)
-    groups = Group.objects.filter(id__in=user_groups).select_related("parent")
+    if user.is_superuser:
+        # Superusers can see all groups
+        groups = Group.objects.all().select_related("parent")
+    else:
+        groups = Group.objects.filter(id__in=user_groups).select_related("parent")
 
     context = {
         "groups": groups,
@@ -1720,9 +1772,15 @@ def reports(request):
     report_type = request.GET.get("report_type", "activity")
 
     # Get workflows user can view
-    base_workflows = Workflow.objects.filter(
-        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "owner")
+    if user.is_superuser:
+        # Superusers can see all workflows in reports
+        base_workflows = Workflow.objects.all().select_related(
+            "workflow_type", "current_state", "owner"
+        )
+    else:
+        base_workflows = Workflow.objects.filter(
+            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+        ).select_related("workflow_type", "current_state", "owner")
 
     # Apply custom report filters
     workflows, filter_params = _apply_report_filters(base_workflows, request)
@@ -1797,12 +1855,19 @@ def reports(request):
         )
 
     # Events statistics
-    events = Event.objects.filter(group__in=user_groups)
+    if user.is_superuser:
+        events = Event.objects.all()
+    else:
+        events = Event.objects.filter(group__in=user_groups)
     total_events = events.count()
     upcoming_events = events.filter(start_datetime__gte=now).count()
 
     # Workflow types available to this user for filtering
-    workflow_types = WorkflowType.objects.filter(group__in=user_groups).order_by("name")
+    workflow_types = (
+        WorkflowType.objects.all().order_by("name")
+        if user.is_superuser
+        else WorkflowType.objects.filter(group__in=user_groups).order_by("name")
+    )
 
     # Top-level (parent) workflows available to this user for the parent filter
     parent_workflows = base_workflows.filter(parent_workflow__isnull=True).order_by(
@@ -1843,9 +1908,14 @@ def reports_export_csv(request):
     user_groups = user.memberships.filter(is_active=True).values_list(
         "group", flat=True
     )
-    base_workflows = Workflow.objects.filter(
-        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "owner")
+    if user.is_superuser:
+        base_workflows = Workflow.objects.all().select_related(
+            "workflow_type", "current_state", "owner"
+        )
+    else:
+        base_workflows = Workflow.objects.filter(
+            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+        ).select_related("workflow_type", "current_state", "owner")
 
     workflows, filter_params = _apply_report_filters(base_workflows, request)
 
@@ -1977,9 +2047,14 @@ def reports_export_excel(request):
     user_groups = user.memberships.filter(is_active=True).values_list(
         "group", flat=True
     )
-    base_workflows = Workflow.objects.filter(
-        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "owner")
+    if user.is_superuser:
+        base_workflows = Workflow.objects.all().select_related(
+            "workflow_type", "current_state", "owner"
+        )
+    else:
+        base_workflows = Workflow.objects.filter(
+            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+        ).select_related("workflow_type", "current_state", "owner")
 
     workflows, filter_params = _apply_report_filters(base_workflows, request)
 
@@ -2229,9 +2304,14 @@ def reports_recent_activity_pdf(request):
     user_groups = user.memberships.filter(is_active=True).values_list(
         "group", flat=True
     )
-    base_workflows = Workflow.objects.filter(
-        Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
-    ).select_related("workflow_type", "current_state", "owner")
+    if user.is_superuser:
+        base_workflows = Workflow.objects.all().select_related(
+            "workflow_type", "current_state", "owner"
+        )
+    else:
+        base_workflows = Workflow.objects.filter(
+            Q(workflow_type__group__in=user_groups) | Q(referred_to__in=user_groups)
+        ).select_related("workflow_type", "current_state", "owner")
 
     # Get report type (activity or overview)
     report_type = request.GET.get("report_type", "activity")

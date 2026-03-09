@@ -854,6 +854,8 @@ class Workflow(models.Model):
 
     def can_user_view(self, user):
         """Check if user can view this workflow."""
+        if user.is_superuser:
+            return True
         if not self._user_in_workflow_groups(user):
             return False
         # Members of the referred group always get view access
@@ -871,6 +873,8 @@ class Workflow(models.Model):
 
     def can_user_edit(self, user):
         """Check if user can edit this workflow."""
+        if user.is_superuser:
+            return True
         if not self._user_in_workflow_groups(user):
             return False
         user_roles = self._user_roles_for_workflow(user)
@@ -892,6 +896,8 @@ class Workflow(models.Model):
 
     def can_user_delete(self, user):
         """Check if user can delete this workflow."""
+        if user.is_superuser:
+            return True
         if not self._user_in_workflow_groups(user):
             return False
         user_roles = self._user_roles_for_workflow(user)

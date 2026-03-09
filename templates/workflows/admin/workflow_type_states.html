@@ -2,7 +2,6 @@
 
 {% block title %}Manage Workflow States - {{ workflow_type.name }} {% endblock %}
 
-{% block content %}
 {% partialdef content %}
 <div class="space-y-6">
   <!-- Header -->
@@ -149,7 +148,7 @@
     </div>
   </div>
 </div>
-{% endpartialdef %}
+
 
 <!-- Add/Edit State Modal -->
 <div id="stateModal" class="modal">
@@ -352,5 +351,8 @@
     return cookieValue;
   }
 </script>
+{% endpartialdef %}
 
+{% block content %}
+{% partial content %}
 {% endblock %}

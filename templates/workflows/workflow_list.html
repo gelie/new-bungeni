@@ -163,19 +163,19 @@
                             <td>
                                 {% if workflow.user_transitions %}
                                 <button type="button"
-                                    class="badge w-42 cursor-pointer select-none flex items-center gap-1 workflow-state-badge state-popover-trigger"
+                                    class="badge cursor-pointer select-none flex items-center gap-1 workflow-state-badge state-popover-trigger px-3 py-2"
                                     data-state-color="{{ workflow.current_state.color }}"
                                     onclick="event.stopPropagation(); openStatePopover(this)">
-                                    <span class="truncate">{{ workflow.current_state.name }}</span>
+                                    <span class="truncate max-w-[140px]">{{ workflow.current_state.name }}</span>
                                     {% lucide "chevron-down" class="w-3 h-3 shrink-0 opacity-80" %}
                                     {% for t in workflow.user_transitions %}
                                     <span class="hidden" data-t-url="{% url 'workflow_transition' workflow.pk t.pk %}" data-t-name="{{ t.name|escapejs }}"></span>
                                     {% endfor %}
                                 </button>
                                 {% else %}
-                                <span class="badge w-36 workflow-state-badge"
+                                <span class="badge workflow-state-badge px-3 py-2"
                                     data-state-color="{{ workflow.current_state.color }}">
-                                    {{ workflow.current_state.name }}
+                                    <span class="truncate max-w-[140px] inline-block">{{ workflow.current_state.name }}</span>
                                 </span>
                                 {% endif %}
                             </td>

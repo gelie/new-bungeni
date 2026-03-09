@@ -2,7 +2,7 @@
 
 {% block title %}Referral Configs - {{ workflow_type.name }} {% endblock %}
 
-{% block content %}
+
 {% partialdef content %}
 <div class="space-y-6">
   <!-- Header -->
@@ -114,7 +114,6 @@
     </div>
   </div>
 </div>
-{% endpartialdef %}
 
 <!-- Add/Edit Modal -->
 <input type="checkbox" id="config-modal" class="modal-toggle" />
@@ -348,4 +347,8 @@ window.filterRoles = function (listId, query) {
   });
 })();
 </script>
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

@@ -11,11 +11,11 @@
   <div class="navbar-center">
     <a href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'login' %}{% endif %}"
        class="text-3xl normal-case font-bold flex items-center gap-2"
-       title="Workflow Management System">
+       title="Parliament Workflow System">
       <span class="flex">
         {% lucide "landmark" class="w-12 h-12 flex-shrink-0" %}
       </span>
-      <span class="lg:flex hidden">Tracking System</span>
+      <span class="lg:flex hidden">Workflow System</span>
     </a>
   </div>
 
