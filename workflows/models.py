@@ -1202,6 +1202,39 @@ class Event(models.Model):
     def __str__(self):
         return f"{self.event_type.name}: {self.title}"
 
+    @classmethod
+    def update_automatic_statuses(cls):
+        """
+        Automatically update event statuses based on scheduled times.
+        - Transitions 'scheduled' events to 'in_progress' when start_datetime is reached
+        - Transitions 'in_progress' events to 'completed' when end_datetime is reached
+        Returns a dict with counts of updated events.
+        """
+        from django.utils import timezone
+
+        now = timezone.now()
+        updated = {"to_in_progress": 0, "to_completed": 0}
+
+        # Transition scheduled events to in_progress
+        events_to_start = cls.objects.filter(
+            status="scheduled", start_datetime__lte=now
+        )
+        for event in events_to_start:
+            event.status = "in_progress"
+            event.save()
+            updated["to_in_progress"] += 1
+
+        # Transition in_progress events to completed
+        events_to_complete = cls.objects.filter(
+            status="in_progress", end_datetime__lte=now
+        )
+        for event in events_to_complete:
+            event.status = "completed"
+            event.save()
+            updated["to_completed"] += 1
+
+        return updated
+
     def create_attendance_records(self):
         """Create attendance records for all group members when event is completed."""
         from django.db import transaction
@@ -1311,6 +1344,7 @@ class Notification(models.Model):
     VERB_REFERRED = "referred"
     VERB_COMMENT = "comment"
     VERB_OVERDUE = "overdue"
+    VERB_PENDING = "pending"
 
     VERB_CHOICES = [
         (VERB_TRANSITION, "Transition"),
@@ -1318,6 +1352,7 @@ class Notification(models.Model):
         (VERB_REFERRED, "Referred"),
         (VERB_COMMENT, "Comment"),
         (VERB_OVERDUE, "Overdue"),
+        (VERB_PENDING, "Pending Deadline"),
     ]
 
     user = models.ForeignKey(

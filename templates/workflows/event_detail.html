@@ -27,9 +27,11 @@
                             </label>
                             <ul tabindex="0" class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-40 z-50 border border-base-300 mt-1">
                                 {% for status_choice in event.STATUS_CHOICES %}
+                                {% comment %} Exclude 'in_progress' and 'completed' - these are handled automatically {% endcomment %}
+                                {% if status_choice.0 != 'in_progress' and status_choice.0 != 'completed' %}
                                 <li>
-                                    <a hx-get="{% url 'event_update_status' event.pk status_choice.0 %}"
-                                       hx-target="#content-area"
+                                    <a href="{% url 'event_update_status' event.pk status_choice.0 %}"
+                                       {% comment %} hx-target="#content-area" {% endcomment %}
                                        class="flex items-center justify-between">
                                         {{ status_choice.1|title }}
                                         {% if status_choice.0 == event.status %}
@@ -37,6 +39,7 @@
                                         {% endif %}
                                     </a>
                                 </li>
+                                {% endif %}
                                 {% endfor %}
                             </ul>
                         </div>

@@ -379,6 +379,7 @@ def workflow_list(request):
 
 
 @login_required
+@htmx_partial("workflows/event_workflow_create.html")
 def workflow_create(request):
     """
     Create a Workflow instance from an available WorkflowType.
@@ -584,7 +585,8 @@ def workflow_create(request):
     )
 
     messages.success(request, f"Workflow created: {workflow.title}")
-    return redirect("workflow_detail", pk=workflow.pk)
+    return context
+    # return redirect("workflow_detail", pk=workflow.pk)
 
 
 @login_required
@@ -857,7 +859,7 @@ def event_create(request):
 
 
 @login_required
-@htmx_partial("workflows/event_detail.html")
+# @htmx_partial("workflows/event_detail.html")
 def event_update_status(request, pk, status):
     """Update event status."""
     event = get_object_or_404(Event, pk=pk)
@@ -889,12 +891,13 @@ def event_update_status(request, pk, status):
 
     messages.success(request, message)
 
-    return {
-        "event": event,
-        "attendances": event.attendances.select_related("user").order_by(
-            "user__first_name", "user__last_name"
-        ),
-    }
+    return redirect("event_detail", pk=pk)
+    # return {
+    #     "event": event,
+    #     "attendances": event.attendances.select_related("user").order_by(
+    #         "user__first_name", "user__last_name"
+    #     ),
+    # }
 
 
 @login_required
