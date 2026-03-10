@@ -473,7 +473,39 @@ def workflow_create(request):
         ).order_by("start_datetime")
 
         # Get user's groups for group selection
-        user_groups = Group.objects.filter(id__in=user_group_ids).order_by("name")
+        user_groups = list(
+            Group.objects.filter(id__in=user_group_ids)
+            .order_by("name")
+            .values("pk", "name")
+        )
+
+        # Get available users for delegation selection
+        available_users = list(
+            User.objects.filter(
+                memberships__group__in=user_group_ids,
+                memberships__is_active=True,
+            )
+            .distinct()
+            .order_by("first_name", "last_name")
+            .values("pk", "first_name", "last_name", "username")
+        )
+
+        # Get delegation roles (common roles that would be used in delegations)
+        delegation_roles = list(
+            Role.objects.filter(
+                name__in=[
+                    "Delegate",
+                    "Head Delegate",
+                    "Alternate Delegate",
+                    "Observer",
+                    "Expert",
+                    "Advisor",
+                    "Secretary",
+                ]
+            )
+            .order_by("name")
+            .values("pk", "name")
+        )
 
         context = {
             "workflow_types": workflow_types,
@@ -483,6 +515,8 @@ def workflow_create(request):
             "preselected_type_name": preselected_type_name,
             "available_events": available_events,
             "user_groups": user_groups,
+            "available_users": available_users,
+            "delegation_roles": delegation_roles,
         }
         if request.headers.get("HX-Request"):
             return render(request, "workflows/workflow_create.html#content", context)
@@ -873,11 +907,48 @@ def workflow_detail(request, pk):
         properties = workflow_schema.get("properties", {})
         for field_name, field_config in properties.items():
             if field_name in workflow.data:
-                custom_fields[field_name] = {
-                    "title": field_config.get("title", field_name),
-                    "value": workflow.data[field_name],
-                    "type": field_config.get("type", "string"),
-                }
+                field_value = workflow.data[field_name]
+
+                # Special handling for delegate_group field
+                if field_name == "delegate_group" and isinstance(field_value, list):
+                    # Fetch user details for each delegate
+                    delegate_details = []
+                    for delegate in field_value:
+                        if isinstance(delegate, dict) and "user_id" in delegate:
+                            try:
+                                user = User.objects.get(pk=delegate["user_id"])
+                                delegate_details.append(
+                                    {
+                                        "user_id": delegate["user_id"],
+                                        "user_name": f"{user.first_name} {user.last_name}",
+                                        "delegation_role": delegate.get(
+                                            "delegation_role", ""
+                                        ),
+                                    }
+                                )
+                            except User.DoesNotExist:
+                                # Handle case where user doesn't exist
+                                delegate_details.append(
+                                    {
+                                        "user_id": delegate["user_id"],
+                                        "user_name": f"Unknown User ({delegate['user_id']})",
+                                        "delegation_role": delegate.get(
+                                            "delegation_role", ""
+                                        ),
+                                    }
+                                )
+
+                    custom_fields[field_name] = {
+                        "title": field_config.get("title", field_name),
+                        "value": delegate_details,
+                        "type": "delegate_group",
+                    }
+                else:
+                    custom_fields[field_name] = {
+                        "title": field_config.get("title", field_name),
+                        "value": field_value,
+                        "type": field_config.get("type", "string"),
+                    }
 
     context = {
         "workflow": workflow,

@@ -253,6 +253,7 @@ class Group(MPTTModel):
         ("department", _("Department")),
         ("province", _("Province")),
         ("premier", _("Premier")),
+        ("delegation", _("Delegation")),
     ]
 
     name = models.CharField(max_length=255)

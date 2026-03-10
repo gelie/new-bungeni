@@ -9,9 +9,11 @@
     <div>
       <h1 class="text-3xl font-bold flex items-center gap-2">
         {% lucide "circle-plus" class="w-8 h-8" %}
-        Create a {% if preselected_type_name %}{{ preselected_type_name|title }} Workflow{% else %}New Workflow{% endif %}
+        Create a {% if preselected_type_name %}{{ preselected_type_name|title }} Workflow{% else %}New
+        Workflow{% endif %}
       </h1>
-      <p class="text-base-content/70 mt-1">{% if preselected_type_name %}Start a new {{ preselected_type_name|lower }} process{% else %}Start a new workflow process{% endif %}</p>
+      <p class="text-base-content/70 mt-1">{% if preselected_type_name %}Start a new {{ preselected_type_name|lower }}
+        process{% else %}Start a new workflow process{% endif %}</p>
     </div>
   </div>
 
@@ -57,10 +59,12 @@
                 <span class="label-text font-medium">Workflow Type *</span>
                 <span class="label-text-alt text-base-content/70">Required</span>
               </label>
-              <select id="workflow-type-select" class="select select-bordered w-full" {% if preselected_type %}disabled{% endif %}>
+              <select id="workflow-type-select" class="select select-bordered w-full"
+                {% if preselected_type %}disabled{% endif %}>
                 <option value="">Select a workflow type...</option>
                 {% for wt in workflow_types %}
-                <option value="{{ wt.pk }}" {% if preselected_type == wt.pk|stringformat:"s" %}selected{% endif %}>{{ wt.name }}</option>
+                <option value="{{ wt.pk }}" {% if preselected_type == wt.pk|stringformat:"s" %}selected{% endif %}>
+                  {{ wt.name }}</option>
                 {% endfor %}
               </select>
               <input type="hidden" name="workflow_type" value="{{ preselected_type }}" />
@@ -153,7 +157,8 @@
           {% else %}
           <div class="alert alert-warning">
             {% lucide "alert-triangle" class="w-4 h-4" %}
-            <span>No allowed child workflow types are configured for <strong>{{ parent_workflow.workflow_type.name }}</strong>. Please contact an administrator.</span>
+            <span>No allowed child workflow types are configured for
+              <strong>{{ parent_workflow.workflow_type.name }}</strong>. Please contact an administrator.</span>
           </div>
           {% endif %}
         </div>
@@ -174,6 +179,10 @@
 
         <!-- Workflow type JSON schemas for JS -->
         {{ workflow_type_schemas|json_script:"workflow-type-schemas" }}
+
+        <!-- Available users and roles for delegate selection -->
+        {{ available_users|json_script:"available-users" }}
+        {{ delegation_roles|json_script:"delegation-roles" }}
 
         <!-- Form Actions -->
         <div class="flex items-center justify-between pt-6 border-t border-base-300">
@@ -198,7 +207,7 @@
 </div>
 
 <script>
-  (function() {
+  (function () {
     console.log('Script initializing...');
     const workflowTypeSelect = document.getElementById('workflow-type-select');
     const dynamicFieldsSection = document.getElementById('dynamic-fields-section');
@@ -235,100 +244,119 @@
 
       let fieldHtml = '';
 
-      switch (fieldConfig.type) {
-        case 'string':
-          if (fieldConfig.enum) {
-            // Dropdown/select
-            fieldHtml = `
-            <label class="label">
-              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-              ${requiredLabel}
-            </label>
-            <select name="field_${fieldName}" class="select select-bordered w-full" ${isRequired}>
-              <option value="">Select an option...</option>
-              ${fieldConfig.enum.map(option => `<option value="${option}">${option}</option>`).join('')}
-            </select>
-          `;
-          } else if (fieldConfig.title && fieldConfig.title.toLowerCase().includes('email')) {
-            // Email field
-            fieldHtml = `
-            <label class="label">
-              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-              ${requiredLabel}
-            </label>
-            <input type="email" name="field_${fieldName}" class="input input-bordered w-full"
+      // Special handling for delegate_group field
+      if (fieldName === 'delegate_group' && fieldConfig.type === 'array') {
+        fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+            ${requiredLabel}
+          </label>
+          <div id="delegate-group-container" class="space-y-3">
+            <div class="flex items-center gap-3">
+              <select id="delegate-user-select" class="select select-bordered flex-1">
+                <option value="">Select a user...</option>
+              </select>
+              <select id="delegate-role-select" class="select select-bordered flex-1">
+                <option value="">Select a role...</option>
+              </select>
+              <button type="button" id="add-delegate-btn" class="btn btn-primary">
+                {% lucide "plus" class="w-4 h-4" %}
+                Add Delegate
+              </button>
+            </div>
+            <div id="selected-delegates" class="space-y-2">
+              <!-- Selected delegates will be listed here -->
+            </div>
+          </div>
+          <input type="hidden" name="field_delegate_group" id="delegate-group-data" />
+        `;
+      } else if (fieldConfig.type === 'string') {
+        if (fieldConfig.enum) {
+          // Dropdown/select
+          fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+            ${requiredLabel}
+          </label>
+          <select name="field_${fieldName}" class="select select-bordered w-full" ${isRequired}>
+            <option value="">Select an option...</option>
+            ${fieldConfig.enum.map(option => `<option value="${option}">${option}</option>`).join('')}
+          </select>
+        `;
+        } else if (fieldConfig.title && fieldConfig.title.toLowerCase().includes('email')) {
+          // Email field
+          fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+            ${requiredLabel}
+          </label>
+          <input type="email" name="field_${fieldName}" class="input input-bordered w-full"
                    placeholder="Enter email address..." ${isRequired} />
-          `;
-          } else if (fieldConfig.title && (fieldConfig.title.toLowerCase().includes('url') || fieldConfig.title
-              .toLowerCase().includes('link'))) {
-            // URL field
+        `;
+        } else if (fieldConfig.title && (fieldConfig.title.toLowerCase().includes('url') || fieldConfig.title
+            .toLowerCase().includes('link'))) {
+          // URL field
+          fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+            ${requiredLabel}
+          </label>
+          <input type="url" name="field_${fieldName}" class="input input-bordered w-full"
+                   placeholder="Enter URL..." ${isRequired} />
+        `;
+        } else {
+          // Check if it's a long text field
+          const isLongText = fieldConfig.title && (
+            fieldConfig.title.toLowerCase().includes('description') ||
+            fieldConfig.title.toLowerCase().includes('details') ||
+            fieldConfig.title.toLowerCase().includes('notes')
+          );
+
+          if (isLongText) {
             fieldHtml = `
             <label class="label">
               <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
               ${requiredLabel}
             </label>
-            <input type="url" name="field_${fieldName}" class="input input-bordered w-full"
-                   placeholder="Enter URL..." ${isRequired} />
+            <textarea name="field_${fieldName}" class="textarea textarea-bordered w-full" rows="4"
+                      placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired}></textarea>
           `;
           } else {
-            // Check if it's a long text field
-            const isLongText = fieldConfig.title && (
-              fieldConfig.title.toLowerCase().includes('description') ||
-              fieldConfig.title.toLowerCase().includes('details') ||
-              fieldConfig.title.toLowerCase().includes('notes')
-            );
-
-            if (isLongText) {
-              fieldHtml = `
-              <label class="label">
-                <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-                ${requiredLabel}
-              </label>
-              <textarea name="field_${fieldName}" class="textarea textarea-bordered w-full" rows="4"
-                        placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired}></textarea>
-            `;
-            } else {
-              fieldHtml = `
-              <label class="label">
-                <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-                ${requiredLabel}
-              </label>
-              <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
-                     placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
-            `;
-            }
+            fieldHtml = `
+            <label class="label">
+              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+              ${requiredLabel}
+            </label>
+            <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
+                   placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
+          `;
           }
-          break;
-
-        case 'number':
-          fieldHtml = `
-          <label class="label">
-            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-            ${requiredLabel}
-          </label>
-          <input type="number" name="field_${fieldName}" class="input input-bordered w-full"
-                 placeholder="Enter number..." ${isRequired} />
-        `;
-          break;
-
-        case 'boolean':
-          fieldHtml = `
-          <label class="label cursor-pointer">
-            <span class="label-text font-medium">${fieldConfig.title}</span>
-            <input type="checkbox" name="field_${fieldName}" class="checkbox checkbox-primary" />
-          </label>
-        `;
-          break;
-
-        default:
-          fieldHtml = `
-          <label class="label">
-            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-            ${requiredLabel}
-          </label>
-          <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
-                 placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
-        `;
+        }
+      } else if (fieldConfig.type === 'number') {
+        fieldHtml = `
+        <label class="label">
+          <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+          ${requiredLabel}
+        </label>
+        <input type="number" name="field_${fieldName}" class="input input-bordered w-full"
+               placeholder="Enter number..." ${isRequired} />
+      `;
+      } else if (fieldConfig.type === 'boolean') {
+        fieldHtml = `
+        <label class="label cursor-pointer">
+          <span class="label-text font-medium">${fieldConfig.title}</span>
+          <input type="checkbox" name="field_${fieldName}" class="checkbox checkbox-primary" />
+        </label>
+      `;
+      } else {
+        fieldHtml = `
+        <label class="label">
+          <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
+          ${requiredLabel}
+        </label>
+        <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
+               placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
+      `;
       }
 
       if (fieldConfig.description) {
@@ -387,6 +415,13 @@
           workflowData[fieldName] = field.checked;
         } else if (field.type === 'number') {
           workflowData[fieldName] = field.value ? parseFloat(field.value) : null;
+        } else if (fieldName === 'delegate_group') {
+          // Handle delegate_group specially - it's already JSON string
+          try {
+            workflowData[fieldName] = JSON.parse(field.value || '[]');
+          } catch (e) {
+            workflowData[fieldName] = [];
+          }
         } else {
           workflowData[fieldName] = field.value;
         }
@@ -397,6 +432,118 @@
 
     // Update fields when workflow type changes
     workflowTypeSelect.addEventListener('change', updateDynamicFields);
+
+    // Delegate group functionality
+    let selectedDelegates = [];
+
+    function initializeDelegateGroup() {
+      const userSelect = document.getElementById('delegate-user-select');
+      const roleSelect = document.getElementById('delegate-role-select');
+      const addBtn = document.getElementById('add-delegate-btn');
+
+      if (!userSelect || !roleSelect || !addBtn) return;
+
+      // Populate user and role dropdowns
+      const availableUsers = JSON.parse(document.getElementById('available-users').textContent || '[]');
+      const delegationRoles = JSON.parse(document.getElementById('delegation-roles').textContent || '[]');
+
+      // Populate user dropdown
+      availableUsers.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.pk;
+        option.textContent = `${user.first_name} ${user.last_name}`;
+        userSelect.appendChild(option);
+      });
+
+      // Populate role dropdown
+      delegationRoles.forEach(role => {
+        const option = document.createElement('option');
+        option.value = role.name;
+        option.textContent = role.name;
+        roleSelect.appendChild(option);
+      });
+
+      // Add delegate button click handler
+      addBtn.addEventListener('click', addDelegate);
+    }
+
+    function addDelegate() {
+      const userSelect = document.getElementById('delegate-user-select');
+      const roleSelect = document.getElementById('delegate-role-select');
+
+      if (!userSelect.value || !roleSelect.value) {
+        alert('Please select both a user and a role');
+        return;
+      }
+
+      // Check if user already selected
+      if (selectedDelegates.find(d => d.user_id == userSelect.value)) {
+        alert('This user has already been added');
+        return;
+      }
+
+      const availableUsers = JSON.parse(document.getElementById('available-users').textContent || '[]');
+      const selectedUser = availableUsers.find(u => u.pk == userSelect.value);
+
+      const delegate = {
+        user_id: parseInt(userSelect.value),
+        delegation_role: roleSelect.value,
+        user_name: selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name}` : 'Unknown User'
+      };
+
+      selectedDelegates.push(delegate);
+      updateDelegatesDisplay();
+      updateDelegateGroupData();
+
+      // Reset selections
+      userSelect.value = '';
+      roleSelect.value = '';
+    }
+
+    function removeDelegate(userId) {
+      selectedDelegates = selectedDelegates.filter(d => d.user_id !== userId);
+      updateDelegatesDisplay();
+      updateDelegateGroupData();
+    }
+
+    function updateDelegatesDisplay() {
+      const container = document.getElementById('selected-delegates');
+      if (!container) return;
+
+      if (selectedDelegates.length === 0) {
+        container.innerHTML = '<p class="text-sm text-base-content/50">No delegates selected</p>';
+        return;
+      }
+
+      container.innerHTML = selectedDelegates.map(delegate => `
+        <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+          <div class="flex items-center gap-3">
+            <div class="avatar placeholder">
+              <div class="bg-neutral text-neutral-content rounded-full w-8">
+                <span class="text-xs">${delegate.user_name.charAt(0).toUpperCase()}</span>
+              </div>
+            </div>
+            <div>
+              <div class="font-medium">${delegate.user_name}</div>
+              <div class="text-sm text-base-content/70">${delegate.delegation_role}</div>
+            </div>
+          </div>
+          <button type="button" onclick="removeDelegate(${delegate.user_id})" class="btn btn-ghost btn-sm">
+            {% lucide "x" class="w-4 h-4" %}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function updateDelegateGroupData() {
+      const hiddenInput = document.getElementById('delegate-group-data');
+      if (hiddenInput) {
+        hiddenInput.value = JSON.stringify(selectedDelegates);
+      }
+    }
+
+    // Make removeDelegate globally accessible
+    window.removeDelegate = removeDelegate;
 
     // Trigger dynamic fields immediately if a type is pre-selected
     // Check both the select value and the hidden input (for disabled selects)
@@ -416,6 +563,11 @@
         workflowTypeSelect.value = hiddenTypeInput.value;
       }
       updateDynamicFields();
+
+      // Initialize delegate group if this field is present
+      setTimeout(() => {
+        initializeDelegateGroup();
+      }, 100);
     } else {
       console.log('No typeValue found, skipping dynamic fields initialization');
     }

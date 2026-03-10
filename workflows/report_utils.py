@@ -34,6 +34,58 @@ def generate_workflow_report_html(workflow, user):
     # Get comments
     comments = workflow.comments.all().select_related("user").order_by("-created_at")
 
+    # Process custom fields (including delegate_group)
+    from .models import User
+
+    workflow_schema = workflow.workflow_type.json_schema or {}
+    custom_fields = {}
+    if workflow_schema and workflow.data:
+        properties = workflow_schema.get("properties", {})
+        for field_name, field_config in properties.items():
+            if field_name in workflow.data:
+                field_value = workflow.data[field_name]
+
+                # Special handling for delegate_group field
+                if field_name == "delegate_group" and isinstance(field_value, list):
+                    # Fetch user details for each delegate
+                    delegate_details = []
+                    for delegate in field_value:
+                        if isinstance(delegate, dict) and "user_id" in delegate:
+                            try:
+                                user_obj = User.objects.get(pk=delegate["user_id"])
+                                delegate_details.append(
+                                    {
+                                        "user_id": delegate["user_id"],
+                                        "user_name": f"{user_obj.first_name} {user_obj.last_name}",
+                                        "delegation_role": delegate.get(
+                                            "delegation_role", ""
+                                        ),
+                                    }
+                                )
+                            except User.DoesNotExist:
+                                # Handle case where user doesn't exist
+                                delegate_details.append(
+                                    {
+                                        "user_id": delegate["user_id"],
+                                        "user_name": f"Unknown User ({delegate['user_id']})",
+                                        "delegation_role": delegate.get(
+                                            "delegation_role", ""
+                                        ),
+                                    }
+                                )
+
+                    custom_fields[field_name] = {
+                        "title": field_config.get("title", field_name),
+                        "value": delegate_details,
+                        "type": "delegate_group",
+                    }
+                else:
+                    custom_fields[field_name] = {
+                        "title": field_config.get("title", field_name),
+                        "value": field_value,
+                        "type": field_config.get("type", "string"),
+                    }
+
     context = {
         "workflow": workflow,
         "sub_workflows": sub_workflows,
@@ -42,6 +94,7 @@ def generate_workflow_report_html(workflow, user):
         "completion_percentage": completion_percentage,
         "transition_logs": transition_logs,
         "comments": comments,
+        "custom_fields": custom_fields,
         "report_date": timezone.now(),
     }
 
