@@ -73,7 +73,7 @@
                             </a>
                         </li>
                         <li>
-                            <a hx-get="{% url 'event_export_pdf' event.pk %}" hx-target="#content-area" target="_blank" class="flex items-center gap-2">
+                            <a href="{% url 'event_export_pdf' event.pk %}" target="_blank" class="flex items-center gap-2">
                                 {% lucide "file-text" class="w-4 h-4" %}
                                 Export PDF
                             </a>

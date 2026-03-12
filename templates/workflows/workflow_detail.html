@@ -41,6 +41,7 @@
 
                     <!-- Key Status Indicators (Always Visible) -->
                     <div class="flex flex-wrap gap-2 mt-3">
+                        <span class="text-md font-bold flex items-center">Status:</span>
                         {% if available_transitions %}
                         <div class="dropdown">
                             <label tabindex="0"
@@ -78,9 +79,11 @@
                         {% if workflow.is_overdue and not workflow.current_state.is_terminal %}
                         <span class="badge badge-lg badge-error">Overdue</span>
                         {% endif %}
+                        <!--
                         {% if workflow.has_sub_workflows %}
                         <span class="badge badge-lg badge-info">{{ sub_workflows|length }} Related</span>
                         {% endif %}
+                    -->
                     </div>
                 </div>
 
@@ -151,7 +154,7 @@
                 </a>
                 <a class="tab" data-tab="comments">
                     {% lucide "message-square" class="w-4 h-4 mr-2" %}
-                    Comments
+                    Notes
                     {% if comments %}
                     <span class="badge badge-sm badge-outline ml-1">{{ comments|length }}</span>
                     {% endif %}
@@ -304,7 +307,7 @@
                                                     <div class="flex items-center gap-3">
                                                         <div class="avatar placeholder">
                                                             <div
-                                                                class="bg-primary text-primary-content rounded-full w-10 h-10">
+                                                                class="bg-primary text-primary-content rounded-full w-10 h-10 flex items-center justify-center">
                                                                 <span class="text-sm font-medium">
                                                                     {{ delegate.user_name.0|upper }}
                                                                 </span>
@@ -661,8 +664,8 @@
                             <div class="text-center py-12">
                                 <div class="text-base-content/50">
                                     {% lucide "message-square" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
-                                    <p class="text-lg">No comments yet</p>
-                                    <p class="text-sm mt-2">Start the conversation by adding a comment</p>
+                                    <p class="text-lg">No notes yet</p>
+                                    <p class="text-sm mt-2">Add a note for internal reference.</p>
                                 </div>
                             </div>
                             {% endfor %}
@@ -680,7 +683,7 @@
                                         </div>
                                     </div>
                                     <div class="flex-1">
-                                        <textarea name="comment" placeholder="Add a comment..."
+                                        <textarea name="comment" placeholder="Add a note..."
                                             class="textarea textarea-bordered w-full" rows="3" required></textarea>
 
                                         <!-- Comment Attachments Section -->
@@ -2547,11 +2550,7 @@
                     drive_id: driveId,
                     folder_id: folderId,
                     file_id: selectedCommentSharepointFile.id,
-                    workflow_id: {
-                        {
-                            workflow.id
-                        }
-                    },
+                    workflow_id: {{ workflow.id }},
                     type: type
                 })
             })

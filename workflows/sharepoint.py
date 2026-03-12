@@ -112,13 +112,14 @@ async def get_all_sites(token_data: dict):
     headers = {"Authorization": f"Bearer {access_token}"}
 
     async with httpx.AsyncClient() as client:
+        response = None
         try:
             response = await client.get(url, headers=headers)  # Should be GET, not POST
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
             raise Exception(
-                f"Site request failed: {str(e)}, response: {getattr(response, 'text', 'no response')}"
+                f"Site request failed: {str(e)}, response: {getattr(response, 'text', 'no response') if response else 'no response'}"
             )
         except Exception as e:
             raise Exception(f"Unexpected error in site request: {str(e)}")
@@ -136,13 +137,14 @@ async def get_site_details(token_data: dict, site_id: str):
     headers = {"Authorization": f"Bearer {access_token}"}
 
     async with httpx.AsyncClient() as client:
+        response = None
         try:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
             raise Exception(
-                f"Site details request failed: {str(e)}, response: {getattr(response, 'text', 'no response')}"
+                f"Site details request failed: {str(e)}, response: {getattr(response, 'text', 'no response') if response else 'no response'}"
             )
         except Exception as e:
             raise Exception(f"Unexpected error in site details request: {str(e)}")

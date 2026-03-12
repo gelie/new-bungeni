@@ -144,6 +144,8 @@
 
                 {{ workflow_type_schemas|json_script:"workflow-type-schemas" }}
                 {{ existing_data|json_script:"existing-workflow-data" }}
+                {{ available_users|json_script:"available-users" }}
+                {{ delegation_roles|json_script:"delegation-roles" }}
 
                 <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
                     <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-ghost">Cancel</a>
@@ -226,7 +228,35 @@ document.addEventListener('DOMContentLoaded', function () {
       let fieldHtml = '';
       const type = fieldConfig.type || 'string';
 
-      if (type === 'boolean') {
+      // Special handling for delegate_group field
+      if (fieldName === 'delegate_group' && type === 'array') {
+        fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
+            ${optionalLabel}
+          </label>
+          <div class="label">
+            <span class="label-text-alt text-base-content/70">${fieldConfig.description || 'Select delegates and their roles'}</span>
+          </div>
+          <div id="delegate-group-container" class="space-y-3">
+            <div class="flex items-center gap-3">
+              <select id="delegate-user-select" class="select select-bordered flex-1">
+                <option value="">Select a user...</option>
+              </select>
+              <select id="delegate-role-select" class="select select-bordered flex-1">
+                <option value="">Select a role...</option>
+              </select>
+              <button type="button" id="add-delegate-btn" class="btn btn-primary">
+                Add Delegate
+              </button>
+            </div>
+            <div id="selected-delegates" class="space-y-2">
+              <!-- Selected delegates will be listed here -->
+            </div>
+          </div>
+          <input type="hidden" name="field_delegate_group" id="delegate-group-data" />
+        `;
+      } else if (type === 'boolean') {
         fieldHtml = `
           <label class="label cursor-pointer">
             <span class="label-text font-medium">${fieldConfig.title || fieldName}</span>
@@ -296,12 +326,156 @@ document.addEventListener('DOMContentLoaded', function () {
         workflowData[fieldName] = field.checked;
       } else if (field.type === 'number') {
         workflowData[fieldName] = field.value ? parseFloat(field.value) : null;
+      } else if (fieldName === 'delegate_group') {
+        // Handle delegate_group specially - it's already JSON string
+        try {
+          workflowData[fieldName] = JSON.parse(field.value || '[]');
+        } catch (e) {
+          workflowData[fieldName] = [];
+        }
       } else {
         workflowData[fieldName] = field.value;
       }
     });
     workflowDataInput.value = JSON.stringify(workflowData);
   });
+
+  // Delegate group functionality
+  let selectedDelegates = [];
+
+  function initializeDelegateGroup() {
+    const userSelect = document.getElementById('delegate-user-select');
+    const roleSelect = document.getElementById('delegate-role-select');
+    const addBtn = document.getElementById('add-delegate-btn');
+
+    if (!userSelect || !roleSelect || !addBtn) return;
+
+    // Populate user and role dropdowns
+    const availableUsersEl = document.getElementById('available-users');
+    const delegationRolesEl = document.getElementById('delegation-roles');
+
+    if (!availableUsersEl || !delegationRolesEl) {
+      console.warn('Missing available-users or delegation-roles data');
+      return;
+    }
+
+    const availableUsers = JSON.parse(availableUsersEl.textContent || '[]');
+    const delegationRoles = JSON.parse(delegationRolesEl.textContent || '[]');
+
+    // Populate user dropdown
+    availableUsers.forEach(user => {
+      const option = document.createElement('option');
+      option.value = user.pk;
+      option.textContent = `${user.first_name} ${user.last_name}`;
+      userSelect.appendChild(option);
+    });
+
+    // Populate role dropdown
+    delegationRoles.forEach(role => {
+      const option = document.createElement('option');
+      option.value = role.name;
+      option.textContent = role.name;
+      roleSelect.appendChild(option);
+    });
+
+    // Load existing delegates from existingData
+    if (existingData.delegate_group && Array.isArray(existingData.delegate_group)) {
+      selectedDelegates = existingData.delegate_group.map(d => ({
+        user_id: d.user_id,
+        delegation_role: d.delegation_role,
+        user_name: d.user_name || 'Unknown User'
+      }));
+      updateDelegatesDisplay();
+      updateDelegateGroupData();
+    }
+
+    // Add delegate button click handler
+    addBtn.addEventListener('click', addDelegate);
+  }
+
+  function addDelegate() {
+    const userSelect = document.getElementById('delegate-user-select');
+    const roleSelect = document.getElementById('delegate-role-select');
+
+    if (!userSelect.value || !roleSelect.value) {
+      alert('Please select both a user and a role');
+      return;
+    }
+
+    // Check if user already selected
+    if (selectedDelegates.find(d => d.user_id == userSelect.value)) {
+      alert('This user has already been added');
+      return;
+    }
+
+    const availableUsersEl = document.getElementById('available-users');
+    const availableUsers = JSON.parse(availableUsersEl.textContent || '[]');
+    const selectedUser = availableUsers.find(u => u.pk == userSelect.value);
+
+    const delegate = {
+      user_id: parseInt(userSelect.value),
+      delegation_role: roleSelect.value,
+      user_name: selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name}` : 'Unknown User'
+    };
+
+    selectedDelegates.push(delegate);
+    updateDelegatesDisplay();
+    updateDelegateGroupData();
+
+    // Reset selections
+    userSelect.value = '';
+    roleSelect.value = '';
+  }
+
+  function removeDelegate(userId) {
+    selectedDelegates = selectedDelegates.filter(d => d.user_id !== userId);
+    updateDelegatesDisplay();
+    updateDelegateGroupData();
+  }
+
+  function updateDelegatesDisplay() {
+    const container = document.getElementById('selected-delegates');
+    if (!container) return;
+
+    if (selectedDelegates.length === 0) {
+      container.innerHTML = '<p class="text-sm text-base-content/50">No delegates selected</p>';
+      return;
+    }
+
+    container.innerHTML = selectedDelegates.map(delegate => `
+      <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+        <div class="flex items-center gap-3">
+          <div class="avatar placeholder">
+            <div class="bg-neutral text-neutral-content rounded-full w-8 flex items-center justify-center">
+              <span class="text-xs">${delegate.user_name.charAt(0).toUpperCase()}</span>
+            </div>
+          </div>
+          <div>
+            <div class="font-medium">${delegate.user_name}</div>
+            <div class="text-sm text-base-content/70">${delegate.delegation_role}</div>
+          </div>
+        </div>
+        <button type="button" onclick="removeDelegate(${delegate.user_id})" class="btn btn-ghost btn-sm">
+          <span class="text-lg">×</span>
+        </button>
+      </div>
+    `).join('');
+  }
+
+  function updateDelegateGroupData() {
+    const hiddenInput = document.getElementById('delegate-group-data');
+    if (hiddenInput) {
+      hiddenInput.value = JSON.stringify(selectedDelegates);
+    }
+  }
+
+  // Make removeDelegate globally accessible
+  window.removeDelegate = removeDelegate;
+
+  // Initialize delegate group after fields are rendered
+  setTimeout(() => {
+    initializeDelegateGroup();
+  }, 100);
 });
 </script>
 {% endpartialdef %}

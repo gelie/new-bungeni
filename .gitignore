@@ -8,13 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
-db.sqlite3
 docs/
+logs/
 static/js/_hyperscript.min.js
 .env
 
 # Database backups
-db.sqlite3.bak
+db.sqlite3*
 
 # Migrations and management commands
 workflows/migrations_backup/*
@@ -32,4 +32,4 @@ daisyui/input.css.1
 daisyui/input.css.2
 daisyui/input.css.20260227
 static/css/main.css.20260227
-db.sqlite*
+

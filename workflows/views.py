@@ -228,12 +228,26 @@ def dashboard(request):
     ]
 
     # Workflows by type - with cumulative angles for pie chart
-    workflows_by_type_raw = workflows.values("workflow_type__name").annotate(
-        count=Count("id")
+    workflows_by_type_raw = (
+        workflows.values("workflow_type__name")
+        .annotate(count=Count("id"))
+        .order_by("workflow_type__name")
     )
 
     # Calculate angles and cumulative positions for pie chart
-    workflows_by_type_list = list(workflows_by_type_raw)
+    # Deduplicate by workflow type name
+    workflows_by_type_dict = {}
+    for item in workflows_by_type_raw:
+        type_name = item["workflow_type__name"]
+        if type_name in workflows_by_type_dict:
+            workflows_by_type_dict[type_name]["count"] += item["count"]
+        else:
+            workflows_by_type_dict[type_name] = {
+                "workflow_type__name": type_name,
+                "count": item["count"],
+            }
+
+    workflows_by_type_list = list(workflows_by_type_dict.values())
     cumulative = 0
     colors = [
         "#3b82f6",
@@ -494,9 +508,10 @@ def workflow_create(request):
         delegation_roles = list(
             Role.objects.filter(
                 name__in=[
-                    "Delegate",
                     "Head Delegate",
+                    "Delegate",
                     "Alternate Delegate",
+                    "Representative",
                     "Observer",
                     "Expert",
                     "Advisor",
@@ -1265,12 +1280,40 @@ def workflow_edit(request, pk):
             group__in=user_groups, status__in=["scheduled", "in_progress"]
         ).order_by("start_datetime")
 
+        # Get available users for delegation selection
+        available_users = list(
+            User.objects.filter(
+                memberships__group__in=user_groups,
+                memberships__is_active=True,
+            )
+            .distinct()
+            .values("pk", "first_name", "last_name", "username")
+        )
+
+        # Get delegation roles (common roles that would be used in delegations)
+        delegation_roles = list(
+            Role.objects.filter(
+                name__in=[
+                    "Head Delegate",
+                    "Delegate",
+                    "Alternate Delegate",
+                    "Representative",
+                    "Observer",
+                    "Expert",
+                    "Advisor",
+                    "Secretary",
+                ]
+            ).values("name")
+        )
+
         context = {
             "workflow": workflow,
             "workflow_types": WorkflowType.objects.all(),
             "workflow_type_schemas": workflow_type_schemas,
             "existing_data": workflow.data or {},
             "available_events": available_events,
+            "available_users": available_users,
+            "delegation_roles": delegation_roles,
         }
         return context
 

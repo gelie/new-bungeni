@@ -58,15 +58,12 @@ class Command(BaseCommand):
 
         # Get workflow types to process
         if workflow_type_name:
-            try:
-                workflow_types = [
-                    WorkflowType.objects.get(name=workflow_type_name).filter(
-                        enabled=True
-                    )
-                ]
-            except WorkflowType.DoesNotExist:
+            workflow_types = WorkflowType.objects.filter(
+                name=workflow_type_name, enabled=True
+            )
+            if not workflow_types.exists():
                 raise CommandError(
-                    f'WorkflowType "{workflow_type_name}" does not exist.'
+                    f'WorkflowType "{workflow_type_name}" does not exist or is not enabled.'
                 )
         else:
             workflow_types = WorkflowType.objects.filter(enabled=True)
@@ -76,8 +73,11 @@ class Command(BaseCommand):
             return
 
         # Generate diagrams
+        generated_count = 0
+        skipped_count = 0
+
         for workflow_type in workflow_types:
-            self.stdout.write(f"Generating diagram for: {workflow_type.name}")
+            self.stdout.write(f"Processing: {workflow_type.name}")
 
             # Prefetch related data for efficiency
             workflow_type = WorkflowType.objects.prefetch_related(
@@ -90,32 +90,53 @@ class Command(BaseCommand):
                 ),
             ).get(id=workflow_type.id)
 
+            # Skip if no states (check prefetched data)
+            states_list = list(workflow_type.states.all())
+            if not states_list:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"  Skipped: No states configured for '{workflow_type.name}'"
+                    )
+                )
+                skipped_count += 1
+                continue
+
             # Create and render diagram
-            dot = self.create_diagram_graph(
-                workflow_type,
-                show_roles=show_roles,
-                cluster_states=cluster_states,
-                include_descriptions=include_descriptions,
-            )
-
-            # Render diagram to file
-            filename = f"{workflow_type.name.lower().replace(' ', '_')}_workflow"
-            filepath = os.path.join(output_dir, filename)
-
             try:
+                dot = self.create_diagram_graph(
+                    workflow_type,
+                    show_roles=show_roles,
+                    cluster_states=cluster_states,
+                    include_descriptions=include_descriptions,
+                )
+
+                # Render diagram to file
+                filename = f"{workflow_type.name.lower().replace(' ', '_')}_workflow"
+                filepath = os.path.join(output_dir, filename)
+
                 # Render the diagram
                 rendered_path = dot.render(filepath, format=output_format, cleanup=True)
                 self.stdout.write(
-                    self.style.SUCCESS(f"Diagram saved to: {rendered_path}")
+                    self.style.SUCCESS(f"  Diagram saved to: {rendered_path}")
                 )
+                generated_count += 1
             except Exception as e:
-                raise CommandError(f"Failed to render diagram: {e}")
+                self.stdout.write(self.style.ERROR(f"  Failed to render diagram: {e}"))
+                skipped_count += 1
 
+        self.stdout.write("\n" + "=" * 60)
         self.stdout.write(
             self.style.SUCCESS(
-                f"Generated {len(workflow_types)} diagram(s) in {output_dir}/"
+                f"Generated {generated_count} diagram(s) in {output_dir}/"
             )
         )
+        if skipped_count > 0:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Skipped {skipped_count} workflow type(s) (no states configured)"
+                )
+            )
+        self.stdout.write("=" * 60)
 
     def create_diagram_graph(
         self,
@@ -128,11 +149,6 @@ class Command(BaseCommand):
 
         states = list(workflow_type.states.all())
         transitions = list(workflow_type.transitions.all())
-
-        if not states:
-            raise CommandError(
-                f"No states found for workflow type: {workflow_type.name}"
-            )
 
         # Create the main graph
         dot = graphviz.Digraph(
