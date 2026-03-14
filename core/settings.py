@@ -99,8 +99,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "chartjs",
+    "flatpickr",
     "lucide",
     "mptt",
+    "ninja",
     "workflows",
 ]
 

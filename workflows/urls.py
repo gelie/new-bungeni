@@ -1,8 +1,12 @@
 from django.urls import path
 
+from workflows.api.endpoints import api
+
 from . import views
 
 urlpatterns = [
+    # API
+    path("api/", api.urls),
     # Authentication
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
@@ -180,5 +184,30 @@ urlpatterns = [
         "manage/sharepoint/members/",
         views.sharepoint_admin_members,
         name="admin_sharepoint_members",
+    ),
+    # Delegation management
+    path("manage/delegations/", views.delegation_list, name="delegation_list"),
+    path(
+        "manage/delegations/create/", views.delegation_create, name="delegation_create"
+    ),
+    path(
+        "manage/delegations/<int:pk>/",
+        views.delegation_detail,
+        name="delegation_detail",
+    ),
+    path(
+        "manage/delegations/<int:pk>/edit/",
+        views.delegation_edit,
+        name="delegation_edit",
+    ),
+    path(
+        "manage/delegations/<int:pk>/revoke/",
+        views.delegation_revoke,
+        name="delegation_revoke",
+    ),
+    path(
+        "manage/delegations/<int:pk>/approve/",
+        views.delegation_approve,
+        name="delegation_approve",
     ),
 ]
