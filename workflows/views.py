@@ -39,6 +39,7 @@ from .models import (
     WorkflowReferral,
     WorkflowTransitionLog,
     WorkflowType,
+    WorkflowTypeChildConfig,
     WorkflowTypeReferralConfig,
 )
 from .sharepoint import (
@@ -448,22 +449,32 @@ def workflow_create(request):
                 )
                 return redirect("workflow_detail", pk=parent_id)
 
-        # When creating a sub-workflow, restrict types to those allowed by the parent config
-        if parent_workflow:
-            allowed_child_type_ids = (
-                parent_workflow.workflow_type.allowed_child_configs.values_list(
-                    "child_type_id", flat=True
-                )
+        # If creating a child workflow, filter to allowed child types
+        if parent_id:
+            parent_workflow = get_object_or_404(Workflow, pk=parent_id)
+            allowed_child_type_ids = list(
+                WorkflowTypeChildConfig.objects.filter(
+                    parent_type=parent_workflow.workflow_type
+                ).values_list("child_type_id", flat=True)
             )
-            workflow_types = WorkflowType.objects.filter(
-                enabled=True,
-                create_roles__in=user_roles,
-                pk__in=allowed_child_type_ids,
-            ).distinct()
+            if user.is_superuser:
+                workflow_types = WorkflowType.objects.filter(
+                    enabled=True,
+                    pk__in=allowed_child_type_ids,
+                ).distinct()
+            else:
+                workflow_types = WorkflowType.objects.filter(
+                    enabled=True,
+                    create_roles__in=user_roles,
+                    pk__in=allowed_child_type_ids,
+                ).distinct()
         else:
-            workflow_types = WorkflowType.objects.filter(
-                enabled=True, create_roles__in=user_roles
-            ).distinct()
+            if user.is_superuser:
+                workflow_types = WorkflowType.objects.filter(enabled=True).distinct()
+            else:
+                workflow_types = WorkflowType.objects.filter(
+                    enabled=True, create_roles__in=user_roles
+                ).distinct()
 
         # Build schema map keyed by str(pk) for JS lookup
         workflow_type_schemas = {

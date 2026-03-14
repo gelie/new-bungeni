@@ -116,7 +116,7 @@
                     </div>
 
                     <!-- Event Association -->
-                    <div class="form-control">
+                    {% comment %} <div class="form-control">
                         <label class="label">
                             <span class="label-text font-semibold">Associated Event</span>
                             <span class="label-text-alt text-base-content/60">(optional)</span>
@@ -130,7 +130,7 @@
                             {% endfor %}
                         </select>
                         <div class="text-xs text-base-content/60 mt-1">Link this workflow to a specific event</div>
-                    </div>
+                    </div> {% endcomment %}
                 </div>
 
                 <!-- Custom Fields Section -->
@@ -211,13 +211,26 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    Object.entries(properties).forEach(([fieldName, fieldConfig]) => {
+    // Create a grid container for two-column layout
+    const gridContainer = document.createElement('div');
+    gridContainer.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
+
+    const fieldsArray = Object.entries(properties);
+
+    fieldsArray.forEach(([fieldName, fieldConfig], index) => {
       fieldConfig.required = required.includes(fieldName);
       const existingValue = existingData[fieldName] !== undefined ? existingData[fieldName] : '';
-      console.log(`Field: ${fieldName}, Existing Value:`, existingValue);
+      console.log(`Field: ${fieldName}, Type: ${fieldConfig.type}, Existing Value:`, existingValue);
 
       const fieldDiv = document.createElement('div');
-      fieldDiv.className = 'form-control';
+      const type = fieldConfig.type || 'string';
+
+      // Determine if field should span full width
+      const title = (fieldConfig.title || fieldName).toLowerCase();
+      const isLong = title.includes('description') || title.includes('details') || title.includes('notes');
+      const isFullWidth = fieldName === 'delegate_group' || type === 'array' || isLong;
+
+      fieldDiv.className = isFullWidth ? 'form-control md:col-span-2' : 'form-control';
 
       const isRequired = fieldConfig.required ? 'required' : '';
       const requiredText = fieldConfig.required ? ' *' : '';
@@ -226,30 +239,39 @@ document.addEventListener('DOMContentLoaded', function () {
         : '<span class="label-text-alt text-base-content/70">Optional</span>';
 
       let fieldHtml = '';
-      const type = fieldConfig.type || 'string';
 
-      // Special handling for delegate_group field
-      if (fieldName === 'delegate_group' && type === 'array') {
+      // Special handling for delegate_group field - check by name (schema type is 'string' but data is array)
+      console.log(`Checking field: ${fieldName}, type: ${type}, is delegate_group: ${fieldName === 'delegate_group'}`);
+
+      if (fieldName === 'delegate_group') {
+        console.log('✓ Rendering delegate_group field with special UI');
         fieldHtml = `
           <label class="label">
             <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
             ${optionalLabel}
           </label>
-          <div class="label">
-            <span class="label-text-alt text-base-content/70">${fieldConfig.description || 'Select delegates and their roles'}</span>
-          </div>
+          ${fieldConfig.description ? `<div class="label"><span class="label-text-alt text-base-content/70">${fieldConfig.description}</span></div>` : ''}
           <div id="delegate-group-container" class="space-y-3">
-            <div class="flex items-center gap-3">
-              <select id="delegate-user-select" class="select select-bordered flex-1">
-                <option value="">Select a user...</option>
-              </select>
-              <select id="delegate-role-select" class="select select-bordered flex-1">
-                <option value="">Select a role...</option>
-              </select>
-              <button type="button" id="add-delegate-btn" class="btn btn-primary">
-                Add Delegate
-              </button>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="form-control relative">
+                <input
+                  type="text"
+                  id="delegate-user-search"
+                  class="input input-bordered w-full"
+                  placeholder="Search for a user..."
+                  autocomplete="off"
+                />
+                <div id="delegate-user-dropdown" class="hidden absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
+              </div>
+              <div class="form-control">
+                <select id="delegate-role-select" class="select select-bordered w-full">
+                  <option value="">Select a role...</option>
+                </select>
+              </div>
             </div>
+            <button type="button" id="add-delegate-btn" class="btn btn-primary btn-sm">
+              Add Delegate
+            </button>
             <div id="selected-delegates" class="space-y-2">
               <!-- Selected delegates will be listed here -->
             </div>
@@ -283,16 +305,28 @@ document.addEventListener('DOMContentLoaded', function () {
             <option value="">Select an option...</option>
             ${options}
           </select>`;
+      } else if (type === 'array') {
+        // Generic array handling - don't render as text input
+        console.warn(`Array field '${fieldName}' not handled with special UI`);
+        fieldHtml = `
+          <label class="label">
+            <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
+            ${optionalLabel}
+          </label>
+          <div class="alert alert-warning">
+            <span>Array field type not yet supported for editing</span>
+          </div>
+          <input type="hidden" name="field_${fieldName}" value="${Array.isArray(existingValue) ? JSON.stringify(existingValue) : ''}" />`;
       } else {
-        const title = (fieldConfig.title || fieldName).toLowerCase();
-        const isLong = title.includes('description') || title.includes('details') || title.includes('notes');
+        // Prevent arrays from being rendered as text inputs
+        const safeValue = Array.isArray(existingValue) ? '' : existingValue;
         if (isLong) {
           fieldHtml = `
             <label class="label">
               <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
               ${optionalLabel}
             </label>
-            <textarea name="field_${fieldName}" class="textarea textarea-bordered w-full" rows="4" ${isRequired}>${existingValue}</textarea>`;
+            <textarea name="field_${fieldName}" class="textarea textarea-bordered w-full" rows="4" ${isRequired}>${safeValue}</textarea>`;
         } else {
           fieldHtml = `
             <label class="label">
@@ -300,18 +334,19 @@ document.addEventListener('DOMContentLoaded', function () {
               ${optionalLabel}
             </label>
             <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
-                   value="${existingValue}" ${isRequired} />`;
+                   value="${safeValue}" ${isRequired} />`;
         }
       }
 
-      if (fieldConfig.description) {
+      if (fieldConfig.description && fieldName !== 'delegate_group') {
         fieldHtml += `<label class="label"><span class="label-text-alt text-base-content/70">${fieldConfig.description}</span></label>`;
       }
 
       fieldDiv.innerHTML = fieldHtml;
-      dynamicFieldsContainer.appendChild(fieldDiv);
+      gridContainer.appendChild(fieldDiv);
     });
 
+    dynamicFieldsContainer.appendChild(gridContainer);
     dynamicFieldsSection.style.display = 'block';
   }
 
@@ -342,15 +377,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Delegate group functionality
   let selectedDelegates = [];
+  let currentSelectedUserId = null;
+  let currentSelectedUserName = '';
 
   function initializeDelegateGroup() {
-    const userSelect = document.getElementById('delegate-user-select');
+    const userSearch = document.getElementById('delegate-user-search');
+    const userDropdown = document.getElementById('delegate-user-dropdown');
     const roleSelect = document.getElementById('delegate-role-select');
     const addBtn = document.getElementById('add-delegate-btn');
 
-    if (!userSelect || !roleSelect || !addBtn) return;
+    if (!userSearch || !userDropdown || !roleSelect || !addBtn) {
+      console.log('Delegate group elements not found yet');
+      return;
+    }
 
-    // Populate user and role dropdowns
+    console.log('Initializing delegate group...');
+
+    // Get user and role data
     const availableUsersEl = document.getElementById('available-users');
     const delegationRolesEl = document.getElementById('delegation-roles');
 
@@ -362,20 +405,66 @@ document.addEventListener('DOMContentLoaded', function () {
     const availableUsers = JSON.parse(availableUsersEl.textContent || '[]');
     const delegationRoles = JSON.parse(delegationRolesEl.textContent || '[]');
 
-    // Populate user dropdown
-    availableUsers.forEach(user => {
-      const option = document.createElement('option');
-      option.value = user.pk;
-      option.textContent = `${user.first_name} ${user.last_name}`;
-      userSelect.appendChild(option);
-    });
+    console.log('Available users:', availableUsers.length);
+    console.log('Delegation roles:', delegationRoles.length);
 
-    // Populate role dropdown
+    // Clear and populate role dropdown (prevent duplicates if called multiple times)
+    roleSelect.innerHTML = '<option value="">Select a role...</option>';
     delegationRoles.forEach(role => {
       const option = document.createElement('option');
       option.value = role.name;
       option.textContent = role.name;
       roleSelect.appendChild(option);
+    });
+
+    // User search functionality
+    userSearch.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase().trim();
+
+      if (searchTerm.length === 0) {
+        userDropdown.classList.add('hidden');
+        currentSelectedUserId = null;
+        currentSelectedUserName = '';
+        return;
+      }
+
+      const filteredUsers = availableUsers.filter(user => {
+        const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
+        const username = (user.username || '').toLowerCase();
+        return fullName.includes(searchTerm) || username.includes(searchTerm);
+      });
+
+      if (filteredUsers.length === 0) {
+        userDropdown.innerHTML = '<div class="p-3 text-sm text-base-content/50">No users found</div>';
+        userDropdown.classList.remove('hidden');
+        return;
+      }
+
+      userDropdown.innerHTML = filteredUsers.map(user => `
+        <div class="p-3 hover:bg-base-200 cursor-pointer user-option" data-user-id="${user.pk}" data-user-name="${user.first_name} ${user.last_name}">
+          <div class="font-medium">${user.first_name} ${user.last_name}</div>
+          ${user.username ? `<div class="text-sm text-base-content/70">@${user.username}</div>` : ''}
+        </div>
+      `).join('');
+
+      userDropdown.classList.remove('hidden');
+
+      // Add click handlers to user options
+      userDropdown.querySelectorAll('.user-option').forEach(option => {
+        option.addEventListener('click', function() {
+          currentSelectedUserId = parseInt(this.dataset.userId);
+          currentSelectedUserName = this.dataset.userName;
+          userSearch.value = currentSelectedUserName;
+          userDropdown.classList.add('hidden');
+        });
+      });
+    });
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!userSearch.contains(e.target) && !userDropdown.contains(e.target)) {
+        userDropdown.classList.add('hidden');
+      }
     });
 
     // Load existing delegates from existingData
@@ -390,32 +479,29 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Add delegate button click handler
-    addBtn.addEventListener('click', addDelegate);
+    addBtn.addEventListener('click', function() {
+      addDelegate(currentSelectedUserId, currentSelectedUserName, userSearch, roleSelect);
+    });
+
+    console.log('Delegate group initialized successfully');
   }
 
-  function addDelegate() {
-    const userSelect = document.getElementById('delegate-user-select');
-    const roleSelect = document.getElementById('delegate-role-select');
-
-    if (!userSelect.value || !roleSelect.value) {
+  function addDelegate(userId, userName, userSearchInput, roleSelectInput) {
+    if (!userId || !roleSelectInput.value) {
       alert('Please select both a user and a role');
       return;
     }
 
     // Check if user already selected
-    if (selectedDelegates.find(d => d.user_id == userSelect.value)) {
+    if (selectedDelegates.find(d => d.user_id == userId)) {
       alert('This user has already been added');
       return;
     }
 
-    const availableUsersEl = document.getElementById('available-users');
-    const availableUsers = JSON.parse(availableUsersEl.textContent || '[]');
-    const selectedUser = availableUsers.find(u => u.pk == userSelect.value);
-
     const delegate = {
-      user_id: parseInt(userSelect.value),
-      delegation_role: roleSelect.value,
-      user_name: selectedUser ? `${selectedUser.first_name} ${selectedUser.last_name}` : 'Unknown User'
+      user_id: userId,
+      delegation_role: roleSelectInput.value,
+      user_name: userName
     };
 
     selectedDelegates.push(delegate);
@@ -423,8 +509,10 @@ document.addEventListener('DOMContentLoaded', function () {
     updateDelegateGroupData();
 
     // Reset selections
-    userSelect.value = '';
-    roleSelect.value = '';
+    userSearchInput.value = '';
+    roleSelectInput.value = '';
+    currentSelectedUserId = null;
+    currentSelectedUserName = '';
   }
 
   function removeDelegate(userId) {
@@ -473,8 +561,28 @@ document.addEventListener('DOMContentLoaded', function () {
   window.removeDelegate = removeDelegate;
 
   // Initialize delegate group after fields are rendered
+  // Use MutationObserver to detect when delegate group fields are added
+  const observer = new MutationObserver((mutations) => {
+    const delegateContainer = document.getElementById('delegate-group-container');
+    if (delegateContainer) {
+      console.log('Delegate container detected, initializing...');
+      initializeDelegateGroup();
+      observer.disconnect();
+    }
+  });
+
+  // Start observing the dynamic fields container
+  observer.observe(dynamicFieldsContainer, {
+    childList: true,
+    subtree: true
+  });
+
+  // Also try immediate initialization in case fields are already rendered
   setTimeout(() => {
-    initializeDelegateGroup();
+    if (document.getElementById('delegate-group-container')) {
+      initializeDelegateGroup();
+      observer.disconnect();
+    }
   }, 100);
 });
 </script>
