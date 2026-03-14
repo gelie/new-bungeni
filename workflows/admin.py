@@ -21,6 +21,7 @@ from .models import (
     StatePermission,
     Transition,
     User,
+    UserDelegation,
     Venue,
     Workflow,
     WorkflowGroupAccess,
@@ -89,18 +90,14 @@ class GroupAdmin(MPTTModelAdmin):
 class RoleAdmin(admin.ModelAdmin):
     list_display = [
         "name",
-        "can_view_workflows",
-        "can_edit_workflows",
         "can_transition_workflows",
         "can_create_workflows",
-        "can_delete_workflows",
+        "can_assign_workflows",
+        "can_manage_permissions",
     ]
     list_filter = [
-        "can_view_workflows",
-        "can_edit_workflows",
         "can_transition_workflows",
         "can_create_workflows",
-        "can_delete_workflows",
         "can_assign_workflows",
         "can_manage_permissions",
     ]
@@ -117,15 +114,12 @@ class RoleAdmin(admin.ModelAdmin):
             "Workflow Permissions",
             {
                 "fields": (
-                    "can_view_workflows",
-                    "can_edit_workflows",
-                    "can_delete_workflows",
                     "can_transition_workflows",
                     "can_create_workflows",
                     "can_assign_workflows",
                     "can_manage_permissions",
                 ),
-                "description": "Define what users with this role can do with workflows in their groups.",
+                "description": "Note: CRUD permissions (view, edit, delete) are now determined by State permissions, not Role.",
             },
         ),
     )
@@ -154,7 +148,7 @@ class StatePermissionInline(admin.TabularInline):
     model = StatePermission
     extra = 1
     autocomplete_fields = ["role"]
-    fields = ["role", "can_view", "can_edit", "can_delete"]
+    fields = ["role", "can_view", "can_edit", "can_delete", "can_transition"]
 
 
 class WorkflowTypeChildConfigInline(admin.TabularInline):
@@ -247,8 +241,21 @@ class TransitionAdmin(admin.ModelAdmin):
 
 @admin.register(StatePermission)
 class StatePermissionAdmin(admin.ModelAdmin):
-    list_display = ["state", "role", "can_view", "can_edit", "can_delete"]
-    list_filter = ["state__workflow_type", "can_view", "can_edit", "can_delete"]
+    list_display = [
+        "state",
+        "role",
+        "can_view",
+        "can_edit",
+        "can_delete",
+        "can_transition",
+    ]
+    list_filter = [
+        "state__workflow_type",
+        "can_view",
+        "can_edit",
+        "can_delete",
+        "can_transition",
+    ]
     search_fields = ["state__name", "role__name"]
     autocomplete_fields = ["state", "role"]
 
@@ -634,3 +641,89 @@ class DriveAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("site")
+
+
+# ============================================================================
+# USER DELEGATION ADMIN
+# ============================================================================
+
+
+@admin.register(UserDelegation)
+class UserDelegationAdmin(admin.ModelAdmin):
+    list_display = [
+        "delegator",
+        "delegatee",
+        "status",
+        "start_date",
+        "end_date",
+        "can_view_workflows",
+        "can_edit_workflows",
+        "can_transition_workflows",
+    ]
+    list_filter = [
+        "status",
+        "start_date",
+        "end_date",
+        "can_view_workflows",
+        "can_edit_workflows",
+        "can_transition_workflows",
+        "can_receive_assignments",
+        "can_receive_notifications",
+    ]
+    search_fields = [
+        "delegator__username",
+        "delegator__first_name",
+        "delegator__last_name",
+        "delegatee__username",
+        "delegatee__first_name",
+        "delegatee__last_name",
+        "reason",
+    ]
+    autocomplete_fields = ["delegator", "delegatee", "workflows", "groups"]
+    date_hierarchy = "start_date"
+
+    fieldsets = (
+        ("Delegation Relationship", {"fields": ("delegator", "delegatee", "status")}),
+        (
+            "Scope",
+            {
+                "fields": ("workflows", "groups"),
+                "description": "Leave both empty to apply to all workflows and groups",
+            },
+        ),
+        ("Time Period", {"fields": ("start_date", "end_date")}),
+        (
+            "Permissions",
+            {
+                "fields": (
+                    "can_view_workflows",
+                    "can_edit_workflows",
+                    "can_transition_workflows",
+                    "can_receive_assignments",
+                    "can_receive_notifications",
+                )
+            },
+        ),
+        ("Metadata", {"fields": ("reason",), "classes": ("collapse",)}),
+        (
+            "Approval",
+            {"fields": ("approved_by", "approved_at"), "classes": ("collapse",)},
+        ),
+        (
+            "Revocation",
+            {
+                "fields": ("revoked_by", "revoked_at", "revoke_reason"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    readonly_fields = ["approved_at", "revoked_at"]
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("delegator", "delegatee", "approved_by", "revoked_by")
+            .prefetch_related("workflows", "groups")
+        )

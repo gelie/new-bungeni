@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Delegation {% endblock %}
+
+{% block extra_head %}
+{{ form.media }}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Breadcrumb -->
+  <div class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'dashboard' %}" class="text-primary">Dashboard</a></li>
+      <li><a href="{% url 'delegation_list' %}" class="text-primary">Delegations</a></li>
+      <li>Create</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "user-plus" class="w-8 h-8" %}
+        Create Delegation
+      </h1>
+      <p class="text-base-content/70 mt-1">Delegate your workflow permissions to another user</p>
+    </div>
+    <a href="{% url 'delegation_list' %}" class="btn btn-ghost gap-2">
+      {% lucide "arrow-left" class="w-4 h-4" %}
+      Back to Delegations
+    </a>
+  </div>
+
+  <!-- Form -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Delegation Relationship -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Delegatee</span>
+              <span class="label-text-alt text-error">*</span>
+            </label>
+            {{ form.delegatee }}
+            {% if form.delegatee.errors %}
+            <label class="label">
+              <span class="label-text-alt text-error">{{ form.delegatee.errors.0 }}</span>
+            </label>
+            {% endif %}
+            <label class="label">
+              <span class="label-text-alt">Select the user who will receive delegated permissions</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Status</span>
+            </label>
+            <input type="text" value="Active" class="input input-bordered" disabled />
+            <label class="label">
+              <span class="label-text-alt">New delegations start as active</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Time Period -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Start Date</span>
+              <span class="label-text-alt text-error">*</span>
+            </label>
+            {{ form.start_date }}
+            {% if form.start_date.errors %}
+            <label class="label">
+              <span class="label-text-alt text-error">{{ form.start_date.errors.0 }}</span>
+            </label>
+            {% endif %}
+            <label class="label">
+              <span class="label-text-alt">When the delegation becomes effective</span>
+            </label>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">End Date</span>
+            </label>
+            {{ form.end_date }}
+            {% if form.end_date.errors %}
+            <label class="label">
+              <span class="label-text-alt text-error">{{ form.end_date.errors.0 }}</span>
+            </label>
+            {% endif %}
+            <label class="label">
+              <span class="label-text-alt">When the delegation expires (leave blank for indefinite)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Scope -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-medium flex items-center gap-2">
+            {% lucide "target" class="w-5 h-5" %}
+            Delegation Scope
+          </h3>
+          <p class="text-sm opacity-70">Leave both empty to apply to all workflows and groups you have access to</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Specific Workflows</span>
+              </label>
+              <div class="bg-base-200 rounded-lg p-4 max-h-48 overflow-y-auto">
+                {{ form.workflows }}
+              </div>
+              <label class="label">
+                <span class="label-text-alt">Select specific workflows (optional)</span>
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Specific Groups</span>
+              </label>
+              <div class="bg-base-200 rounded-lg p-4 max-h-48 overflow-y-auto">
+                {{ form.groups }}
+              </div>
+              <label class="label">
+                <span class="label-text-alt">Select specific groups (optional)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permissions -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-medium flex items-center gap-2">
+            {% lucide "shield" class="w-5 h-5" %}
+            Permissions to Delegate
+          </h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text">View Workflows</span>
+                {{ form.can_view_workflows }}
+              </label>
+              <span class="label-text-alt">Delegatee can view your workflows</span>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text">Edit Workflows</span>
+                {{ form.can_edit_workflows }}
+              </label>
+              <span class="label-text-alt">Delegatee can edit your workflows</span>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text">Perform Transitions</span>
+                {{ form.can_transition_workflows }}
+              </label>
+              <span class="label-text-alt">Delegatee can perform workflow transitions</span>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text">Receive Assignments</span>
+                {{ form.can_receive_assignments }}
+              </label>
+              <span class="label-text-alt">New assignments go to delegatee</span>
+            </div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text">Receive Notifications</span>
+                {{ form.can_receive_notifications }}
+              </label>
+              <span class="label-text-alt">Delegatee receives your notifications</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reason -->
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-medium">Reason</span>
+          </label>
+          {{ form.reason }}
+          {% if form.reason.errors %}
+          <label class="label">
+            <span class="label-text-alt text-error">{{ form.reason.errors.0 }}</span>
+          </label>
+          {% endif %}
+          <label class="label">
+            <span class="label-text-alt">Optional reason for the delegation</span>
+          </label>
+        </div>
+
+        <!-- Form Errors -->
+        {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          {% for error in form.non_field_errors %}
+          <span>{{ error }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-2 pt-4 border-t">
+          <a href="{% url 'delegation_list' %}" class="btn btn-ghost">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary">
+            {% lucide "check" class="w-4 h-4" %}
+            Create Delegation
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

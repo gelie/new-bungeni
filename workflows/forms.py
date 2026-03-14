@@ -1,6 +1,7 @@
 from django import forms
+from flatpickr import DateTimePickerInput
 
-from .models import Event, EventAttendance, Group
+from .models import Event, EventAttendance, Group, User, UserDelegation, Workflow
 
 
 class EventForm(forms.ModelForm):
@@ -31,10 +32,18 @@ class EventForm(forms.ModelForm):
             "location": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
             "venue": forms.Select(attrs={"class": "select select-bordered w-full"}),
             "start_datetime": forms.DateTimeInput(
-                attrs={"class": "input input-bordered w-full", "type": "datetime-local"}
+                attrs={
+                    "class": "form-control input input-bordered w-full",
+                    "placeholder": "Select start date and time...",
+                },
+                format="%Y-%m-%d %H:%M",
             ),
             "end_datetime": forms.DateTimeInput(
-                attrs={"class": "input input-bordered w-full", "type": "datetime-local"}
+                attrs={
+                    "class": "form-control input input-bordered w-full",
+                    "placeholder": "Select end date and time...",
+                },
+                format="%Y-%m-%d %H:%M",
             ),
             "status": forms.Select(attrs={"class": "select select-bordered w-full"}),
         }
@@ -132,3 +141,160 @@ class EventAttendanceBulkForm(forms.Form):
                     updated_count += 1
 
         return updated_count
+
+
+class UserDelegationForm(forms.ModelForm):
+    """Form for creating and editing user delegations."""
+
+    class Meta:
+        model = UserDelegation
+        fields = [
+            "delegatee",
+            "workflows",
+            "groups",
+            "start_date",
+            "end_date",
+            "can_view_workflows",
+            "can_edit_workflows",
+            "can_transition_workflows",
+            "can_receive_assignments",
+            "can_receive_notifications",
+            "reason",
+        ]
+        widgets = {
+            "delegatee": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "workflows": forms.CheckboxSelectMultiple(attrs={"class": "space-y-2"}),
+            "groups": forms.CheckboxSelectMultiple(attrs={"class": "space-y-2"}),
+            "start_date": DateTimePickerInput(
+                attrs={
+                    "class": "form-control input input-bordered w-full",
+                    "placeholder": "Select start date and time...",
+                }
+            ),
+            "end_date": DateTimePickerInput(
+                attrs={
+                    "class": "form-control input input-bordered w-full",
+                    "placeholder": "Select end date and time (optional)...",
+                }
+            ),
+            "can_view_workflows": forms.CheckboxInput(
+                attrs={"class": "checkbox checkbox-primary"}
+            ),
+            "can_edit_workflows": forms.CheckboxInput(
+                attrs={"class": "checkbox checkbox-primary"}
+            ),
+            "can_transition_workflows": forms.CheckboxInput(
+                attrs={"class": "checkbox checkbox-primary"}
+            ),
+            "can_receive_assignments": forms.CheckboxInput(
+                attrs={"class": "checkbox checkbox-primary"}
+            ),
+            "can_receive_notifications": forms.CheckboxInput(
+                attrs={"class": "checkbox checkbox-primary"}
+            ),
+            "reason": forms.Textarea(
+                attrs={
+                    "class": "textarea textarea-bordered w-full",
+                    "rows": 3,
+                    "placeholder": "Reason for delegation...",
+                }
+            ),
+        }
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+        # Filter delegatee to exclude current user and include only active users
+        self.fields["delegatee"].queryset = (
+            User.objects.filter(is_active=True)
+            .exclude(id=user.id)
+            .order_by("first_name", "last_name")
+        )
+
+        # Filter workflows to those the user has access to delegate
+        user_workflows = []
+        for workflow in Workflow.objects.all():
+            if workflow.can_user_view(user):
+                user_workflows.append(workflow.id)
+
+        self.fields["workflows"].queryset = Workflow.objects.filter(
+            id__in=user_workflows
+        ).order_by("title")
+
+        # Filter groups to those the user belongs to
+        user_groups = user.memberships.filter(is_active=True).values_list(
+            "group", flat=True
+        )
+        self.fields["groups"].queryset = Group.objects.filter(
+            id__in=user_groups
+        ).order_by("name")
+
+        # Set delegator to current user
+        self.instance.delegator = user
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+        delegatee = cleaned_data.get("delegatee")
+
+        # Validate date range
+        if start_date and end_date and start_date >= end_date:
+            raise forms.ValidationError("End date must be after start date.")
+
+        # Check if delegation already exists for this user and delegatee
+        if delegatee and not self.instance.pk:
+            existing = UserDelegation.objects.filter(
+                delegator=self.user, delegatee=delegatee, status="active"
+            ).first()
+            if existing:
+                raise forms.ValidationError(
+                    f"An active delegation to {delegatee.get_full_name() or delegatee.username} already exists."
+                )
+
+        return cleaned_data
+
+    def clean_delegatee(self):
+        delegatee = self.cleaned_data.get("delegatee")
+        if delegatee == self.user:
+            raise forms.ValidationError("You cannot delegate to yourself.")
+        return delegatee
+
+
+class UserDelegationSearchForm(forms.Form):
+    """Form for searching and filtering delegations."""
+
+    search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "Search by delegator or delegatee name...",
+            }
+        ),
+    )
+
+    status = forms.ChoiceField(
+        required=False,
+        choices=[("", "All Status")] + UserDelegation.STATUS_CHOICES,
+        widget=forms.Select(attrs={"class": "select select-bordered w-full"}),
+    )
+
+    delegator = forms.ModelChoiceField(
+        required=False,
+        queryset=User.objects.filter(is_active=True).order_by(
+            "first_name", "last_name"
+        ),
+        widget=forms.Select(attrs={"class": "select select-bordered w-full"}),
+        empty_label="All Delegators",
+    )
+
+    delegatee = forms.ModelChoiceField(
+        required=False,
+        queryset=User.objects.filter(is_active=True).order_by(
+            "first_name", "last_name"
+        ),
+        widget=forms.Select(attrs={"class": "select select-bordered w-full"}),
+        empty_label="All Delegatees",
+    )

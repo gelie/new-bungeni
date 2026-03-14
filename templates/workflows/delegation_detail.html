@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delegation Details {% endblock %}
+
+{% partialdef content %}
+<div class="max-w-4xl mx-auto">
+  <!-- Breadcrumb -->
+  <div class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'dashboard' %}" class="text-primary">Dashboard</a></li>
+      <li><a href="{% url 'delegation_list' %}" class="text-primary">Delegations</a></li>
+      <li>Details</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "user-check" class="w-8 h-8" %}
+        Delegation Details
+      </h1>
+      <p class="text-base-content/70 mt-1">View delegation information and permissions</p>
+    </div>
+    <div class="flex gap-2">
+      {% if delegation.status not in "revoked,expired" %}
+      <a href="{% url 'delegation_edit' delegation.pk %}" class="btn btn-primary gap-2">
+        {% lucide "pencil" class="w-4 h-4" %}
+        Edit
+      </a>
+      {% endif %}
+      <a href="{% url 'delegation_list' %}" class="btn btn-ghost gap-2">
+        {% lucide "arrow-left" class="w-4 h-4" %}
+        Back to List
+      </a>
+    </div>
+  </div>
+
+  <!-- Status Alert -->
+  {% if delegation.status == "active" %}
+  <div class="alert alert-success mb-6">
+    {% lucide "circle-check" class="w-5 h-5" %}
+    <div>
+      <h3 class="font-bold">Active Delegation</h3>
+      <div class="text-sm">This delegation is currently in effect.</div>
+    </div>
+  </div>
+  {% elif delegation.status == "expired" %}
+  <div class="alert alert-warning mb-6">
+    {% lucide "clock" class="w-5 h-5" %}
+    <div>
+      <h3 class="font-bold">Expired Delegation</h3>
+      <div class="text-sm">This delegation expired on {{ delegation.end_date|date:"M d, Y H:i" }}.</div>
+    </div>
+  </div>
+  {% elif delegation.status == "revoked" %}
+  <div class="alert alert-error mb-6">
+    {% lucide "circle-x" class="w-5 h-5" %}
+    <div>
+      <h3 class="font-bold">Revoked Delegation</h3>
+      <div class="text-sm">This delegation was revoked on {{ delegation.revoked_at|date:"M d, Y H:i" }} by
+        {{ delegation.revoked_by.get_full_name|default:delegation.revoked_by.username }}.</div>
+      {% if delegation.revoke_reason %}
+      <div class="text-sm mt-1">Reason: {{ delegation.revoke_reason }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="alert alert-info mb-6">
+    {% lucide "hourglass" class="w-5 h-5" %}
+    <div>
+      <h3 class="font-bold">Pending Delegation</h3>
+      <div class="text-sm">This delegation is pending approval.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Delegation Info -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main Info -->
+    <div class="lg:col-span-2 space-y-6">
+      <!-- Users -->
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2">
+            {% lucide "users" class="w-5 h-5" %}
+            Delegation Relationship
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="text-center">
+              <div class="avatar placeholder mb-3">
+                <div class="bg-neutral-focus text-neutral-content rounded-full w-16 h-16">
+                  <span
+                    class="text-lg">{{ delegation.delegator.first_name.0 }}{{ delegation.delegator.last_name.0 }}</span>
+                </div>
+              </div>
+              <h3 class="font-medium">{{ delegation.delegator.get_full_name|default:delegation.delegator.username }}
+              </h3>
+              <p class="text-sm opacity-70">{{ delegation.delegator.email }}</p>
+              <div class="badge badge-outline mt-2">Delegator</div>
+            </div>
+
+            <div class="text-center">
+              <div class="avatar placeholder mb-3">
+                <div class="bg-primary-focus text-primary-content rounded-full w-16 h-16">
+                  <span
+                    class="text-lg">{{ delegation.delegatee.first_name.0 }}{{ delegation.delegatee.last_name.0 }}</span>
+                </div>
+              </div>
+              <h3 class="font-medium">{{ delegation.delegatee.get_full_name|default:delegation.delegatee.username }}
+              </h3>
+              <p class="text-sm opacity-70">{{ delegation.delegatee.email }}</p>
+              <div class="badge badge-primary mt-2">Delegatee</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Permissions -->
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2">
+            {% lucide "shield" class="w-5 h-5" %}
+            Delegated Permissions
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="flex items-center gap-3">
+              {% if delegation.can_view_workflows %}
+              {% lucide "circle-check" class="w-5 h-5 text-success" %}
+              {% else %}
+              {% lucide "circle-x" class="w-5 h-5 text-error" %}
+              {% endif %}
+              <div>
+                <div class="font-medium">View Workflows</div>
+                <div class="text-sm opacity-70">Can view delegator's workflows</div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              {% if delegation.can_edit_workflows %}
+              {% lucide "circle-check" class="w-5 h-5 text-success" %}
+              {% else %}
+              {% lucide "circle-x" class="w-5 h-5 text-error" %}
+              {% endif %}
+              <div>
+                <div class="font-medium">Edit Workflows</div>
+                <div class="text-sm opacity-70">Can edit delegator's workflows</div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              {% if delegation.can_transition_workflows %}
+              {% lucide "circle-check" class="w-5 h-5 text-success" %}
+              {% else %}
+              {% lucide "circle-x" class="w-5 h-5 text-error" %}
+              {% endif %}
+              <div>
+                <div class="font-medium">Perform Transitions</div>
+                <div class="text-sm opacity-70">Can perform workflow transitions</div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              {% if delegation.can_receive_assignments %}
+              {% lucide "circle-check" class="w-5 h-5 text-success" %}
+              {% else %}
+              {% lucide "circle-x" class="w-5 h-5 text-error" %}
+              {% endif %}
+              <div>
+                <div class="font-medium">Receive Assignments</div>
+                <div class="text-sm opacity-70">New assignments go to delegatee</div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              {% if delegation.can_receive_notifications %}
+              {% lucide "circle-check" class="w-5 h-5 text-success" %}
+              {% else %}
+              {% lucide "circle-x" class="w-5 h-5 text-error" %}
+              {% endif %}
+              <div>
+                <div class="font-medium">Receive Notifications</div>
+                <div class="text-sm opacity-70">Delegatee receives notifications</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scope -->
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2">
+            {% lucide "target" class="w-5 h-5" %}
+            Delegation Scope
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 class="font-medium mb-2">Workflows</h3>
+              {% if delegation.workflows.exists %}
+              <div class="space-y-1">
+                {% for workflow in delegation.workflows.all %}
+                <div class="text-sm bg-base-200 rounded px-2 py-1">{{ workflow.title }}</div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="text-sm opacity-70">All accessible workflows</div>
+              {% endif %}
+            </div>
+
+            <div>
+              <h3 class="font-medium mb-2">Groups</h3>
+              {% if delegation.groups.exists %}
+              <div class="space-y-1">
+                {% for group in delegation.groups.all %}
+                <div class="text-sm bg-base-200 rounded px-2 py-1">{{ group.name }}</div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="text-sm opacity-70">All user's groups</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reason -->
+      {% if delegation.reason %}
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2">
+            {% lucide "message-square" class="w-5 h-5" %}
+            Reason
+          </h2>
+          <p class="whitespace-pre-wrap">{{ delegation.reason }}</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Sidebar Info -->
+    <div class="space-y-6">
+      <!-- Time Period -->
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2">
+            {% lucide "calendar" class="w-5 h-5" %}
+            Time Period
+          </h2>
+
+          <div class="space-y-2">
+            <div>
+              <div class="text-sm opacity-70">Start Date</div>
+              <div class="font-medium">{{ delegation.start_date|date:"M d, Y H:i" }}</div>
+            </div>
+            {% if delegation.end_date %}
+            <div>
+              <div class="text-sm opacity-70">End Date</div>
+              <div class="font-medium">{{ delegation.end_date|date:"M d, Y H:i" }}</div>
+            </div>
+            {% else %}
+            <div>
+              <div class="text-sm opacity-70">End Date</div>
+              <div class="font-medium">Indefinite</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit Info -->
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2">
+            {% lucide "history" class="w-5 h-5" %}
+            Audit Information
+          </h2>
+
+          <div class="space-y-2">
+            <div>
+              <div class="text-sm opacity-70">Created</div>
+              <div class="font-medium">{{ delegation.created_at|date:"M d, Y H:i" }}</div>
+            </div>
+            <div>
+              <div class="text-sm opacity-70">Last Updated</div>
+              <div class="font-medium">{{ delegation.updated_at|date:"M d, Y H:i" }}</div>
+            </div>
+            {% if delegation.approved_by %}
+            <div>
+              <div class="text-sm opacity-70">Approved By</div>
+              <div class="font-medium">
+                {{ delegation.approved_by.get_full_name|default:delegation.approved_by.username }}</div>
+              <div class="text-sm">{{ delegation.approved_at|date:"M d, Y H:i" }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      {% if delegation.status not in "revoked,expired" %}
+      <div class="card bg-base-100 shadow-sm">
+        <div class="card-body">
+          <h2 class="card-title flex items-center gap-2">
+            {% lucide "settings" class="w-5 h-5" %}
+            Actions
+          </h2>
+
+          <div class="space-y-2">
+            {% if delegation.status == "pending" %}
+            <form method="post" action="{% url 'delegation_approve' delegation.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-success w-full gap-2">
+                {% lucide "check" class="w-4 h-4" %}
+                Approve Delegation
+              </button>
+            </form>
+            {% endif %}
+
+            <form method="post" action="{% url 'delegation_revoke' delegation.pk %}"
+              onsubmit="return confirm('Are you sure you want to revoke this delegation?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-error w-full gap-2">
+                {% lucide "x" class="w-4 h-4" %}
+                Revoke Delegation
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
+{% endblock %}

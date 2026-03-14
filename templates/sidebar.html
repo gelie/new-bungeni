@@ -19,6 +19,17 @@
     </div>
   </a>
 
+  {% if user.is_superuser or user.can_manage_permissions %}
+  <a hx-get="{% url 'delegation_list' %}" hx-target="#content-area" hx-push-url="true"
+    class="sidebar-icon-btn {% if 'delegation' in request.path %}active{% endif %}" data-panel="delegations"
+    title="Delegations">
+    <div class="flex flex-col items-center">
+      {% lucide "user-plus" class="w-6 h-6" %}
+      <span class="text-xs">Delegations</span>
+    </div>
+  </a>
+  {% endif %}
+
   <a hx-get="{% url 'event_list' %}" hx-target="#content-area" hx-push-url="true"
     class="sidebar-icon-btn {% if 'event' in request.path %}active{% endif %}" data-panel="events" title="Events">
     <div class="flex flex-col items-center">
@@ -231,10 +242,15 @@
             {% lucide "globe" class="w-4 h-4" %}
             <span>SharePoint Sites</span>
           </a></li>
-        <li><a hx-get="{% url 'admin_sharepoint_members' %}" hx-target="#content-area" hx-push=url="true"
+        <li><a hx-get="{% url 'admin_sharepoint_members' %}" hx-target="#content-area" hx-push-url="true"
             class="flex items-center gap-2">
             {% lucide "user-check" class="w-4 h-4" %}
             <span>Site Members</span>
+          </a></li>
+        <li><a hx-get="{% url 'delegation_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "user-plus" class="w-4 h-4" %}
+            <span>Delegations</span>
           </a></li>
         <li class="divider my-2"></li>
         <li><a href="/admin/" class="flex items-center gap-2">

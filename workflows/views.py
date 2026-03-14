@@ -34,6 +34,7 @@ from .models import (
     State,
     Transition,
     User,
+    UserDelegation,
     Venue,
     Workflow,
     WorkflowReferral,
@@ -4550,3 +4551,217 @@ Parliament Workflow System
 
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
+
+
+# ============================================================================
+# USER DELEGATION VIEWS
+# ============================================================================
+
+
+def user_has_delegation_permission(user):
+    """Check if user has permission to manage delegations."""
+    if user.is_superuser:
+        return True
+
+    # Check if user has any role with delegation permissions
+    user_roles = user.memberships.filter(is_active=True).values_list("role", flat=True)
+
+    # Check if any of the user's roles have delegation permissions
+    # This is a placeholder - you might want to add a specific permission to Role model
+    # For now, we'll check if user has any management permissions
+    return (
+        Role.objects.filter(id__in=user_roles, can_manage_permissions=True).exists()
+        or user.is_staff
+    )
+
+
+@login_required
+def delegation_list(request):
+    """List and search user delegations."""
+    if not user_has_delegation_permission(request.user):
+        messages.error(request, "You do not have permission to manage delegations.")
+        return redirect("dashboard")
+
+    from .forms import UserDelegationSearchForm
+
+    form = UserDelegationSearchForm(request.GET)
+    delegations = UserDelegation.objects.select_related(
+        "delegator", "delegatee", "approved_by", "revoked_by"
+    ).prefetch_related("workflows", "groups")
+
+    # Apply filters
+    if form.is_valid():
+        cleaned_data = form.cleaned_data
+
+        # Search by name
+        if cleaned_data.get("search"):
+            search_term = cleaned_data["search"]
+            delegations = delegations.filter(
+                Q(delegator__first_name__icontains=search_term)
+                | Q(delegator__last_name__icontains=search_term)
+                | Q(delegator__username__icontains=search_term)
+                | Q(delegatee__first_name__icontains=search_term)
+                | Q(delegatee__last_name__icontains=search_term)
+                | Q(delegatee__username__icontains=search_term)
+            )
+
+        # Filter by status
+        if cleaned_data.get("status"):
+            delegations = delegations.filter(status=cleaned_data["status"])
+
+        # Filter by delegator
+        if cleaned_data.get("delegator"):
+            delegations = delegations.filter(delegator=cleaned_data["delegator"])
+
+        # Filter by delegatee
+        if cleaned_data.get("delegatee"):
+            delegations = delegations.filter(delegatee=cleaned_data["delegatee"])
+
+    # Order by most recent first
+    delegations = delegations.order_by("-created_at")
+
+    context = {
+        "delegations": delegations,
+        "search_form": form,
+    }
+
+    return render(request, "workflows/delegation_list.html", context)
+
+
+@login_required
+def delegation_create(request):
+    """Create a new user delegation."""
+    if not user_has_delegation_permission(request.user):
+        messages.error(request, "You do not have permission to create delegations.")
+        return redirect("dashboard")
+
+    from .forms import UserDelegationForm
+
+    if request.method == "POST":
+        form = UserDelegationForm(request.user, request.POST)
+        if form.is_valid():
+            delegation = form.save()
+            messages.success(
+                request,
+                f"Delegation to {delegation.delegatee.get_full_name() or delegation.delegatee.username} has been created.",
+            )
+            return redirect("delegation_list")
+    else:
+        form = UserDelegationForm(request.user)
+
+    context = {
+        "form": form,
+        "title": "Create Delegation",
+    }
+
+    return render(request, "workflows/delegation_create.html", context)
+
+
+@login_required
+@htmx_partial("workflows/delegation_detail.html")
+def delegation_detail(request, pk):
+    """View delegation details."""
+    if not user_has_delegation_permission(request.user):
+        messages.error(request, "You do not have permission to view delegations.")
+        return redirect("dashboard")
+
+    delegation = get_object_or_404(
+        UserDelegation.objects.select_related(
+            "delegator", "delegatee", "approved_by", "revoked_by"
+        ).prefetch_related("workflows", "groups"),
+        pk=pk,
+    )
+
+    context = {
+        "delegation": delegation,
+    }
+
+    return context
+
+
+@login_required
+@htmx_partial("workflows/delegation_edit.html")
+def delegation_edit(request, pk):
+    """Edit an existing user delegation."""
+    if not user_has_delegation_permission(request.user):
+        messages.error(request, "You do not have permission to edit delegations.")
+        return redirect("dashboard")
+
+    delegation = get_object_or_404(UserDelegation, pk=pk)
+
+    # Only allow editing if delegation is not revoked or expired
+    if delegation.status in ["revoked", "expired"]:
+        messages.error(request, "Cannot edit a revoked or expired delegation.")
+        return redirect("delegation_detail", pk=pk)
+
+    from .forms import UserDelegationForm
+
+    if request.method == "POST":
+        form = UserDelegationForm(request.user, request.POST, instance=delegation)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Delegation has been updated.")
+            return redirect("delegation_detail", pk=delegation.pk)
+    else:
+        form = UserDelegationForm(request.user, instance=delegation)
+
+    context = {
+        "form": form,
+        "delegation": delegation,
+        "title": "Edit Delegation",
+    }
+
+    return context
+
+
+@login_required
+def delegation_revoke(request, pk):
+    """Revoke a user delegation."""
+    if not user_has_delegation_permission(request.user):
+        messages.error(request, "You do not have permission to revoke delegations.")
+        return redirect("dashboard")
+
+    delegation = get_object_or_404(UserDelegation, pk=pk)
+
+    if delegation.status in ["revoked", "expired"]:
+        messages.error(request, "This delegation cannot be revoked.")
+        return redirect("delegation_detail", pk=pk)
+
+    if request.method == "POST":
+        reason = request.POST.get("reason", "")
+        delegation.revoke(revoked_by=request.user, reason=reason)
+
+        messages.success(
+            request,
+            f"Delegation to {delegation.delegatee.get_full_name() or delegation.delegatee.username} has been revoked.",
+        )
+        return redirect("delegation_detail", pk=pk)
+
+    return redirect("delegation_detail", pk=pk)
+
+
+@login_required
+def delegation_approve(request, pk):
+    """Approve a pending user delegation."""
+    if not user_has_delegation_permission(request.user):
+        messages.error(request, "You do not have permission to approve delegations.")
+        return redirect("dashboard")
+
+    if request.method != "POST":
+        messages.error(request, "Invalid request method.")
+        return redirect("delegation_list")
+
+    delegation = get_object_or_404(UserDelegation, pk=pk)
+
+    if delegation.status != "pending":
+        messages.error(request, "Only pending delegations can be approved.")
+        return redirect("delegation_detail", pk=pk)
+
+    delegation.approve(request.user)
+
+    messages.success(
+        request,
+        f"Delegation to {delegation.delegatee.get_full_name() or delegation.delegatee.username} has been approved.",
+    )
+
+    return redirect("delegation_detail", pk=pk)

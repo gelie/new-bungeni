@@ -11,10 +11,16 @@
   <link rel="stylesheet" href="{% static 'css/main.css' %}" />
   <link rel="stylesheet" href="{% static 'css/style.css' %}" />
   <link rel="stylesheet" href="{% static 'css/fonts.css' %}" />
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css" />
   {% endblock %}
+  {% block extra_head %}{% endblock %}
   {% block scripts %}
   <script src="{% static 'js/htmx.min.js' %}"></script>
   <!--<script src="{% static 'js/lucide.min.js' %}"></script>-->
+  <!-- Flatpickr JS -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   {% endblock %}
 </head>
 
@@ -39,344 +45,346 @@
     </main>
   </div>
   <script>
-    (function() {
-    // Initialize Lucide icons
-    // lucide.createIcons();
-
-    // Theme toggle
-    window.toggleTheme = function() {
-      const html = document.documentElement;
-      const currentTheme = html.getAttribute('data-theme') || 'emerald';
-      const newTheme = currentTheme === 'emerald' ? 'dim' : 'emerald';
-      html.setAttribute('data-theme', newTheme);
-      localStorage.setItem('daisyui-theme', newTheme);
-
-      // Toggle icon visibility
-      document.querySelectorAll('.theme-icon-light').forEach(el => {
-        el.classList.toggle('hidden');
-      });
-      document.querySelectorAll('.theme-icon-dark').forEach(el => {
-        el.classList.toggle('hidden');
-      });
-    }
-
-    // Load saved theme
-    const savedTheme = localStorage.getItem('daisyui-theme') || 'emerald';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    if (savedTheme === 'dim') {
-      document.querySelectorAll('.theme-icon-light').forEach(el => {
-        el.classList.add('hidden');
-      });
-      document.querySelectorAll('.theme-icon-dark').forEach(el => {
-        el.classList.remove('hidden');
-      });
-    }
-
-    // HTMX event listeners
-    document.body.addEventListener('htmx:afterSwap', function (event) {
+    (function () {
+      // Initialize Lucide icons
       // lucide.createIcons();
-      applyWorkflowStateColors();
 
-      // Re-add click handlers for workflow rows
-      document.querySelectorAll('[data-workflow-url]').forEach(row => {
-        row.addEventListener('click', function () {
-          window.location.href = this.dataset.workflowUrl;
+      // Theme toggle
+      window.toggleTheme = function () {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-theme') || 'emerald';
+        const newTheme = currentTheme === 'emerald' ? 'dim' : 'emerald';
+        html.setAttribute('data-theme', newTheme);
+        localStorage.setItem('daisyui-theme', newTheme);
+
+        // Toggle icon visibility
+        document.querySelectorAll('.theme-icon-light').forEach(el => {
+          el.classList.toggle('hidden');
+        });
+        document.querySelectorAll('.theme-icon-dark').forEach(el => {
+          el.classList.toggle('hidden');
+        });
+      }
+
+      // Load saved theme
+      const savedTheme = localStorage.getItem('daisyui-theme') || 'emerald';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      if (savedTheme === 'dim') {
+        document.querySelectorAll('.theme-icon-light').forEach(el => {
+          el.classList.add('hidden');
+        });
+        document.querySelectorAll('.theme-icon-dark').forEach(el => {
+          el.classList.remove('hidden');
+        });
+      }
+
+      // HTMX event listeners
+      document.body.addEventListener('htmx:afterSwap', function (event) {
+        // lucide.createIcons();
+        applyWorkflowStateColors();
+
+        // Re-add click handlers for workflow rows
+        document.querySelectorAll('[data-workflow-url]').forEach(row => {
+          row.addEventListener('click', function () {
+            window.location.href = this.dataset.workflowUrl;
+          });
+        });
+
+        // Update active panel based on current URL after HTMX navigation
+        setActivePanelFromPage();
+      });
+
+      // Apply dynamic background colors to workflow state badges
+      function applyWorkflowStateColors() {
+        document.querySelectorAll('.workflow-state-badge').forEach(badge => {
+          const color = badge.getAttribute('data-state-color');
+          if (color) {
+            badge.style.backgroundColor = color;
+            badge.style.color = '#ffffff';
+            badge.style.borderColor = color;
+            badge.style.fontWeight = '500';
+          }
+        });
+      }
+
+      // Apply colors on page load
+      document.addEventListener('DOMContentLoaded', function () {
+        applyWorkflowStateColors();
+
+        // Add click handlers for workflow rows
+        document.querySelectorAll('[data-workflow-url]').forEach(row => {
+          row.addEventListener('click', function () {
+            window.location.href = this.dataset.workflowUrl;
+          });
         });
       });
 
-      // Update active panel based on current URL after HTMX navigation
-      setActivePanelFromPage();
-    });
+      // Sidebar Panel Management
+      let activeSidebarPanel = null;
+      let isPanelOpen = false;
 
-    // Apply dynamic background colors to workflow state badges
-    function applyWorkflowStateColors() {
-      document.querySelectorAll('.workflow-state-badge').forEach(badge => {
-        const color = badge.getAttribute('data-state-color');
-        if (color) {
-          badge.style.backgroundColor = color;
-          badge.style.color = '#ffffff';
-          badge.style.borderColor = color;
-          badge.style.fontWeight = '500';
+      // Load sidebar state from localStorage
+      function loadSidebarState() {
+        const savedState = localStorage.getItem('sidebarState');
+        if (savedState) {
+          const state = JSON.parse(savedState);
+          activeSidebarPanel = state.activePanel;
+          isPanelOpen = state.isOpen;
+
+          // Restore panel visibility if it should be open
+          if (isPanelOpen && activeSidebarPanel) {
+            setActivePanel(activeSidebarPanel, false);
+            // Ensure the panel container and main content are in the correct state
+            const panelContainer = document.getElementById('sidebar-panels');
+            const mainContent = document.getElementById('main-content');
+            if (panelContainer) panelContainer.classList.add('open');
+            if (mainContent) mainContent.classList.add('panel-open');
+          }
         }
-      });
-    }
+      }
 
-    // Apply colors on page load
-    document.addEventListener('DOMContentLoaded', function () {
-      applyWorkflowStateColors();
+      // Save sidebar state to localStorage
+      function saveSidebarState() {
+        const state = {
+          activePanel: activeSidebarPanel,
+          isOpen: isPanelOpen
+        };
+        localStorage.setItem('sidebarState', JSON.stringify(state));
+      }
 
-      // Add click handlers for workflow rows
-      document.querySelectorAll('[data-workflow-url]').forEach(row => {
-        row.addEventListener('click', function () {
-          window.location.href = this.dataset.workflowUrl;
+      function setActivePanel(panelName, saveState = true) {
+        const panel = document.getElementById(`panel-${panelName}`);
+        const iconBtn = document.querySelector(`[data-panel="${panelName}"]`);
+
+        if (!panel) return;
+
+        // Hide all panels
+        document.querySelectorAll('.sidebar-panel').forEach(p => {
+          p.classList.remove('active');
         });
-      });
-    });
 
-    // Sidebar Panel Management
-    let activeSidebarPanel = null;
-    let isPanelOpen = false;
+        // Remove active state from all icon buttons
+        document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
 
-    // Load sidebar state from localStorage
-    function loadSidebarState() {
-      const savedState = localStorage.getItem('sidebarState');
-      if (savedState) {
-        const state = JSON.parse(savedState);
-        activeSidebarPanel = state.activePanel;
-        isPanelOpen = state.isOpen;
+        // Show selected panel (without affecting container visibility)
+        panel.classList.add('active');
+        if (iconBtn) iconBtn.classList.add('active');
 
-        // Restore panel visibility if it should be open
-        if (isPanelOpen && activeSidebarPanel) {
-          setActivePanel(activeSidebarPanel, false);
-          // Ensure the panel container and main content are in the correct state
-          const panelContainer = document.getElementById('sidebar-panels');
+        activeSidebarPanel = panelName;
+
+        if (saveState) {
+          saveSidebarState();
+        }
+      }
+
+      function showPanel(panelName, saveState = true, forceOpen = false) {
+        const panel = document.getElementById(`panel-${panelName}`);
+        const panelContainer = document.getElementById('sidebar-panels');
+        const mainContent = document.getElementById('main-content');
+        const iconBtn = document.querySelector(`[data-panel="${panelName}"]`);
+
+        if (!panel || !panelContainer || !mainContent) return;
+
+        // Hide all panels
+        document.querySelectorAll('.sidebar-panel').forEach(p => {
+          p.classList.remove('active');
+        });
+
+        // Remove active state from all icon buttons
+        document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+
+        // Show selected panel
+        panel.classList.add('active');
+        if (iconBtn) iconBtn.classList.add('active');
+
+        // Only open panel container and slide main content if forceOpen is true
+        if (forceOpen) {
+          panelContainer.classList.add('open');
+          mainContent.classList.add('panel-open');
+          isPanelOpen = true;
+        }
+
+        activeSidebarPanel = panelName;
+
+        if (saveState) {
+          saveSidebarState();
+        }
+      }
+
+      function closePanels() {
+        const panelContainer = document.getElementById('sidebar-panels');
+        const mainContent = document.getElementById('main-content');
+
+        document.querySelectorAll('.sidebar-panel').forEach(p => {
+          p.classList.remove('active');
+        });
+        document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+
+        if (panelContainer) panelContainer.classList.remove('open');
+        if (mainContent) mainContent.classList.remove('panel-open');
+        isPanelOpen = false;
+        // Don't clear activeSidebarPanel so we can reopen the same panel
+
+        saveSidebarState();
+      }
+
+      function toggleSidebarPanels() {
+        if (isPanelOpen) {
+          closePanels();
+        } else {
+          // Open the last active panel or default to dashboard
+          const defaultPanel = activeSidebarPanel || 'dashboard';
+          showPanel(defaultPanel, true, true); // forceOpen = true
+        }
+      }
+
+      // Set active panel based on current page
+      function setActivePanelFromPage() {
+        const path = window.location.pathname;
+        let panelName = 'dashboard'; // default
+
+        if (path.includes('workflow')) {
+          panelName = 'workflows';
+        } else if (path.includes('event')) {
+          panelName = 'events';
+        } else if (path.includes('group')) {
+          panelName = 'groups';
+        } else if (path.includes('report')) {
+          panelName = 'reports';
+        } else if (path.includes('manage')) {
+          panelName = 'admin';
+        } else if (path === '/' || path.includes('dashboard')) {
+          panelName = 'dashboard';
+        }
+
+        activeSidebarPanel = panelName;
+
+        // If sidebar should be open, set the active panel and ensure main content has correct margin
+        if (isPanelOpen) {
+          setActivePanel(panelName, false);
+          // Ensure main content has the correct margin to avoid overlap
           const mainContent = document.getElementById('main-content');
-          if (panelContainer) panelContainer.classList.add('open');
           if (mainContent) mainContent.classList.add('panel-open');
         }
       }
-    }
 
-    // Save sidebar state to localStorage
-    function saveSidebarState() {
-      const state = {
-        activePanel: activeSidebarPanel,
-        isOpen: isPanelOpen
-      };
-      localStorage.setItem('sidebarState', JSON.stringify(state));
-    }
+      // Floating Popup Management
+      let popupTimeout = null;
+      let currentPopupPanel = null;
 
-    function setActivePanel(panelName, saveState = true) {
-      const panel = document.getElementById(`panel-${panelName}`);
-      const iconBtn = document.querySelector(`[data-panel="${panelName}"]`);
+      function showFloatingPopup(panelName, iconElement) {
+        if (isPanelOpen) return; // Don't show popup if sidebar is open
 
-      if (!panel) return;
+        const popup = document.getElementById('sidebar-popup');
+        const panel = document.getElementById(`panel-${panelName}`);
 
-      // Hide all panels
-      document.querySelectorAll('.sidebar-panel').forEach(p => {
-        p.classList.remove('active');
-      });
+        if (!popup || !panel) return;
 
-      // Remove active state from all icon buttons
-      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
+        // Clone panel content for popup
+        const panelContent = panel.querySelector('.p-4').cloneNode(true);
+        popup.querySelector('.panel-content').innerHTML = '';
+        popup.querySelector('.panel-content').appendChild(panelContent);
 
-      // Show selected panel (without affecting container visibility)
-      panel.classList.add('active');
-      if (iconBtn) iconBtn.classList.add('active');
+        // Position popup to align with the hovered icon
+        const iconRect = iconElement.getBoundingClientRect();
+        popup.style.left = ''; // Use CSS class (left-16 = 64px)
+        popup.style.top = `${iconRect.top}px`; // Align with the icon's top
+        popup.style.transform = '';
 
-      activeSidebarPanel = panelName;
-
-      if (saveState) {
-        saveSidebarState();
-      }
-    }
-
-    function showPanel(panelName, saveState = true, forceOpen = false) {
-      const panel = document.getElementById(`panel-${panelName}`);
-      const panelContainer = document.getElementById('sidebar-panels');
-      const mainContent = document.getElementById('main-content');
-      const iconBtn = document.querySelector(`[data-panel="${panelName}"]`);
-
-      if (!panel || !panelContainer || !mainContent) return;
-
-      // Hide all panels
-      document.querySelectorAll('.sidebar-panel').forEach(p => {
-        p.classList.remove('active');
-      });
-
-      // Remove active state from all icon buttons
-      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-
-      // Show selected panel
-      panel.classList.add('active');
-      if (iconBtn) iconBtn.classList.add('active');
-
-      // Only open panel container and slide main content if forceOpen is true
-      if (forceOpen) {
-        panelContainer.classList.add('open');
-        mainContent.classList.add('panel-open');
-        isPanelOpen = true;
+        // Make popup opaque by removing pointer-events: none when visible
+        popup.classList.add('visible');
+        currentPopupPanel = panelName;
       }
 
-      activeSidebarPanel = panelName;
-
-      if (saveState) {
-        saveSidebarState();
-      }
-    }
-
-    function closePanels() {
-      const panelContainer = document.getElementById('sidebar-panels');
-      const mainContent = document.getElementById('main-content');
-
-      document.querySelectorAll('.sidebar-panel').forEach(p => {
-        p.classList.remove('active');
-      });
-      document.querySelectorAll('.sidebar-icon-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-
-      if (panelContainer) panelContainer.classList.remove('open');
-      if (mainContent) mainContent.classList.remove('panel-open');
-      isPanelOpen = false;
-      // Don't clear activeSidebarPanel so we can reopen the same panel
-
-      saveSidebarState();
-    }
-
-    function toggleSidebarPanels() {
-      if (isPanelOpen) {
-        closePanels();
-      } else {
-        // Open the last active panel or default to dashboard
-        const defaultPanel = activeSidebarPanel || 'dashboard';
-        showPanel(defaultPanel, true, true); // forceOpen = true
-      }
-    }
-
-    // Set active panel based on current page
-    function setActivePanelFromPage() {
-      const path = window.location.pathname;
-      let panelName = 'dashboard'; // default
-
-      if (path.includes('workflow')) {
-        panelName = 'workflows';
-      } else if (path.includes('event')) {
-        panelName = 'events';
-      } else if (path.includes('group')) {
-        panelName = 'groups';
-      } else if (path.includes('report')) {
-        panelName = 'reports';
-      } else if (path.includes('manage')) {
-        panelName = 'admin';
-      } else if (path === '/' || path.includes('dashboard')) {
-        panelName = 'dashboard';
+      function hideFloatingPopup() {
+        const popup = document.getElementById('sidebar-popup');
+        if (popup) {
+          popup.classList.remove('visible');
+          currentPopupPanel = null;
+        }
       }
 
-      activeSidebarPanel = panelName;
+      // Initialize on page load
+      document.addEventListener('DOMContentLoaded', function () {
+        // Handle hamburger menu toggle
+        const hamburger = document.getElementById('hamburger-toggle');
+        if (hamburger) {
+          hamburger.addEventListener('click', function (e) {
+            e.preventDefault();
+            toggleSidebarPanels();
+          });
+        }
 
-      // If sidebar should be open, set the active panel and ensure main content has correct margin
-      if (isPanelOpen) {
-        setActivePanel(panelName, false);
-        // Ensure main content has the correct margin to avoid overlap
-        const mainContent = document.getElementById('main-content');
-        if (mainContent) mainContent.classList.add('panel-open');
-      }
-    }
+        // Handle aside button clicks and hover events
+        const iconButtons = document.querySelectorAll('.sidebar-icon-btn');
+        iconButtons.forEach(btn => {
+          const panelName = btn.dataset.panel;
 
-    // Floating Popup Management
-    let popupTimeout = null;
-    let currentPopupPanel = null;
-
-    function showFloatingPopup(panelName, iconElement) {
-      if (isPanelOpen) return; // Don't show popup if sidebar is open
-
-      const popup = document.getElementById('sidebar-popup');
-      const panel = document.getElementById(`panel-${panelName}`);
-
-      if (!popup || !panel) return;
-
-      // Clone panel content for popup
-      const panelContent = panel.querySelector('.p-4').cloneNode(true);
-      popup.querySelector('.panel-content').innerHTML = '';
-      popup.querySelector('.panel-content').appendChild(panelContent);
-
-      // Position popup to align with the hovered icon
-      const iconRect = iconElement.getBoundingClientRect();
-      popup.style.left = ''; // Use CSS class (left-16 = 64px)
-      popup.style.top = `${iconRect.top}px`; // Align with the icon's top
-      popup.style.transform = '';
-
-      // Make popup opaque by removing pointer-events: none when visible
-      popup.classList.add('visible');
-      currentPopupPanel = panelName;
-    }
-
-    function hideFloatingPopup() {
-      const popup = document.getElementById('sidebar-popup');
-      if (popup) {
-        popup.classList.remove('visible');
-        currentPopupPanel = null;
-      }
-    }
-
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      // Handle hamburger menu toggle
-      const hamburger = document.getElementById('hamburger-toggle');
-      if (hamburger) {
-        hamburger.addEventListener('click', function(e) {
-          e.preventDefault();
-          toggleSidebarPanels();
-        });
-      }
-
-      // Handle aside button clicks and hover events
-      const iconButtons = document.querySelectorAll('.sidebar-icon-btn');
-      iconButtons.forEach(btn => {
-        const panelName = btn.dataset.panel;
-
-        // Click handler - update active panel without affecting panel visibility
-        btn.addEventListener('click', function(e) {
-          if (panelName) {
-            // Set active panel (HTMX will handle navigation)
-            setActivePanel(panelName, true);
-          }
-        });
-
-        // Hover events for floating popup
-        btn.addEventListener('mouseenter', function() {
-          clearTimeout(popupTimeout);
-          popupTimeout = setTimeout(() => {
-            showFloatingPopup(panelName, btn);
-          }, 300); // 300ms delay before showing popup
-        });
-
-        btn.addEventListener('mouseleave', function() {
-          clearTimeout(popupTimeout);
-          popupTimeout = setTimeout(() => {
-            hideFloatingPopup();
-          }, 200); // 200ms delay before hiding popup
-        });
-      });
-
-      // Handle popup hover to keep it visible
-      const popup = document.getElementById('sidebar-popup');
-      if (popup) {
-        popup.addEventListener('mouseenter', function() {
-          clearTimeout(popupTimeout);
-        });
-
-        popup.addEventListener('mouseleave', function() {
-          hideFloatingPopup();
-        });
-      }
-
-      // Hide popup when sidebar opens
-      const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          if (mutation.attributeName === 'class') {
-            const panelContainer = document.getElementById('sidebar-panels');
-            if (panelContainer && panelContainer.classList.contains('open')) {
-              hideFloatingPopup();
+          // Click handler - update active panel without affecting panel visibility
+          btn.addEventListener('click', function (e) {
+            if (panelName) {
+              // Set active panel (HTMX will handle navigation)
+              setActivePanel(panelName, true);
             }
-          }
+          });
+
+          // Hover events for floating popup
+          btn.addEventListener('mouseenter', function () {
+            clearTimeout(popupTimeout);
+            popupTimeout = setTimeout(() => {
+              showFloatingPopup(panelName, btn);
+            }, 300); // 300ms delay before showing popup
+          });
+
+          btn.addEventListener('mouseleave', function () {
+            clearTimeout(popupTimeout);
+            popupTimeout = setTimeout(() => {
+              hideFloatingPopup();
+            }, 200); // 200ms delay before hiding popup
+          });
         });
+
+        // Handle popup hover to keep it visible
+        const popup = document.getElementById('sidebar-popup');
+        if (popup) {
+          popup.addEventListener('mouseenter', function () {
+            clearTimeout(popupTimeout);
+          });
+
+          popup.addEventListener('mouseleave', function () {
+            hideFloatingPopup();
+          });
+        }
+
+        // Hide popup when sidebar opens
+        const observer = new MutationObserver(function (mutations) {
+          mutations.forEach(function (mutation) {
+            if (mutation.attributeName === 'class') {
+              const panelContainer = document.getElementById('sidebar-panels');
+              if (panelContainer && panelContainer.classList.contains('open')) {
+                hideFloatingPopup();
+              }
+            }
+          });
+        });
+
+        const panelContainer = document.getElementById('sidebar-panels');
+        if (panelContainer) {
+          observer.observe(panelContainer, {
+            attributes: true
+          });
+        }
+
+        // Load saved sidebar state and set active panel
+        loadSidebarState();
+        setActivePanelFromPage();
       });
-
-      const panelContainer = document.getElementById('sidebar-panels');
-      if (panelContainer) {
-        observer.observe(panelContainer, { attributes: true });
-      }
-
-      // Load saved sidebar state and set active panel
-      loadSidebarState();
-      setActivePanelFromPage();
-    });
     })();
   </script>
   {% block extra_js %}{% endblock %}

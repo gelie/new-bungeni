@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delegation Management {% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <!-- Breadcrumb -->
+  <div class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'dashboard' %}" class="text-primary">Dashboard</a></li>
+      <li>Delegations</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold flex items-center gap-2">
+        {% lucide "user-check" class="w-8 h-8" %}
+        Delegations
+      </h1>
+      <p class="text-base-content/70 mt-1">Manage user workflow delegations</p>
+    </div>
+    <a href="{% url 'delegation_create' %}" class="btn btn-primary gap-2">
+      {% lucide "plus" class="w-5 h-5" %}
+      Create Delegation
+    </a>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="card bg-base-100 shadow-sm mb-6">
+    <div class="card-body p-4">
+      <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="form-control md:col-span-2">
+          <div class="input-group flex items-center gap-2">
+            <span class="bg-base-200">
+              {% lucide "search" class="w-5 h-5" %}
+            </span>
+            <input type="text" name="search" placeholder="Search by delegator or delegatee name..."
+              value="{{ search_form.search.value }}" class="input input-bordered flex-grow" />
+          </div>
+        </div>
+
+        <select name="status" class="select select-bordered">
+          <option value="">All Status</option>
+          {% for value, label in search_form.status.field.choices %}
+          <option value="{{ value }}" {% if search_form.status.value == value %}selected{% endif %}>{{ label }}
+          </option>
+          {% endfor %}
+        </select>
+
+        <select name="delegator" class="select select-bordered">
+          <option value="">All Delegators</option>
+          {% for user in search_form.delegator.field.queryset %}
+          <option value="{{ user.pk }}"
+            {% if search_form.delegator.value == user.pk|stringformat:"s" %}selected{% endif %}>
+            {{ user.get_full_name|default:user.username }}
+          </option>
+          {% endfor %}
+        </select>
+
+        <select name="delegatee" class="select select-bordered">
+          <option value="">All Delegatees</option>
+          {% for user in search_form.delegatee.field.queryset %}
+          <option value="{{ user.pk }}"
+            {% if search_form.delegatee.value == user.pk|stringformat:"s" %}selected{% endif %}>
+            {{ user.get_full_name|default:user.username }}
+          </option>
+          {% endfor %}
+        </select>
+
+        <div class="flex gap-2">
+          <button type="submit" class="btn btn-primary gap-2">
+            {% lucide "search" class="w-4 h-4" %}
+            Search
+          </button>
+          <a href="{% url 'delegation_list' %}" class="btn btn-ghost gap-2">
+            {% lucide "x" class="w-4 h-4" %}
+            Clear
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delegations List -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-0">
+      {% if delegations %}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra table-compact w-full">
+          <thead>
+            <tr>
+              <th>Delegator</th>
+              <th>Delegatee</th>
+              <th>Status</th>
+              <th>Period</th>
+              <th>Permissions</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for delegation in delegations %}
+            <tr>
+              <td>
+                <div class="flex items-center gap-2">
+                  <div class="avatar placeholder">
+                    <div class="bg-neutral-focus text-neutral-content rounded-full w-8 h-8">
+                      <span
+                        class="text-xs">{{ delegation.delegator.first_name.0 }}{{ delegation.delegator.last_name.0 }}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="font-medium">
+                      {{ delegation.delegator.get_full_name|default:delegation.delegator.username }}</div>
+                    <div class="text-xs opacity-50">{{ delegation.delegator.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <div class="avatar placeholder">
+                    <div class="bg-primary-focus text-primary-content rounded-full w-8 h-8">
+                      <span
+                        class="text-xs">{{ delegation.delegatee.first_name.0 }}{{ delegation.delegatee.last_name.0 }}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="font-medium">
+                      {{ delegation.delegatee.get_full_name|default:delegation.delegatee.username }}</div>
+                    <div class="text-xs opacity-50">{{ delegation.delegatee.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                {% if delegation.status == "active" %}
+                <span class="badge badge-success gap-1">
+                  {% lucide "circle-check" class="w-3 h-3" %}
+                  Active
+                </span>
+                {% elif delegation.status == "expired" %}
+                <span class="badge badge-warning gap-1">
+                  {% lucide "clock" class="w-3 h-3" %}
+                  Expired
+                </span>
+                {% elif delegation.status == "revoked" %}
+                <span class="badge badge-error gap-1">
+                  {% lucide "x-circle" class="w-3 h-3" %}
+                  Revoked
+                </span>
+                {% else %}
+                <span class="badge badge-info gap-1">
+                  {% lucide "hourglass" class="w-3 h-3" %}
+                  Pending
+                </span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="text-sm">
+                  <div>{{ delegation.start_date|date:"M d, Y H:i" }}</div>
+                  {% if delegation.end_date %}
+                  <div class="text-xs opacity-50">to {{ delegation.end_date|date:"M d, Y H:i" }}</div>
+                  {% else %}
+                  <div class="text-xs opacity-50">Indefinite</div>
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <div class="flex flex-wrap gap-1">
+                  {% if delegation.can_view_workflows %}<span
+                    class="badge badge-outline badge-xs">View</span>{% endif %}
+                  {% if delegation.can_edit_workflows %}<span
+                    class="badge badge-outline badge-xs">Edit</span>{% endif %}
+                  {% if delegation.can_transition_workflows %}<span
+                    class="badge badge-outline badge-xs">Transition</span>{% endif %}
+                  {% if delegation.can_receive_assignments %}<span
+                    class="badge badge-outline badge-xs">Assign</span>{% endif %}
+                </div>
+              </td>
+              <td>
+                <div class="text-sm">{{ delegation.created_at|date:"M d, Y" }}</div>
+              </td>
+              <td>
+                <div class="flex gap-1">
+                  <a href="{% url 'delegation_detail' delegation.pk %}" class="btn btn-ghost btn-xs">
+                    {% lucide "eye" class="w-4 h-4" %}
+                  </a>
+                  {% if delegation.status not in "revoked,expired" %}
+                  <a href="{% url 'delegation_edit' delegation.pk %}" class="btn btn-ghost btn-xs">
+                    {% lucide "pencil" class="w-4 h-4" %}
+                  </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-12">
+        {% lucide "user-x" class="w-16 h-16 mx-auto opacity-20 mb-4" %}
+        <h3 class="text-lg font-medium mb-2">No delegations found</h3>
+        <p class="opacity-50 mb-4">No delegations match your search criteria.</p>
+        <a href="{% url 'delegation_create' %}" class="btn btn-primary">
+          {% lucide "plus" class="w-4 h-4" %}
+          Create First Delegation
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

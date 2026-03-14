@@ -1,6 +1,12 @@
+import logging
+
+from celery import shared_task as task
 from django.core.mail import send_mail
-from django.tasks import task
 from django.utils import timezone
+
+from workflows.models import UserDelegation
+
+logger = logging.getLogger(__name__)
 
 
 @task
@@ -501,3 +507,74 @@ def transition_overdue_to_followup(
         "workflows_transitioned": workflows_transitioned,
         "transitions_failed": transitions_failed,
     }
+
+
+@task
+def check_delegation_expirations() -> dict:
+    """
+    Check for expired delegations and expire them with notifications.
+
+    This task:
+      - Finds active delegations where end_date has passed
+      - Expires them and sends notifications to both delegator and delegatee
+      - Sends email notifications to both parties
+      - Logs all actions for audit purposes
+
+    Returns a dict with counts of processed delegations and notifications.
+    """
+    now = timezone.now()
+
+    # Find active delegations that should be expired
+    expired_delegations = UserDelegation.objects.filter(
+        status="active", end_date__lte=now
+    )
+
+    expired_count = 0
+    notifications_created = 0
+    emails_sent = 0
+    errors = 0
+
+    logger.info(f"Checking {expired_delegations.count()} delegations for expiration")
+
+    for delegation in expired_delegations:
+        try:
+            delegator_name = (
+                delegation.delegator.get_full_name() or delegation.delegator.username
+            )
+            delegatee_name = (
+                delegation.delegatee.get_full_name() or delegation.delegatee.username
+            )
+
+            logger.info(
+                f"Expiring delegation: {delegator_name} -> {delegatee_name} "
+                f"(ID: {delegation.pk}, End: {delegation.end_date})"
+            )
+
+            # Expire the delegation (this sends notifications)
+            delegation.expire_delegation()
+            expired_count += 1
+
+            # Count notifications and emails
+            notifications_created += 2  # One for delegatee, one for delegator
+            emails_sent += 2  # One email to each party
+
+            logger.info(f"Successfully expired delegation {delegation.pk}")
+
+        except Exception as e:
+            errors += 1
+            logger.error(f"Failed to expire delegation {delegation.pk}: {e}")
+
+    result = {
+        "delegations_checked": expired_delegations.count(),
+        "delegations_expired": expired_count,
+        "notifications_created": notifications_created,
+        "emails_sent": emails_sent,
+        "errors": errors,
+    }
+
+    logger.info(
+        f"Delegation expiration check complete: "
+        f"{expired_count} expired, {notifications_created} notifications, {emails_sent} emails, {errors} errors"
+    )
+
+    return result

@@ -2,6 +2,7 @@ import base64
 import datetime
 import hashlib
 import hmac
+import logging
 from typing import Optional
 
 from django.conf import settings
@@ -15,6 +16,8 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.fields import AutoSlugField
 from mptt.models import MPTTModel, TreeForeignKey
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # USER MODEL
@@ -199,6 +202,19 @@ class User(AbstractUser):
             user=self, group=group, role__name=role_name, is_active=True
         ).exists()
 
+    def can_manage_permissions(self):
+        """Check if user has manage permissions"""
+        return GroupMembership.objects.filter(
+            user=self, role__can_manage_permissions=True, is_active=True
+        ).exists()
+        # user_roles = self.memberships.filter(is_active=True).values_list(
+        #     "role", flat=True
+        # )
+        # roles_with_perm = Role.objects.filter(
+        #     id__in=user_roles, can_manage_permissions=True
+        # )
+        # return roles_with_perm.exists()
+
     def can_transition_workflow(self, workflow_instance, transition):
         """Check if user can perform a specific workflow transition"""
         # Check if user has required role for this transition
@@ -306,9 +322,12 @@ class Role(models.Model):
     Examples: Chairperson, Secretary, Member, Speaker, Minister, etc.
 
     Workflow Permissions:
-    These fields define the default workflow permissions for users with this role.
-    When a user with this role is a member of a group that has access to a workflow,
-    these permissions determine what actions they can perform.
+    Note: CRUD permissions (view, edit, delete) are now determined by State permissions,
+    not Role. This model only retains permissions that are not state-dependent:
+    - can_transition_workflows: Default transition permission (overridden by State/Transition)
+    - can_create_workflows: Who can create new workflows
+    - can_assign_workflows: Who can assign workflows to others
+    - can_manage_permissions: Who can manage group access
     """
 
     name = models.CharField(max_length=100, unique=True)
@@ -316,18 +335,7 @@ class Role(models.Model):
     description = models.TextField(blank=True)
 
     # Workflow permissions - define what users with this role can do
-    can_view_workflows = models.BooleanField(
-        default=True,
-        help_text="Users with this role can view workflows in their groups",
-    )
-    can_edit_workflows = models.BooleanField(
-        default=False,
-        help_text="Users with this role can edit workflows in their groups",
-    )
-    can_delete_workflows = models.BooleanField(
-        default=False,
-        help_text="Users with this role can delete workflows in their groups",
-    )
+    # Note: CRUD permissions are now determined by State, not Role
     can_transition_workflows = models.BooleanField(
         default=False,
         help_text="Users with this role can perform state transitions on workflows",
@@ -360,9 +368,6 @@ class Role(models.Model):
     def get_workflow_permissions(self):
         """Return a dictionary of workflow permissions for this role."""
         return {
-            "can_view": self.can_view_workflows,
-            "can_edit": self.can_edit_workflows,
-            "can_delete": self.can_delete_workflows,
             "can_transition": self.can_transition_workflows,
             "can_create": self.can_create_workflows,
             "can_assign": self.can_assign_workflows,
@@ -565,7 +570,7 @@ class StatePermission(models.Model):
     """
     Direct per-state role permissions. Replaces the Facet/StateFacet indirection.
     One row per (state, role) pair controls what that role can do in that state.
-    Transition permission is handled separately by Transition.allowed_roles.
+    Transition permission is handled by both this model and Transition.allowed_roles.
     """
 
     state = models.ForeignKey(
@@ -577,6 +582,10 @@ class StatePermission(models.Model):
     can_view = models.BooleanField(default=False)
     can_edit = models.BooleanField(default=False)
     can_delete = models.BooleanField(default=False)
+    can_transition = models.BooleanField(
+        default=False,
+        help_text="Can perform transitions from this state (overrides Transition.allowed_roles if set)",
+    )
 
     class Meta:
         ordering = ["state", "role"]
@@ -589,6 +598,7 @@ class StatePermission(models.Model):
                 ("view", self.can_view),
                 ("edit", self.can_edit),
                 ("delete", self.can_delete),
+                ("transition", self.can_transition),
             ]
             if v
         )
@@ -930,8 +940,9 @@ class Workflow(models.Model):
         Permission hierarchy:
         1. Check if workflow owner (always has full permissions except manage_permissions)
         2. Check WorkflowRolePermission overrides (if configured for this workflow)
-        3. Check Role's default workflow permissions
-        4. Fallback to WorkflowGroupAccess group-level permissions (legacy)
+        3. Check State permissions for CRUD operations
+        4. Check Role's default workflow permissions (non-CRUD only)
+        5. Fallback to WorkflowGroupAccess group-level permissions (legacy)
         """
         # Owner always has full permissions (except manage_permissions which is role-based)
         if user == self.owner and permission_type != "manage_permissions":
@@ -969,16 +980,39 @@ class Workflow(models.Model):
                         return True
                     elif permission_type == "transition" and role_perm.can_transition:
                         return True
+                    elif permission_type == "assign" and role_perm.can_assign:
+                        return True
                     continue  # Override exists, don't check role defaults
 
-                # 2. Check Role's default workflow permissions
-                if permission_type == "view" and role.can_view_workflows:
-                    return True
-                elif permission_type == "edit" and role.can_edit_workflows:
-                    return True
-                elif permission_type == "delete" and role.can_delete_workflows:
-                    return True
-                elif permission_type == "transition" and role.can_transition_workflows:
+                # 2. For CRUD permissions, check State permissions (not Role defaults)
+                if permission_type in ["view", "edit", "delete", "transition"]:
+                    state_perm = self.current_state.permissions.filter(
+                        role=role
+                    ).first()
+                    if state_perm:
+                        if permission_type == "view" and state_perm.can_view:
+                            return True
+                        elif permission_type == "edit" and state_perm.can_edit:
+                            return True
+                        elif permission_type == "delete" and state_perm.can_delete:
+                            return True
+                        elif (
+                            permission_type == "transition"
+                            and state_perm.can_transition
+                        ):
+                            return True
+                    # For transition, also check Transition.allowed_roles as fallback
+                    elif permission_type == "transition":
+                        if Transition.objects.filter(
+                            workflow_type=self.workflow_type,
+                            from_state=self.current_state,
+                            allowed_roles=role,
+                        ).exists():
+                            return True
+                    continue  # State permission checked, don't check role defaults for CRUD
+
+                # 3. Check Role's default workflow permissions (non-CRUD only)
+                if permission_type == "transition" and role.can_transition_workflows:
                     return True
                 elif permission_type == "assign" and role.can_assign_workflows:
                     return True
@@ -1012,11 +1046,10 @@ class Workflow(models.Model):
             if referred_member:
                 return True
 
+        # Check state permissions only (no role fallback)
         user_roles = self._user_roles_for_workflow(user)
-        state_perms = self.current_state.permissions.all()
-        if not state_perms.exists():
-            return True
-        return state_perms.filter(role__in=user_roles, can_view=True).exists()
+        state_perms = self.current_state.permissions.filter(role__in=user_roles)
+        return state_perms.filter(can_view=True).exists()
 
     def can_user_edit(self, user):
         """Check if user can edit this workflow using RBAC system."""
@@ -1032,8 +1065,6 @@ class Workflow(models.Model):
         if not self._user_in_workflow_groups(user):
             return False
 
-        user_roles = self._user_roles_for_workflow(user)
-
         # Check referral config for edit permission on referred group members
         if self.referred_to:
             referral = self.active_referral
@@ -1047,9 +1078,10 @@ class Workflow(models.Model):
                 if in_referred:
                     return True
 
-        return self.current_state.permissions.filter(
-            role__in=user_roles, can_edit=True
-        ).exists()
+        # Check state permissions only (no role fallback)
+        user_roles = self._user_roles_for_workflow(user)
+        state_perms = self.current_state.permissions.filter(role__in=user_roles)
+        return state_perms.filter(can_edit=True).exists()
 
     def can_user_delete(self, user):
         """Check if user can delete this workflow using RBAC system."""
@@ -1065,10 +1097,10 @@ class Workflow(models.Model):
         if not self._user_in_workflow_groups(user):
             return False
 
+        # Check state permissions only (no role fallback)
         user_roles = self._user_roles_for_workflow(user)
-        return self.current_state.permissions.filter(
-            role__in=user_roles, can_delete=True
-        ).exists()
+        state_perms = self.current_state.permissions.filter(role__in=user_roles)
+        return state_perms.filter(can_delete=True).exists()
 
     def get_accessible_groups(self):
         """Get all groups that have access to this workflow."""
@@ -1697,6 +1729,10 @@ class Notification(models.Model):
     VERB_COMMENT = "comment"
     VERB_OVERDUE = "overdue"
     VERB_PENDING = "pending"
+    VERB_DELEGATION_CREATED = "delegation_created"
+    VERB_DELEGATION_APPROVED = "delegation_approved"
+    VERB_DELEGATION_REVOKED = "delegation_revoked"
+    VERB_DELEGATION_EXPIRED = "delegation_expired"
 
     VERB_CHOICES = [
         (VERB_TRANSITION, "Transition"),
@@ -1705,6 +1741,10 @@ class Notification(models.Model):
         (VERB_COMMENT, "Comment"),
         (VERB_OVERDUE, "Overdue"),
         (VERB_PENDING, "Pending Deadline"),
+        (VERB_DELEGATION_CREATED, "Delegation Created"),
+        (VERB_DELEGATION_APPROVED, "Delegation Approved"),
+        (VERB_DELEGATION_REVOKED, "Delegation Revoked"),
+        (VERB_DELEGATION_EXPIRED, "Delegation Expired"),
     ]
 
     user = models.ForeignKey(
@@ -1890,11 +1930,523 @@ class SharePointFolder(models.Model):
 # =======================================================================
 
 
+class UserDelegation(models.Model):
+    """
+    Delegation of workflow permissions and responsibilities from one user to another.
+    Allows a user to delegate their workflow permissions, assignments, and responsibilities
+    to another user for a specific period or indefinitely.
+    """
+
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("expired", "Expired"),
+        ("revoked", "Revoked"),
+        ("pending", "Pending"),
+    ]
+
+    # Delegation relationship
+    delegator = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="delegations_made",
+        help_text="User who is delegating their permissions",
+    )
+    delegatee = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="delegations_received",
+        help_text="User who receives the delegated permissions",
+    )
+
+    # Delegation scope
+    workflows = models.ManyToManyField(
+        Workflow,
+        blank=True,
+        related_name="delegations",
+        help_text="Specific workflows this delegation applies to (empty = all workflows)",
+    )
+    groups = models.ManyToManyField(
+        Group,
+        blank=True,
+        related_name="delegations",
+        help_text="Specific groups this delegation applies to (empty = all groups)",
+    )
+
+    # Time period
+    start_date = models.DateTimeField(
+        default=timezone.now,
+        help_text="When the delegation becomes effective",
+    )
+    end_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the delegation expires (null = indefinite)",
+    )
+
+    # Delegation properties
+    can_view_workflows = models.BooleanField(
+        default=True,
+        help_text="Delegatee can view delegator's workflows",
+    )
+    can_edit_workflows = models.BooleanField(
+        default=False,
+        help_text="Delegatee can edit delegator's workflows",
+    )
+    can_transition_workflows = models.BooleanField(
+        default=False,
+        help_text="Delegatee can perform transitions on delegator's workflows",
+    )
+    can_receive_assignments = models.BooleanField(
+        default=True,
+        help_text="New workflow assignments to delegator go to delegatee",
+    )
+    can_receive_notifications = models.BooleanField(
+        default=True,
+        help_text="Delegatee receives delegator's workflow notifications",
+    )
+
+    # Status and metadata
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    reason = models.TextField(blank=True, help_text="Reason for the delegation")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Audit fields
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_delegations",
+        help_text="User who approved this delegation (if required)",
+    )
+    approved_at = models.DateTimeField(
+        null=True, blank=True, help_text="When this delegation was approved"
+    )
+    revoked_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="revoked_delegations",
+        help_text="User who revoked this delegation",
+    )
+    revoked_at = models.DateTimeField(
+        null=True, blank=True, help_text="When this delegation was revoked"
+    )
+    revoke_reason = models.TextField(
+        blank=True, help_text="Reason for revoking the delegation"
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = [["delegator", "delegatee", "start_date"]]
+        indexes = [
+            models.Index(fields=["delegator", "status"]),
+            models.Index(fields=["delegatee", "status"]),
+            models.Index(fields=["start_date", "end_date"]),
+            models.Index(fields=["status", "end_date"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(end_date__isnull=True)
+                | models.Q(end_date__gt=models.F("start_date")),
+                name="delegation_end_after_start",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.delegator} → {self.delegatee} [{self.status}]"
+
+    def clean(self):
+        """Validate delegation constraints"""
+        if self.delegator == self.delegatee:
+            raise ValidationError("A user cannot delegate to themselves.")
+
+        if self.end_date and self.end_date <= self.start_date:
+            raise ValidationError("End date must be after start date.")
+
+    def save(self, *args, **kwargs):
+        """Override save to run validation, auto-update status, and send notifications"""
+        self.clean()
+
+        # Check if this is a new delegation
+        is_new = self.pk is None
+
+        # Auto-update status based on dates
+        now = timezone.now()
+        if self.end_date and self.end_date <= now and self.status == "active":
+            self.status = "expired"
+        elif self.start_date <= now and self.status == "pending":
+            self.status = "active"
+
+        super().save(*args, **kwargs)
+
+        # Send notifications for new delegations
+        if is_new:
+            self._notify_delegatee()
+
+    def _notify_delegatee(self):
+        """Send notification to delegatee when delegation is created"""
+        from .views import _create_notification
+
+        delegator_name = self.delegator.get_full_name() or self.delegator.username
+        delegatee_name = self.delegatee.get_full_name() or self.delegatee.username
+
+        # Log delegation creation
+        logger.info(
+            f"Creating delegation notification: {delegator_name} -> {delegatee_name} "
+            f"(ID: {self.pk}, Start: {self.start_date}, End: {self.end_date or 'Indefinite'})"
+        )
+
+        # Create in-app notification
+        try:
+            _create_notification(
+                user=self.delegatee,
+                verb=Notification.VERB_DELEGATION_CREATED,
+                title=f"New delegation from {delegator_name}",
+                message=(
+                    f"{delegator_name} has delegated workflow permissions to you. "
+                    f"Start: {self.start_date.strftime('%Y-%m-%d %H:%M')}"
+                    f"{' | End: ' + self.end_date.strftime('%Y-%m-%d %H:%M') if self.end_date else ' (Indefinite)'}"
+                    f"{'. Reason: ' + self.reason if self.reason else ''}"
+                ),
+            )
+            logger.info(f"In-app notification created for delegatee {delegatee_name}")
+        except Exception as e:
+            logger.error(
+                f"Failed to create in-app notification for {delegatee_name}: {e}"
+            )
+
+        # Send email notification
+        try:
+            from django.conf import settings
+            from django.core.mail import send_mail
+
+            subject = f"Workflow Delegation from {delegator_name}"
+
+            message = f"""
+Hello {self.delegatee.get_full_name() or self.delegatee.username},
+
+{delegator_name} has delegated workflow permissions to you with the following details:
+
+Start Date: {self.start_date.strftime("%Y-%m-%d %H:%M")}
+End Date: {self.end_date.strftime("%Y-%m-%d %H:%M") if self.end_date else "Indefinite"}
+
+Permissions:
+• View Workflows: {"Yes" if self.can_view_workflows else "No"}
+• Edit Workflows: {"Yes" if self.can_edit_workflows else "No"}
+• Perform Transitions: {"Yes" if self.can_transition_workflows else "No"}
+• Receive Assignments: {"Yes" if self.can_receive_assignments else "No"}
+• Receive Notifications: {"Yes" if self.can_receive_notifications else "No"}
+
+{f"Reason: {self.reason}" if self.reason else ""}
+
+You can view this delegation in your dashboard.
+
+Best regards,
+Workflow Management System
+            """.strip()
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(
+                    settings, "DEFAULT_FROM_EMAIL", "noreply@parliament.gov.za"
+                ),
+                recipient_list=[self.delegatee.email],
+                fail_silently=False,
+            )
+
+            logger.info(
+                f"Delegation email sent to {delegatee_name} at {self.delegatee.email}"
+            )
+
+        except Exception as e:
+            # Log error but don't fail the delegation creation
+            logger.error(
+                f"Failed to send delegation email to {self.delegatee.email}: {e}"
+            )
+
+    def revoke(self, revoked_by, reason=""):
+        """Revoke the delegation and send notifications"""
+        delegator_name = self.delegator.get_full_name() or self.delegator.username
+        delegatee_name = self.delegatee.get_full_name() or self.delegatee.username
+        revoker_name = revoked_by.get_full_name() or revoked_by.username
+
+        # Log revocation
+        logger.info(
+            f"Revoking delegation: {delegator_name} -> {delegatee_name} "
+            f"by {revoker_name} (ID: {self.pk}, Reason: {reason or 'None'})"
+        )
+
+        self.status = "revoked"
+        self.revoked_by = revoked_by
+        self.revoked_at = timezone.now()
+        self.revoke_reason = reason
+        self.save()
+
+        # Notify delegatee of revocation
+        from .views import _create_notification
+
+        try:
+            _create_notification(
+                user=self.delegatee,
+                verb=Notification.VERB_DELEGATION_REVOKED,
+                title=f"Delegation revoked by {revoker_name}",
+                message=(
+                    f"Your delegation from {delegator_name} "
+                    f"has been revoked by {revoker_name}."
+                    f"{f' Reason: {reason}' if reason else ''}"
+                ),
+            )
+            logger.info(f"Revocation notification created for {delegatee_name}")
+        except Exception as e:
+            logger.error(
+                f"Failed to create revocation notification for {delegatee_name}: {e}"
+            )
+
+        # Send email notification for revocation
+        try:
+            from django.conf import settings
+            from django.core.mail import send_mail
+
+            subject = f"Delegation Revoked by {revoker_name}"
+
+            message = f"""
+Hello {self.delegatee.get_full_name() or self.delegatee.username},
+
+Your delegation from {delegator_name}
+has been revoked by {revoker_name}.
+
+{f"Reason: {reason}" if reason else ""}
+
+You no longer have the delegated workflow permissions.
+
+Best regards,
+Workflow Management System
+            """.strip()
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(
+                    settings, "DEFAULT_FROM_EMAIL", "noreply@parliament.gov.za"
+                ),
+                recipient_list=[self.delegatee.email],
+                fail_silently=False,
+            )
+
+            logger.info(
+                f"Revocation email sent to {delegatee_name} at {self.delegatee.email}"
+            )
+
+        except Exception as e:
+            # Log error but don't fail the revocation
+            logger.error(
+                f"Failed to send delegation revocation email to {self.delegatee.email}: {e}"
+            )
+
+    def expire_delegation(self):
+        """Expire the delegation and send notifications"""
+        if self.status == "expired":
+            return  # Already expired
+
+        delegator_name = self.delegator.get_full_name() or self.delegator.username
+        delegatee_name = self.delegatee.get_full_name() or self.delegatee.username
+
+        # Log expiration
+        logger.info(
+            f"Expiring delegation: {delegator_name} -> {delegatee_name} "
+            f"(ID: {self.pk}, End date: {self.end_date})"
+        )
+
+        self.status = "expired"
+        self.save()
+
+        # Notify delegatee of expiration
+        from .views import _create_notification
+
+        try:
+            _create_notification(
+                user=self.delegatee,
+                verb=Notification.VERB_DELEGATION_EXPIRED,
+                title="Delegation expired",
+                message=(
+                    f"Your delegation from {delegator_name} "
+                    f"has expired as of {self.end_date.strftime('%Y-%m-%d %H:%M')}. "
+                    "You no longer have the delegated workflow permissions."
+                ),
+            )
+            logger.info(f"Expiration notification created for {delegatee_name}")
+        except Exception as e:
+            logger.error(
+                f"Failed to create expiration notification for {delegatee_name}: {e}"
+            )
+
+        # Notify delegator of expiration
+        try:
+            _create_notification(
+                user=self.delegator,
+                verb=Notification.VERB_DELEGATION_EXPIRED,
+                title=f"Delegation to {delegatee_name} expired",
+                message=(
+                    f"Your delegation to {delegatee_name} "
+                    f"has expired as of {self.end_date.strftime('%Y-%m-%d %H:%M')}."
+                ),
+            )
+            logger.info(
+                f"Expiration notification created for delegator {delegator_name}"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to create expiration notification for delegator {delegator_name}: {e}"
+            )
+
+        # Send email notifications
+        self._send_expiration_emails(delegator_name, delegatee_name)
+
+    def _send_expiration_emails(self, delegator_name, delegatee_name):
+        """Send email notifications for delegation expiration"""
+        from django.conf import settings
+        from django.core.mail import send_mail
+
+        # Email to delegatee
+        try:
+            subject = f"Delegation Expired - {delegator_name}"
+
+            message = f"""
+Hello {self.delegatee.get_full_name() or self.delegatee.username},
+
+Your delegation from {delegator_name} has expired as of {self.end_date.strftime("%Y-%m-%d %H:%M")}.
+
+You no longer have the delegated workflow permissions that were assigned to you.
+
+If you need continued access, please contact {delegator_name} to create a new delegation.
+
+Best regards,
+Workflow Management System
+            """.strip()
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(
+                    settings, "DEFAULT_FROM_EMAIL", "noreply@parliament.gov.za"
+                ),
+                recipient_list=[self.delegatee.email],
+                fail_silently=False,
+            )
+
+            logger.info(
+                f"Expiration email sent to delegatee {delegatee_name} at {self.delegatee.email}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to send expiration email to delegatee {self.delegatee.email}: {e}"
+            )
+
+        # Email to delegator
+        try:
+            subject = f"Your Delegation to {delegatee_name} Has Expired"
+
+            message = f"""
+Hello {delegator_name},
+
+Your delegation to {delegatee_name} has expired as of {self.end_date.strftime("%Y-%m-%d %H:%M")}.
+
+{delegatee_name} no longer has the workflow permissions you delegated to them.
+
+If you need to extend this delegation, please create a new one in the delegation management system.
+
+Best regards,
+Workflow Management System
+            """.strip()
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(
+                    settings, "DEFAULT_FROM_EMAIL", "noreply@parliament.gov.za"
+                ),
+                recipient_list=[self.delegator.email],
+                fail_silently=False,
+            )
+
+            logger.info(
+                f"Expiration email sent to delegator {delegator_name} at {self.delegator.email}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to send expiration email to delegator {self.delegator.email}: {e}"
+            )
+
+    @property
+    def is_active(self):
+        """Check if delegation is currently active"""
+        if self.status != "active":
+            return False
+        now = timezone.now()
+        if self.start_date > now:
+            return False
+        if self.end_date and now > self.end_date:
+            return False
+        return True
+
+    @property
+    def is_expired(self):
+        """Check if delegation has expired"""
+        if self.end_date and timezone.now() > self.end_date:
+            return True
+        return False
+
+    def applies_to_workflow(self, workflow):
+        """Check if this delegation applies to a specific workflow"""
+        if not self.is_active:
+            return False
+
+        # If no specific workflows are defined, applies to all
+        if not self.workflows.exists():
+            return True
+
+        return self.workflows.filter(id=workflow.id).exists()
+
+    def applies_to_group(self, group):
+        """Check if this delegation applies to a specific group"""
+        if not self.is_active:
+            return False
+
+        # If no specific groups are defined, applies to all
+        if not self.groups.exists():
+            return True
+
+        return self.groups.filter(id=group.id).exists()
+
+    # def revoke(self, revoked_by, reason=""):
+    #     """Revoke this delegation"""
+    #     self.status = "revoked"
+    #     self.revoked_by = revoked_by
+    #     self.revoked_at = timezone.now()
+    #     self.revoke_reason = reason
+    #     self.save()
+
+    def approve(self, approved_by):
+        """Approve this delegation"""
+        if self.status == "pending":
+            self.status = "active"
+            self.approved_by = approved_by
+            self.approved_at = timezone.now()
+            self.save()
+
+
 class Attachment(models.Model):
     attachment_type = {
         "response": "Response",
         "document": "Document",
         "petition": "Petition",
+        "other": "Other",
     }
     # Generic foreign key to link to any model (Workflow, Event, etc.)
     content_type = models.ForeignKey(
