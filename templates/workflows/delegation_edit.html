@@ -6,14 +6,17 @@
 {{ form.media }}
 {% endblock %}
 
-{% block content %}
+{% partialdef content %}
 <div class="max-w-5xl mx-auto">
   <!-- Breadcrumb -->
   <div class="text-sm breadcrumbs mb-6">
     <ul>
-      <li><a href="{% url 'dashboard' %}" class="text-primary">Dashboard</a></li>
-      <li><a href="{% url 'delegation_list' %}" class="text-primary">Delegations</a></li>
-      <li><a href="{% url 'delegation_detail' delegation.pk %}" class="text-primary">Details</a></li>
+      <li><a hx-get="{% url 'dashboard' %}" class="text-primary" hx-target="#content-area"
+          hx-push-url="true">Dashboard</a></li>
+      <li><a hx-get="{% url 'delegation_list' %}" hx-target="#content-area" hx-push-url="true"
+          class="text-primary">Delegations</a></li>
+      <li><a hx-get="{% url 'delegation_detail' delegation.pk %}" hx-target="#content-area" hx-push-url="true"
+          class="text-primary">Details</a></li>
       <li>Edit</li>
     </ul>
   </div>
@@ -28,7 +31,8 @@
       <p class="text-base-content/70 mt-2">Modify delegation settings and permissions</p>
     </div>
     <div class="flex gap-2">
-      <a href="{% url 'delegation_detail' delegation.pk %}" class="btn btn-ghost gap-2">
+      <a hx-get="{% url 'delegation_detail' delegation.pk %}" hx-target="#content-area" hx-push-url="true"
+        class="btn btn-ghost gap-2">
         {% lucide "arrow-left" class="w-4 h-4" %}
         Back to Details
       </a>
@@ -141,138 +145,150 @@
           </div>
         </div>
 
-        <!-- Permissions Section -->
-        <div class="space-y-4">
-          <div class="flex items-center gap-2 pb-2 border-b">
-            {% lucide "shield" class="w-5 h-5 text-primary" %}
-            <h2 class="text-xl font-semibold">Permissions to Delegate</h2>
+        <!-- Permissions & Reason Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-4">
+            <div class="flex items-center gap-2 pb-2 border-b">
+              {% lucide "shield" class="w-5 h-5 text-primary" %}
+              <h2 class="text-xl font-semibold">Permissions to Delegate</h2>
+            </div>
+            <div class="rounded-lg border border-base-200">
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 hover:bg-base-100 transition-colors">
+                  {{ form.can_view_workflows }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">View Workflows&nbsp;</span>
+                    <div class="tooltip tooltip-right" data-tip=" Delegatee can view your workflows">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 hover:bg-base-100 transition-colors w-full">
+                  {{ form.can_edit_workflows }}
+                  <span class="label-text font-medium">Edit Workflows&nbsp;</span>
+                  <div class="tooltip tooltip-right" data-tip="Delegatee can edit your workflows">
+                    {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 rounded-lg hover:bg-base-100 transition-colors">
+                  {{ form.can_transition_workflows }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">Perform Transitions&nbsp;</span>
+                    <div class="tooltip tooltip-right" data-tip="Delegatee can perform workflow transitions">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-control">
+                <label class="label w-full cursor-pointer justify-start p-4 hover:bg-base-100 transition-colors">
+                  {{ form.can_receive_assignments }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">Receive Assignments&nbsp;</span>
+                    <div class="tooltip tooltip-right" data-tip="New assignments go to delegatee">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 rounded-lg hover:bg-base-100 transition-colors">
+                  {{ form.can_receive_notifications }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">Receive Notifications&nbsp;</span>
+                    <div class="tooltip tooltip-right" data-tip="Delegatee receives your notifications">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            <div class="form-control">
-              <label
-                class="label cursor-pointer justify-start gap-3 p-4 bg-base-50 rounded-lg border border-base-200 hover:bg-base-100 transition-colors">
-                {{ form.can_view_workflows }}
-                <div class="flex-1">
-                  <span class="label-text font-medium">View Workflows</span>
-                  <span class="label-text-alt block">Delegatee can view your workflows</span>
-                </div>
-              </label>
+          <!-- Reason Section -->
+          <div class="space-y-4">
+            <div class="flex items-center gap-2 pb-2 border-b">
+              {% lucide "message-square" class="w-5 h-5 text-primary" %}
+              <h2 class="text-xl font-semibold">Reason for Changes</h2>
             </div>
 
             <div class="form-control">
-              <label
-                class="label cursor-pointer justify-start gap-3 p-4 bg-base-50 rounded-lg border border-base-200 hover:bg-base-100 transition-colors">
-                {{ form.can_edit_workflows }}
-                <div class="flex-1">
-                  <span class="label-text font-medium">Edit Workflows</span>
-                  <span class="label-text-alt block">Delegatee can edit your workflows</span>
-                </div>
+              {% comment %} <label class="label">
+                <span class="label-text font-medium text-base">Reason</span>
+                <span class="label-text-alt text-base-content/50">(Optional)</span>
+              </label> {% endcomment %}
+              {{ form.reason }}
+              {% if form.reason.errors %}
+              <label class="label">
+                <span class="label-text-alt text-error">{{ form.reason.errors.0 }}</span>
               </label>
-            </div>
-
-            <div class="form-control">
-              <label
-                class="label cursor-pointer justify-start gap-3 p-4 bg-base-50 rounded-lg border border-base-200 hover:bg-base-100 transition-colors">
-                {{ form.can_transition_workflows }}
-                <div class="flex-1">
-                  <span class="label-text font-medium">Perform Transitions</span>
-                  <span class="label-text-alt block">Delegatee can perform workflow transitions</span>
-                </div>
-              </label>
-            </div>
-
-            <div class="form-control">
-              <label
-                class="label cursor-pointer justify-start gap-3 p-4 bg-base-50 rounded-lg border border-base-200 hover:bg-base-100 transition-colors">
-                {{ form.can_receive_assignments }}
-                <div class="flex-1">
-                  <span class="label-text font-medium">Receive Assignments</span>
-                  <span class="label-text-alt block">New assignments go to delegatee</span>
-                </div>
-              </label>
-            </div>
-
-            <div class="form-control">
-              <label
-                class="label cursor-pointer justify-start gap-3 p-4 bg-base-50 rounded-lg border border-base-200 hover:bg-base-100 transition-colors">
-                {{ form.can_receive_notifications }}
-                <div class="flex-1">
-                  <span class="label-text font-medium">Receive Notifications</span>
-                  <span class="label-text-alt block">Delegatee receives your notifications</span>
-                </div>
+              {% endif %}
+              <label class="label">
+                <span class="label-text-alt">Provide a reason for modifying this delegation</span>
               </label>
             </div>
           </div>
         </div>
-
-        <!-- Reason Section -->
-        <div class="space-y-4">
-          <div class="flex items-center gap-2 pb-2 border-b">
-            {% lucide "message-square" class="w-5 h-5 text-primary" %}
-            <h2 class="text-xl font-semibold">Reason for Changes</h2>
-          </div>
-
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium text-base">Reason</span>
-              <span class="label-text-alt text-base-content/50">(Optional)</span>
-            </label>
-            {{ form.reason }}
-            {% if form.reason.errors %}
-            <label class="label">
-              <span class="label-text-alt text-error">{{ form.reason.errors.0 }}</span>
-            </label>
-            {% endif %}
-            <label class="label">
-              <span class="label-text-alt">Provide a reason for modifying this delegation</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Form Errors -->
-        {% if form.non_field_errors %}
-        <div class="alert alert-error">
-          {% lucide "circle-alert" class="w-5 h-5" %}
-          <div>
-            <h3 class="font-bold">Please correct the following errors:</h3>
-            <div class="mt-2">
-              {% for error in form.non_field_errors %}
-              <p class="text-sm">{{ error }}</p>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- Actions -->
-        <div class="flex justify-between items-center pt-6 border-t border-base-300">
-          <div class="flex gap-3">
-            {% if delegation.status != "revoked" %}
-            <form method="post" action="{% url 'delegation_revoke' delegation.pk %}"
-              onsubmit="return confirm('Are you sure you want to revoke this delegation? This action cannot be undone.');">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-error gap-2">
-                {% lucide "x" class="w-4 h-4" %}
-                Revoke Delegation
-              </button>
-            </form>
-            {% endif %}
-          </div>
-          <div class="flex gap-3">
-            <a href="{% url 'delegation_detail' delegation.pk %}" class="btn btn-ghost gap-2">
-              {% lucide "x" class="w-4 h-4" %}
-              Cancel
-            </a>
-            <button type="submit" class="btn btn-primary gap-2 px-6">
-              {% lucide "save" class="w-4 h-4" %}
-              Save Changes
-            </button>
-          </div>
-        </div>
-      </form>
     </div>
+
+
+
+    <!-- Form Errors -->
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      {% lucide "circle-alert" class="w-5 h-5" %}
+      <div>
+        <h3 class="font-bold">Please correct the following errors:</h3>
+        <div class="mt-2">
+          {% for error in form.non_field_errors %}
+          <p class="text-sm">{{ error }}</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="flex justify-between items-center pt-6 border-t border-base-300">
+      <div class="flex gap-3">
+        {% if delegation.status != "revoked" %}
+        <form method="post" action="{% url 'delegation_revoke' delegation.pk %}"
+          onsubmit="return confirm('Are you sure you want to revoke this delegation? This action cannot be undone.');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-error gap-2">
+            {% lucide "x" class="w-4 h-4" %}
+            Revoke Delegation
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="flex gap-3">
+        <a hx-get="{% url 'delegation_detail' delegation.pk %}" hx-target="#content-area" hx-push-url="true"
+          class="btn btn-ghost gap-2">
+          {% lucide "x" class="w-4 h-4" %}
+          Cancel
+        </a>
+        <button type="submit" class="btn btn-primary gap-2 px-6">
+          {% lucide "save" class="w-4 h-4" %}
+          Save Changes
+        </button>
+      </div>
+    </div>
+    </form>
   </div>
+</div>
 </div>
 
 <script>
@@ -319,4 +335,7 @@
     }
   });
 </script>
-{% endblock %}
+{% endpartialdef %}
+
+
+{% block content %}{% partial content %}{% endblock content %}

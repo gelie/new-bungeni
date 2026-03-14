@@ -1,13 +1,95 @@
 {% extends "base.html" %}
-{% load static %}
 
 {% block title %}Create Delegation {% endblock %}
 
+
 {% block extra_head %}
 {{ form.media }}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    function selectUser(userId, username, fullName) {
+      document.getElementById('delegatee-id').value = userId;
+      document.getElementById('delegatee-search').value = fullName || username;
+      document.getElementById('user-search-results').classList.add('hidden');
+      document.getElementById('user-search-results').innerHTML = '';
+
+      // Clear any previous validation error
+      const delegateeContainer = document.getElementById('delegatee-search').closest('.form-control');
+      const existingError = delegateeContainer.querySelector('.delegatee-validation-error');
+      if (existingError) {
+        existingError.remove();
+      }
+    }
+
+    // Hide results when clicking outside
+    document.addEventListener('click', function (event) {
+      const searchContainer = document.querySelector('.relative');
+      if (!searchContainer.contains(event.target)) {
+        document.getElementById('user-search-results').classList.add('hidden');
+      }
+    });
+
+    // Show results when focusing on search input
+    const searchInput = document.getElementById('delegatee-search');
+    if (searchInput) {
+      searchInput.addEventListener('focus', function () {
+        const results = document.getElementById('user-search-results');
+        if (results.children.length > 0) {
+          results.classList.remove('hidden');
+        }
+      });
+    }
+
+    // Show results when HTMX request completes
+    document.addEventListener('htmx:afterRequest', function (event) {
+      if (event.target.id === 'user-search-results') {
+        const results = document.getElementById('user-search-results');
+        if (event.detail.successful && results.children.length > 0) {
+          results.classList.remove('hidden');
+        } else {
+          results.classList.add('hidden');
+        }
+      }
+    });
+
+    // Form validation before submission
+    const form = document.querySelector('form[method="post"]');
+    if (form) {
+      form.addEventListener('submit', function (event) {
+        const delegateeId = document.getElementById('delegatee-id').value;
+
+        if (!delegateeId) {
+          event.preventDefault();
+
+          // Remove any existing error message
+          const delegateeContainer = document.getElementById('delegatee-search').closest('.form-control');
+          const existingError = delegateeContainer.querySelector('.delegatee-validation-error');
+          if (existingError) {
+            existingError.remove();
+          }
+
+          // Add validation error message
+          const errorLabel = document.createElement('label');
+          errorLabel.className = 'label delegatee-validation-error';
+          errorLabel.innerHTML =
+            '<span class="label-text-alt text-error">Please select a delegatee from the search results</span>';
+          delegateeContainer.appendChild(errorLabel);
+
+          // Focus on the search input
+          document.getElementById('delegatee-search').focus();
+
+          return false;
+        }
+      });
+    }
+
+    // Make selectUser available globally
+    window.selectUser = selectUser;
+  });
+</script>
 {% endblock %}
 
-{% block content %}
+{% partialdef content %}
 <div class="max-w-4xl mx-auto">
   <!-- Breadcrumb -->
   <div class="text-sm breadcrumbs mb-4">
@@ -46,14 +128,28 @@
               <span class="label-text font-medium">Delegatee</span>
               <span class="label-text-alt text-error">*</span>
             </label>
-            {{ form.delegatee }}
+            <div class="relative">
+              <input type="text" name="delegatee_search" id="delegatee-search" class="input input-bordered w-full"
+                placeholder="Type to search users..." hx-get="/user-search/"
+                hx-vals='js:{"search": document.getElementById("delegatee-search").value}'
+                hx-trigger="keyup changed delay:300ms" hx-target="#user-search-results"
+                hx-indicator="#search-indicator">
+              <div id="search-indicator" class="htmx-indicator absolute right-3 top-3">
+                <span class="loading loading-spinner loading-sm"></span>
+              </div>
+              <input type="hidden" name="delegatee" id="delegatee-id" required>
+              <div id="user-search-results"
+                class="absolute top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg mt-1 max-h-60 overflow-y-auto z-10 shadow-lg"
+                hx-swap="innerHTML">
+              </div>
+            </div>
             {% if form.delegatee.errors %}
             <label class="label">
               <span class="label-text-alt text-error">{{ form.delegatee.errors.0 }}</span>
             </label>
             {% endif %}
             <label class="label">
-              <span class="label-text-alt">Select the user who will receive delegated permissions</span>
+              <span class="label-text-alt">Search and select the user who will receive delegated permissions</span>
             </label>
           </div>
 
@@ -61,53 +157,62 @@
             <label class="label">
               <span class="label-text font-medium">Status</span>
             </label>
-            <input type="text" value="Active" class="input input-bordered" disabled />
-            <label class="label">
-              <span class="label-text-alt">New delegations start as active</span>
-            </label>
+            <div>
+              <input type="text" value="Active" class="input input-bordered" disabled />
+              <label class="label">
+                <span class="label-text-alt">New delegations start as active</span>
+              </label>
+            </div>
           </div>
         </div>
 
         <!-- Time Period -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Start Date</span>
-              <span class="label-text-alt text-error">*</span>
-            </label>
-            {{ form.start_date }}
-            {% if form.start_date.errors %}
-            <label class="label">
-              <span class="label-text-alt text-error">{{ form.start_date.errors.0 }}</span>
-            </label>
-            {% endif %}
-            <label class="label">
-              <span class="label-text-alt">When the delegation becomes effective</span>
-            </label>
-          </div>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">End Date</span>
-            </label>
-            {{ form.end_date }}
-            {% if form.end_date.errors %}
-            <label class="label">
-              <span class="label-text-alt text-error">{{ form.end_date.errors.0 }}</span>
-            </label>
-            {% endif %}
-            <label class="label">
-              <span class="label-text-alt">When the delegation expires (leave blank for indefinite)</span>
-            </label>
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 pb-2 border-b">
+            {% lucide "calendar" class="w-5 h-5 text-primary" %}
+            <h2 class="text-xl font-semibold">Time Period</h2>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Start Date</span>
+                <span class="label-text-alt text-error">*</span>
+              </label>
+              {{ form.start_date }}
+              {% if form.start_date.errors %}
+              <label class="label">
+                <span class="label-text-alt text-error">{{ form.start_date.errors.0 }}</span>
+              </label>
+              {% endif %}
+              <label class="label">
+                <span class="label-text-alt">When the delegation becomes effective</span>
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">End Date</span>
+              </label>
+              {{ form.end_date }}
+              {% if form.end_date.errors %}
+              <label class="label">
+                <span class="label-text-alt text-error">{{ form.end_date.errors.0 }}</span>
+              </label>
+              {% endif %}
+              <label class="label">
+                <span class="label-text-alt">When the delegation expires (leave blank for indefinite)</span>
+              </label>
+            </div>
           </div>
         </div>
 
         <!-- Scope -->
         <div class="space-y-4">
-          <h3 class="text-lg font-medium flex items-center gap-2">
-            {% lucide "target" class="w-5 h-5" %}
-            Delegation Scope
-          </h3>
+          <div class="flex items-center gap-2 pb-2 border-b">
+            {% lucide "target" class="w-5 h-5 text-primary" %}
+            <h3 class="text-lg font-semibold">Delegation Scope</h3>
+          </div>
           <p class="text-sm opacity-70">Leave both empty to apply to all workflows and groups you have access to</p>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -137,72 +242,101 @@
           </div>
         </div>
 
-        <!-- Permissions -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-medium flex items-center gap-2">
-            {% lucide "shield" class="w-5 h-5" %}
-            Permissions to Delegate
-          </h3>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <span class="label-text">View Workflows</span>
-                {{ form.can_view_workflows }}
-              </label>
-              <span class="label-text-alt">Delegatee can view your workflows</span>
+        <!-- Permissions & Reason -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="space-y-4">
+            <div class="flex items-center gap-2 pb-2 border-b">
+              {% lucide "shield" class="w-5 h-5 text-primary" %}
+              <h3 class="text-lg font-semibold">Permissions to Delegate</h3>
             </div>
 
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <span class="label-text">Edit Workflows</span>
-                {{ form.can_edit_workflows }}
-              </label>
-              <span class="label-text-alt">Delegatee can edit your workflows</span>
-            </div>
+            <div class="rounded-lg border border-base-200">
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 hover:bg-base-100 transition-colors">
+                  {{ form.can_view_workflows }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">View Workflows&nbsp;</span>
+                    <div class="tooltip tooltip-left" data-tip="Delegatee can view your workflows">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
 
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <span class="label-text">Perform Transitions</span>
-                {{ form.can_transition_workflows }}
-              </label>
-              <span class="label-text-alt">Delegatee can perform workflow transitions</span>
-            </div>
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 hover:bg-base-100 transition-colors w-full">
+                  {{ form.can_edit_workflows }}
+                  <span class="label-text font-medium">Edit Workflows&nbsp;</span>
+                  <div class="tooltip tooltip-left" data-tip="Delegatee can edit your workflows">
+                    {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                  </div>
+                </label>
+              </div>
 
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <span class="label-text">Receive Assignments</span>
-                {{ form.can_receive_assignments }}
-              </label>
-              <span class="label-text-alt">New assignments go to delegatee</span>
-            </div>
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 rounded-lg hover:bg-base-100 transition-colors">
+                  {{ form.can_transition_workflows }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">Perform Transitions&nbsp;</span>
+                    <div class="tooltip tooltip-left" data-tip="Delegatee can perform workflow transitions">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
 
+              <div class="form-control">
+                <label class="label w-full cursor-pointer justify-start p-4 hover:bg-base-100 transition-colors">
+                  {{ form.can_receive_assignments }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">Receive Assignments&nbsp;</span>
+                    <div class="tooltip tooltip-left" data-tip="New assignments go to delegatee">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="form-control">
+                <label
+                  class="label w-full cursor-pointer justify-start p-4 bg-base-50 rounded-lg hover:bg-base-100 transition-colors">
+                  {{ form.can_receive_notifications }}
+                  <div class="flex-1 flex items-center">
+                    <span class="label-text font-medium">Receive Notifications&nbsp;</span>
+                    <div class="tooltip tooltip-left" data-tip="Delegatee receives your notifications">
+                      {% lucide "info" class="w-4 h-4 text-base-content/50" %}
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reason -->
+          <div class="space-y-4">
+            <div class="flex items-center gap-2 pb-2 border-b">
+              {% lucide "message-square" class="w-5 h-5 text-primary" %}
+              <h3 class="text-lg font-semibold">Reason for Delegation</h3>
+            </div>
             <div class="form-control">
-              <label class="label cursor-pointer">
-                <span class="label-text">Receive Notifications</span>
-                {{ form.can_receive_notifications }}
+              {% comment %} <label class="label">
+                <span class="label-text font-medium">Reason</span>
+              </label> {% endcomment %}
+              {{ form.reason }}
+              {% if form.reason.errors %}
+              <label class="label">
+                <span class="label-text-alt text-error">{{ form.reason.errors.0 }}</span>
               </label>
-              <span class="label-text-alt">Delegatee receives your notifications</span>
+              {% endif %}
+              <label class="label">
+                <span class="label-text-alt">Optional reason for the delegation</span>
+              </label>
             </div>
           </div>
         </div>
-
-        <!-- Reason -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-medium">Reason</span>
-          </label>
-          {{ form.reason }}
-          {% if form.reason.errors %}
-          <label class="label">
-            <span class="label-text-alt text-error">{{ form.reason.errors.0 }}</span>
-          </label>
-          {% endif %}
-          <label class="label">
-            <span class="label-text-alt">Optional reason for the delegation</span>
-          </label>
-        </div>
-
         <!-- Form Errors -->
         {% if form.non_field_errors %}
         <div class="alert alert-error">
@@ -225,5 +359,8 @@
       </form>
     </div>
   </div>
-</div>
-{% endblock %}
+  {% endpartialdef %}
+
+  {% block content %}
+  {% partial content %}
+  {% endblock %}

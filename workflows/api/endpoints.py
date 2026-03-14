@@ -1,3 +1,4 @@
+from django.db.models import Q
 from ninja import NinjaAPI
 from ninja.pagination import RouterPaginated
 
@@ -24,10 +25,14 @@ def workflow(request, workflow_id: int):
 
 
 @api.get("/users/", response=list[UserSchema])
-def users(request, query: str = None):
+def users(request, search: str = None):
     users = User.objects.all()
-    if query:
-        users = users.filter(username__icontains=query)
+    if search:
+        users = users.filter(
+            Q(username__icontains=search)
+            | Q(last_name__icontains=search)
+            | Q(first_name__icontains=search)
+        )
     return users
 
 
@@ -39,10 +44,12 @@ def user(request, user_id: int):
 
 @api.get("/groups", response=list[GroupSchema])
 # @paginate(PageNumberPagination)
-def groups(request, query: str = None) -> list[Group]:
+def groups(request, search: str = None) -> list[Group]:
     groups = Group.objects.all()
-    if query:
-        groups = groups.filter(name__icontains=query)  # , group_type__icontains=query)
+    if search:
+        groups = groups.filter(
+            name__icontains=search
+        )  # , group_type__icontains=search)
     return groups
 
 
@@ -59,19 +66,19 @@ def get_group(request, group_id: int):
 
 @api.get("/memberships", response=list[MembershipSchema])
 # @paginate(PageNumberPagination)
-def memberships(request, query: str = None) -> list[GroupMembership]:
+def memberships(request, search: str = None) -> list[GroupMembership]:
     memberships = GroupMembership.objects.all()
-    if query:
+    if search:
         memberships = memberships.filter(
-            user__username__icontains=query
-        )  # , group_type__icontains=query)
+            user__username__icontains=search
+        )  # , group_type__icontains=search)
     return memberships
 
 
 @api.get("/roles", response=list[RoleSchema])
 # @paginate(PageNumberPagination)
-def roles(request, query: str = None) -> list[Role]:
+def roles(request, search: str = None) -> list[Role]:
     roles = Role.objects.all()
-    if query:
-        roles = roles.filter(name__icontains=query)  # , group_type__icontains=query)
+    if search:
+        roles = roles.filter(name__icontains=search)  # , group_type__icontains=search)
     return roles

@@ -162,7 +162,9 @@ class UserDelegationForm(forms.ModelForm):
             "reason",
         ]
         widgets = {
-            "delegatee": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "delegatee": forms.TextInput(
+                attrs={"class": "input input-bordered w-full"}
+            ),
             "workflows": forms.CheckboxSelectMultiple(attrs={"class": "space-y-2"}),
             "groups": forms.CheckboxSelectMultiple(attrs={"class": "space-y-2"}),
             "start_date": DateTimePickerInput(
@@ -195,7 +197,7 @@ class UserDelegationForm(forms.ModelForm):
             "reason": forms.Textarea(
                 attrs={
                     "class": "textarea textarea-bordered w-full",
-                    "rows": 3,
+                    "rows": 6,
                     "placeholder": "Reason for delegation...",
                 }
             ),

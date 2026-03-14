@@ -210,4 +210,6 @@ urlpatterns = [
         views.delegation_approve,
         name="delegation_approve",
     ),
+    # User search for delegation
+    path("user-search/", views.user_search, name="user_search"),
 ]

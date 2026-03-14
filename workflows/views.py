@@ -4576,6 +4576,7 @@ def user_has_delegation_permission(user):
 
 
 @login_required
+@htmx_partial("workflows/delegation_list.html")
 def delegation_list(request):
     """List and search user delegations."""
     if not user_has_delegation_permission(request.user):
@@ -4624,11 +4625,11 @@ def delegation_list(request):
         "delegations": delegations,
         "search_form": form,
     }
-
-    return render(request, "workflows/delegation_list.html", context)
+    return context  # For HTMX partials
 
 
 @login_required
+@htmx_partial("workflows/delegation_create.html")
 def delegation_create(request):
     """Create a new user delegation."""
     if not user_has_delegation_permission(request.user):
@@ -4654,7 +4655,7 @@ def delegation_create(request):
         "title": "Create Delegation",
     }
 
-    return render(request, "workflows/delegation_create.html", context)
+    return context
 
 
 @login_required
@@ -4765,3 +4766,22 @@ def delegation_approve(request, pk):
     )
 
     return redirect("delegation_detail", pk=pk)
+
+
+@login_required
+def user_search(request):
+    """Search users and return HTML results for HTMX."""
+    search_query = request.GET.get("search", "")
+
+    users = User.objects.filter(is_active=True).exclude(id=request.user.id)
+
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query)
+            | Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+        )
+
+    users = users.order_by("first_name", "last_name")[:20]  # Limit to 20 results
+
+    return render(request, "user_search_results.html", {"users": users})

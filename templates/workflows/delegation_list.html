@@ -1,9 +1,8 @@
 {% extends "base.html" %}
-{% load static %}
 
 {% block title %}Delegation Management {% endblock %}
 
-{% block content %}
+{% partialdef content %}
 <div class="max-w-7xl mx-auto">
   <!-- Breadcrumb -->
   <div class="text-sm breadcrumbs mb-4">
@@ -184,11 +183,13 @@
               </td>
               <td>
                 <div class="flex gap-1">
-                  <a href="{% url 'delegation_detail' delegation.pk %}" class="btn btn-ghost btn-xs">
+                  <a hx-get="{% url 'delegation_detail' delegation.pk %}" hx-targer="#content-area" hx-push-url="true"
+                    class="btn btn-ghost btn-xs">
                     {% lucide "eye" class="w-4 h-4" %}
                   </a>
                   {% if delegation.status not in "revoked,expired" %}
-                  <a href="{% url 'delegation_edit' delegation.pk %}" class="btn btn-ghost btn-xs">
+                  <a hx-get="{% url 'delegation_edit' delegation.pk %}" hx-target="#content-area" hx-push-url="true"
+                    class="btn btn-ghost btn-xs">
                     {% lucide "pencil" class="w-4 h-4" %}
                   </a>
                   {% endif %}
@@ -213,4 +214,8 @@
     </div>
   </div>
 </div>
+{% endpartialdef %}
+
+{% block content %}
+{% partial content %}
 {% endblock %}

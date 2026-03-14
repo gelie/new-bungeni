@@ -8,8 +8,10 @@
   <!-- Breadcrumb -->
   <div class="text-sm breadcrumbs mb-4">
     <ul>
-      <li><a href="{% url 'dashboard' %}" class="text-primary">Dashboard</a></li>
-      <li><a href="{% url 'delegation_list' %}" class="text-primary">Delegations</a></li>
+      <li><a hx-get="{% url 'dashboard' %}" hx-target="#content-area" hx-push-url="true"
+          class="text-primary">Dashboard</a></li>
+      <li><a hx-get="{% url 'delegation_list' %}" hx-target="#content-area" hx-push-url="true"
+          class="text-primary">Delegations</a></li>
       <li>Details</li>
     </ul>
   </div>
@@ -25,12 +27,13 @@
     </div>
     <div class="flex gap-2">
       {% if delegation.status not in "revoked,expired" %}
-      <a href="{% url 'delegation_edit' delegation.pk %}" class="btn btn-primary gap-2">
+      <a hx-get="{% url 'delegation_edit' delegation.pk %}" hx-target="#content-area" hx-push-url="true"
+        class="btn btn-primary gap-2">
         {% lucide "pencil" class="w-4 h-4" %}
         Edit
       </a>
       {% endif %}
-      <a href="{% url 'delegation_list' %}" class="btn btn-ghost gap-2">
+      <a hx-get="{% url 'delegation_list' %}" hx-target="#content-area" hx-push-url="true" class="btn btn-ghost gap-2">
         {% lucide "arrow-left" class="w-4 h-4" %}
         Back to List
       </a>
