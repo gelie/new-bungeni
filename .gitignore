@@ -13,6 +13,9 @@ logs/
 static/js/_hyperscript.min.js
 .env
 
+# Ignore log files
+*.log
+
 # Database backups
 db.sqlite3*
 
