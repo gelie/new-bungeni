@@ -1483,7 +1483,7 @@
                 }
 
                 // Now try to load sites
-                return fetch('/api/sharepoint/sites/');
+                return fetch('/api/sites/{{user.username}}');
             })
             .then(response => {
                 if (!response.ok) {
@@ -1498,7 +1498,7 @@
                     throw new Error(data.error);
                 }
 
-                sites = data.sites || [];
+                sites = data.items || [];
                 const siteSelect = document.getElementById('site-select');
                 siteSelect.innerHTML = '<option value="">Select a site...</option>';
 
@@ -1514,7 +1514,7 @@
                 sites.forEach(site => {
                     if (!site.is_personal_site) {
                         const option = document.createElement('option');
-                        option.value = site.id;
+                        option.value = site.site_id;
                         option.textContent = site.name;
                         siteSelect.appendChild(option);
                     }
@@ -1536,19 +1536,19 @@
         driveSelect.disabled = true;
         driveSelect.innerHTML = '<option value="">Loading libraries...</option>';
 
-        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+        fetch(`/api/sites/${siteId}/drives`)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
                     throw new Error(data.error);
                 }
 
-                drives = data.drives;
+                drives = data.items;
                 driveSelect.innerHTML = '<option value="">Select a library...</option>';
 
                 drives.forEach(drive => {
                     const option = document.createElement('option');
-                    option.value = drive.id;
+                    option.value = drive.drive_id;
                     option.textContent = drive.name;
                     driveSelect.appendChild(option);
                 });
@@ -1569,6 +1569,7 @@
         fetch(`/api/sharepoint/drives/${driveId}/folders/`)
             .then(response => response.json())
             .then(data => {
+                console.log(data);
                 if (data.error) {
                     throw new Error(data.error);
                 }
@@ -1697,7 +1698,7 @@
         const siteSelect = document.getElementById('sharepoint-site-select');
         siteSelect.innerHTML = '<option value="">Loading sites...</option>';
 
-        fetch('/api/sharepoint/sites/')
+        fetch('/api/sites/{{ request.user.username }}')
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -1706,10 +1707,10 @@
 
                 siteSelect.innerHTML = '<option value="">Select a site...</option>';
 
-                data.sites.forEach(site => {
+                data.items.forEach(site => {
                     if (!site.is_personal_site) {
                         const option = document.createElement('option');
-                        option.value = site.id;
+                        option.value = site.site_id;
                         option.textContent = site.name;
                         siteSelect.appendChild(option);
                     }
@@ -1738,7 +1739,7 @@
         driveSelect.disabled = true;
         driveSelect.innerHTML = '<option value="">Loading libraries...</option>';
 
-        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+        fetch(`/api/sites/${siteId}/drives`)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -1747,9 +1748,9 @@
 
                 driveSelect.innerHTML = '<option value="">Select a library...</option>';
 
-                data.drives.forEach(drive => {
+                data.items.forEach(drive => {
                     const option = document.createElement('option');
-                    option.value = drive.id;
+                    option.value = drive.drive_id;
                     option.textContent = drive.name;
                     driveSelect.appendChild(option);
                 });
@@ -2365,13 +2366,16 @@
         const driveSelect = document.getElementById('comment-drive-select');
         if (!siteId) return;
 
-        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+        fetch(`/api/sites/${siteId}/drives`)
             .then(response => response.json())
             .then(data => {
                 driveSelect.innerHTML = '<option value="">Select a library...</option>';
-                drives = data.drives || []
+                drives = data.items || []
                 drives.forEach(drive => {
-                    driveSelect.innerHTML += `<option value="${drive.id}">${drive.name}</option>`;
+                    const option = document.createElement('option');
+                    option.value = drive.drive_id;
+                    option.textContent = drive.name;
+                    driveSelect.appendChild(option);
                 });
                 driveSelect.disabled = false;
                 driveSelect.onchange = () => loadCommentFolders(siteId, driveSelect.value);
@@ -2434,14 +2438,14 @@
 
     // SharePoint file selection for comments
     function loadCommentSharepointSites() {
-        fetch('/api/sharepoint/sites/')
+        fetch('/api/sites/{{user.username}}')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('comment-sharepoint-site-select');
                 select.innerHTML = '<option value="">Select a site...</option>';
-                const sites = data.sites || []; // Access the sites array from the response
+                const sites = data.items || []; // Access the sites array from the response
                 sites.forEach(site => {
-                    select.innerHTML += `<option value="${site.id}">${site.name}</option>`;
+                    select.innerHTML += `<option value="${site.site_id}">${site.name}</option>`;
                 });
             });
     }
@@ -2450,13 +2454,13 @@
         const siteId = document.getElementById('comment-sharepoint-site-select').value;
         if (!siteId) return;
 
-        fetch(`/api/sharepoint/sites/${siteId}/drives/`)
+        fetch(`/api/sites/${siteId}/drives`)
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('comment-sharepoint-drive-select');
                 select.innerHTML = '<option value="">Select a library...</option>';
-                data.drives.forEach(drive => {
-                    select.innerHTML += `<option value="${drive.id}">${drive.name}</option>`;
+                data.items.forEach(drive => {
+                    select.innerHTML += `<option value="${drive.drive_id}">${drive.name}</option>`;
                 });
                 select.disabled = false;
             });
@@ -2550,7 +2554,7 @@
                     drive_id: driveId,
                     folder_id: folderId,
                     file_id: selectedCommentSharepointFile.id,
-                    workflow_id: {{ workflow.id }},
+                    workflow_id: '{{ workflow.id }}',
                     type: type
                 })
             })

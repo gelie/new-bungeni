@@ -44,7 +44,6 @@ from .models import (
     WorkflowTypeReferralConfig,
 )
 from .sharepoint import (
-    get_all_sites,
     get_application_token,
     get_drive_items,
     get_folder_items,
@@ -2772,15 +2771,15 @@ def sharepoint_sites(request):
     """Get SharePoint sites where the current user is a member."""
     try:
         # First try to get token
-        print("Attempting to get SharePoint token...")
-        token_data = get_application_token()
-        print("Token obtained successfully")
+        # print("Attempting to get SharePoint token...")
+        # token_data = get_application_token()
+        # print("Token obtained successfully")
 
         # Run async function in sync context
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        sites_data = loop.run_until_complete(get_all_sites(token_data))
-        loop.close()
+        # loop = asyncio.new_event_loop()
+        # asyncio.set_event_loop(loop)
+        # sites_data = loop.run_until_complete(get_all_sites(token_data))
+        # loop.close()
 
         # print("Sites data received:", sites_data)
 
@@ -2789,33 +2788,40 @@ def sharepoint_sites(request):
             "site__site_id", flat=True
         )
 
+        # Get Site info for user's memberships
+        sites = Site.objects.filter(site_id__in=user_member_sites).values_list(
+            "site_id", "name", "url", "is_personal_site", flat=True
+        )
+
+        print(sites)
+
         # Update local database with sites and filter for user's memberships
-        sites = []
-        for site_info in sites_data.get("value", []):
-            site_id = site_info["id"]
+        # sites = []
+        # for site_info in sites_data.get("value", []):
+        #     site_id = site_info["id"]
 
-            # Update or create site in database
-            site, created = Site.objects.update_or_create(
-                site_id=site_id,
-                defaults={
-                    "name": site_info.get(
-                        "displayName", site_info.get("name", "Unknown")
-                    ),
-                    "url": site_info.get("webUrl", ""),
-                    "is_personal_site": site_info.get("isPersonalSite", False),
-                },
-            )
+        #     # Update or create site in database
+        #     site, created = Site.objects.update_or_create(
+        #         site_id=site_id,
+        #         defaults={
+        #             "name": site_info.get(
+        #                 "displayName", site_info.get("name", "Unknown")
+        #             ),
+        #             "url": site_info.get("webUrl", ""),
+        #             "is_personal_site": site_info.get("isPersonalSite", False),
+        #         },
+        #     )
 
-            # Only include sites where user is a member
-            if site_id in user_member_sites:
-                sites.append(
-                    {
-                        "id": site.site_id,
-                        "name": site.name,
-                        "url": site.url,
-                        "is_personal_site": site.is_personal_site,
-                    }
-                )
+        #     # Only include sites where user is a member
+        #     if site_id in user_member_sites:
+        #         sites.append(
+        #             {
+        #                 "id": site.site_id,
+        #                 "name": site.name,
+        #                 "url": site.url,
+        #                 "is_personal_site": site.is_personal_site,
+        #             }
+        #         )
 
         return JsonResponse({"sites": sites})
 

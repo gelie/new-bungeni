@@ -1,6 +1,6 @@
-from ninja import ModelSchema
+from ninja import ModelSchema, Schema
 
-from workflows.models import Group, GroupMembership, Role, User
+from workflows.models import Group, GroupMembership, Role, Site, User
 
 
 class UserSchema(ModelSchema):
@@ -36,3 +36,18 @@ class MembershipSchema(ModelSchema):
     class Meta:
         model = GroupMembership
         fields = ["user", "group", "role"]
+
+
+class SharePointSiteSchema(ModelSchema):
+    class Meta:
+        model = Site
+        fields = ["site_id", "name", "url", "is_personal_site"]
+
+
+class SharePointDriveSchema(Schema):
+    drive_id: str
+    name: str
+    site: SharePointSiteSchema
+    # class Meta:
+    #     model = Drive
+    #     fields = ["drive_id", "name", "site"]
