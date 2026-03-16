@@ -8,13 +8,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
-from parl.models import Group, GroupMembership, Role, User
+from workflows.models import Group, GroupMembership, Role, User
 
 # Set up logging
 logger = logging.getLogger("committee_scraper")
@@ -148,284 +143,20 @@ class Command(BaseCommand):
 
     def scrape_committee_data(self):
         """Main scraping method"""
-        # Get committee URLs from the committees table
-        committees_list = self.scrape_committees_table()
-
-        self.stdout.write(f"Found {len(committees_list)} committees to process")
-        logger.info(f"Found {len(committees_list)} committees to process")
+        # Scrape chairpersons page
+        chairpersons_data = self.scrape_committee_chairpersons()
 
         # Process each committee
-        for committee_info in committees_list:
+        for data in chairpersons_data:
             try:
-                self.process_committee_from_url(committee_info)
+                self.process_committee_data(data)
                 self.stats["committees_processed"] += 1
                 time.sleep(1)  # Be respectful to the server
             except Exception as e:
                 self.stats["errors"] += 1
                 logger.error(
-                    f"Error processing committee {committee_info.get('name', 'unknown')}: {e}"
+                    f"Error processing committee {data.get('committee_name', 'unknown')}: {e}"
                 )
-
-    def scrape_committees_table(self):
-        """Scrape committee list from parliament.gov.za using Selenium"""
-        url = "https://www.parliament.gov.za/committees?perPage=100"
-
-        driver = None
-        try:
-            self.stdout.write(f"Fetching committees from: {url}")
-            logger.info(f"Fetching committees from: {url}")
-
-            chrome_options = Options()
-            chrome_options.add_argument("--headless")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument(
-                "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            )
-
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.get(url)
-
-            self.stdout.write("Waiting for page to load...")
-            logger.info("Waiting for page to load...")
-
-            wait = WebDriverWait(driver, 30)
-            wait.until(EC.presence_of_element_located((By.ID, "committees-table")))
-
-            self.stdout.write("Waiting for table data to populate...")
-            logger.info("Waiting for table data to populate...")
-            time.sleep(8)
-
-            committees = []
-
-            # Try to extract data using JavaScript first
-            try:
-                # Execute JavaScript to get the table data from the Vue/React component
-                table_data = driver.execute_script("""
-                    var rows = [];
-                    var tableRows = document.querySelectorAll('#committees-table tbody tr');
-                    tableRows.forEach(function(row) {
-                        var cells = row.querySelectorAll('td');
-                        if (cells.length >= 2) {
-                            var link = cells[0].querySelector('a');
-                            var rawName = link ? link.textContent.trim() : cells[0].textContent.trim();
-                            // Clean up extra spaces in committee name
-                            var name = rawName.replace(/\s+/g, ' ').trim();
-                            var house = cells[1].textContent.trim();
-
-                            // Try to get URL/ID from various sources
-                            var url = null;
-                            var committeeId = null;
-
-                            // Check row onclick first (most reliable)
-                            var rowOnclick = row.getAttribute('onclick');
-                            if (rowOnclick && rowOnclick.includes('window.location.replace')) {
-                                var match = rowOnclick.match(/window\.location\.replace\('([^']+)'\)/);
-                                if (match) {
-                                    url = match[1];
-                                }
-                            }
-
-                            // Fallback to link attributes if row onclick didn't work
-                            if (!url && link) {
-                                // Check href first
-                                url = link.getAttribute('href');
-
-                                // If href is a hash route like #/committee-details/123
-                                if (url && url.includes('#/committee-details/')) {
-                                    var match = url.match(/#\\/committee-details\\/(\\d+)/);
-                                    if (match) {
-                                        committeeId = match[1];
-                                    }
-                                }
-
-                                // Try to extract from href even if it's just /committee-details/123
-                                if (!committeeId && url && url.includes('committee-details/')) {
-                                    var match = url.match(/committee-details\\/(\\d+)/);
-                                    if (match) {
-                                        committeeId = match[1];
-                                    }
-                                }
-
-                                // Try Vue router-link 'to' attribute
-                                if (!committeeId) {
-                                    var to = link.getAttribute('to') || link.getAttribute(':to') || link.getAttribute('v-bind:to');
-                                    if (to && to.includes('committee-details')) {
-                                        var match = to.match(/committee-details['\\/\"]*(\d+)/);
-                                        if (match) {
-                                            committeeId = match[1];
-                                        }
-                                    }
-                                }
-
-                                // Try all data attributes
-                                if (!committeeId) {
-                                    var attrs = link.attributes;
-                                    for (var i = 0; i < attrs.length; i++) {
-                                        var attr = attrs[i];
-                                        if (attr.value && attr.value.toString().match(/^\\d+$/)) {
-                                            committeeId = attr.value;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // If we found an ID, construct the URL
-                            if (committeeId) {
-                                url = '/committee-details/' + committeeId;
-                            }
-
-                            rows.push({name: name, house: house, url: url, id: committeeId});
-                        }
-                    });
-                    return rows;
-                """)
-
-                if table_data and len(table_data) > 0:
-                    self.stdout.write(
-                        f"Extracted {len(table_data)} committees via JavaScript"
-                    )
-                    logger.info(
-                        f"Extracted {len(table_data)} committees via JavaScript"
-                    )
-
-                    for idx, data in enumerate(table_data):
-                        committee_name = data.get("name", "").strip()
-                        parent_group = data.get("house", "").strip()
-                        committee_url = data.get("url")
-
-                        # Normalize NCOP to full name
-                        if parent_group == "NCOP":
-                            parent_group = "National Council of Provinces"
-
-                        # Construct full URL if we have a relative path
-                        if committee_url and committee_url.startswith("/"):
-                            committee_url = (
-                                f"https://www.parliament.gov.za{committee_url}"
-                            )
-
-                        if committee_name and parent_group and committee_url:
-                            committees.append(
-                                {
-                                    "name": committee_name,
-                                    "url": committee_url,
-                                    "parent_group": parent_group,
-                                }
-                            )
-
-                            if self.verbose:
-                                self.stdout.write(
-                                    f"Found: {committee_name} (Parent: {parent_group}, URL: {committee_url})"
-                                )
-
-                    return committees
-            except Exception as e:
-                logger.warning(
-                    f"JavaScript extraction failed: {e}, falling back to Selenium element extraction"
-                )
-
-            # Fallback to element-by-element extraction
-            rows = driver.find_elements(By.CSS_SELECTOR, "#committees-table tbody tr")
-            self.stdout.write(f"Found {len(rows)} table rows")
-            logger.info(f"Found {len(rows)} table rows")
-
-            for idx, row in enumerate(rows):
-                try:
-                    cells = row.find_elements(By.TAG_NAME, "td")
-                    if len(cells) >= 2:
-                        name_cell = cells[0]
-                        house_cell = cells[1]
-
-                        committee_url = None
-                        committee_name = None
-
-                        # Try to get committee name and URL from link
-                        try:
-                            link = name_cell.find_element(By.TAG_NAME, "a")
-                            committee_name = link.text.strip()
-
-                            # Debug first row
-                            if idx == 0:
-                                href = link.get_attribute("href")
-                                onclick = link.get_attribute("onclick")
-                                row_onclick = row.get_attribute("onclick")
-                                logger.info(
-                                    f"DEBUG Row 0: href='{href}', onclick='{onclick}', row_onclick='{row_onclick}'"
-                                )
-
-                            # Try multiple ways to get the URL
-                            href = link.get_attribute("href")
-                            if href and href != "None" and "committee-details" in href:
-                                committee_url = (
-                                    href
-                                    if href.startswith("http")
-                                    else f"https://www.parliament.gov.za{href}"
-                                )
-                            else:
-                                # Try onclick attribute
-                                onclick = link.get_attribute("onclick")
-                                if onclick and "committee-details" in onclick:
-                                    import re
-
-                                    match = re.search(
-                                        r"committee-details/(\d+)", onclick
-                                    )
-                                    if match:
-                                        committee_url = f"https://www.parliament.gov.za/committee-details/{match.group(1)}"
-                                else:
-                                    # Try data attributes
-                                    data_id = link.get_attribute("data-id")
-                                    if data_id:
-                                        committee_url = f"https://www.parliament.gov.za/committee-details/{data_id}"
-                                    else:
-                                        # Try to get from row onclick
-                                        row_onclick = row.get_attribute("onclick")
-                                        if (
-                                            row_onclick
-                                            and "committee-details" in row_onclick
-                                        ):
-                                            match = re.search(
-                                                r"committee-details/(\d+)", row_onclick
-                                            )
-                                            if match:
-                                                committee_url = f"https://www.parliament.gov.za/committee-details/{match.group(1)}"
-                        except:
-                            committee_name = name_cell.text.strip()
-
-                        parent_group = house_cell.text.strip()
-
-                        # Normalize NCOP to full name
-                        if parent_group == "NCOP":
-                            parent_group = "National Council of Provinces"
-
-                        if committee_name and parent_group and committee_url:
-                            committees.append(
-                                {
-                                    "name": committee_name,
-                                    "url": committee_url,
-                                    "parent_group": parent_group,
-                                }
-                            )
-
-                            if self.verbose:
-                                self.stdout.write(
-                                    f"Found: {committee_name} (Parent: {parent_group}, URL: {committee_url})"
-                                )
-                except Exception as e:
-                    logger.debug(f"Skipping row: {e}")
-                    continue
-
-            return committees
-
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Error fetching committees: {e}"))
-            logger.error(f"Error fetching committees: {e}")
-            return []
-        finally:
-            if driver:
-                driver.quit()
 
     def scrape_committee_chairpersons(self):
         """Scrape committee chairpersons from parliament.gov.za"""
@@ -518,7 +249,7 @@ class Command(BaseCommand):
 
                     for name, url in committee_links.items():
                         if name in next_line or next_line in name:
-                            committee_name = re.sub(" +", " ", name).strip()
+                            committee_name = name
                             committee_url = url
                             break
 
@@ -578,9 +309,9 @@ class Command(BaseCommand):
         # Process other committee members
         for member_data in committee_members:
             if member_data["name"] != chairperson_name:  # Don't duplicate chairperson
-                # Handle members with or without URLs
-                member_url = member_data.get("url") or ""
-                user = self.find_existing_user_only(member_data["name"], member_url)
+                user = self.find_existing_user_only(
+                    member_data["name"], member_data["url"]
+                )
                 if user:
                     role = member_data.get("role", "Committee Member")
                     section = member_data.get("section", "general")
@@ -594,154 +325,6 @@ class Command(BaseCommand):
                 else:
                     # Skip membership creation if user not found
                     self.stats["memberships_skipped"] += 1
-
-    def process_committee_from_url(self, committee_info):
-        """Process committee using URL from committees table"""
-        committee_name = committee_info["name"]
-        committee_url = committee_info["url"]
-        parent_group_name = committee_info["parent_group"]
-
-        if self.verbose:
-            self.stdout.write(
-                f"Processing: {committee_name} (Parent: {parent_group_name})"
-            )
-
-        # Find or create committee group
-        committee_group = self.find_or_create_committee_group(
-            committee_name, parent_group_name
-        )
-        if not committee_group:
-            self.stats["missing_groups"].append(committee_name)
-            logger.warning(
-                f"Could not find or create committee group: {committee_name}"
-            )
-            return
-
-        # Get committee members from the committee detail page
-        committee_members = self.scrape_committee_members(committee_url)
-
-        # Process committee members
-        for member_data in committee_members:
-            # Handle members with or without URLs
-            member_url = member_data.get("url") or ""
-            user = self.find_existing_user_only(member_data["name"], member_url)
-            if user:
-                role = member_data.get("role", "Committee Member")
-                section = member_data.get("section", "general")
-
-                if self.verbose:
-                    self.stdout.write(
-                        f"  Adding {member_data['name']} as {role} (from {section} section)"
-                    )
-
-                self.create_membership(user, committee_group, role)
-            else:
-                # Skip membership creation if user not found
-                self.stats["memberships_skipped"] += 1
-
-    def find_or_create_committee_group(self, committee_name, parent_group_name):
-        """Find or create committee group with parent"""
-        if self.dry_run:
-            return True  # Assume it exists for dry run
-
-        # Try exact match first
-        group = Group.objects.filter(name__iexact=committee_name).first()
-        if group:
-            return group
-
-        # Try partial matches
-        for group in Group.objects.filter(name__icontains="committee"):
-            if self.names_similar(group.name, committee_name):
-                logger.info(
-                    f'Matched "{committee_name}" to existing group "{group.name}"'
-                )
-                return group
-
-        # If no match found, create the missing committee with parent
-        logger.info(f"Committee not found in database, creating: {committee_name}")
-        return self.create_missing_committee_with_parent(
-            committee_name, parent_group_name
-        )
-
-    def create_missing_committee_with_parent(self, committee_name, parent_group_name):
-        """Create a missing committee group with its parent house"""
-        try:
-            # Determine committee type based on name
-            committee_type = self.determine_committee_type(committee_name)
-
-            # Generate short name (max 50 chars)
-            short_name = committee_name
-            if len(short_name) > 20:
-                # Try to abbreviate common words
-                abbreviations = {
-                    "Portfolio Committee": "PC",
-                    "Select Committee": "SC",
-                    "Standing Committee": "STDC",
-                    "Joint Committee": "JC",
-                    "Special Committee": "SPC",
-                    "Ad Hoc Committee": "AHOC",
-                    "Joint Standing Committee": "JSC",
-                    "and": "&",
-                    "Development": "Dev",
-                    "International": "Intl",
-                    "Administration": "Admin",
-                    "Constitutional": "Const",
-                }
-
-                for full_word, abbrev in abbreviations.items():
-                    short_name = short_name.replace(full_word, abbrev)
-
-                # If still too long, truncate
-                if len(short_name) > 20:
-                    short_name = short_name[:17] + "..."
-
-            # Get or create parent group
-            parent_group, created = Group.objects.get_or_create(
-                name=parent_group_name,
-                defaults={
-                    "short_name": parent_group_name,
-                    "description": f"{parent_group_name} parliamentary house",
-                    "group_type": "house",
-                    "is_active": True,
-                    "start_date": timezone.now().date(),
-                },
-            )
-
-            if created:
-                self.stdout.write(
-                    self.style.SUCCESS(f"Created parent group: {parent_group_name}")
-                )
-                logger.info(f"Created parent group: {parent_group_name}")
-
-            # Create the group
-            group = Group.objects.create(
-                name=committee_name,
-                short_name=short_name,
-                description=f"Parliamentary committee: {committee_name}",
-                group_type=committee_type,
-                parent=parent_group,
-                is_active=True,
-                start_date=timezone.now().date(),
-            )
-
-            self.stdout.write(
-                self.style.SUCCESS(f"Created missing committee: {committee_name}")
-            )
-            logger.info(
-                f"Created missing committee: {committee_name} (type: {committee_type}, parent: {parent_group_name})"
-            )
-
-            # Track in statistics
-            if "committees_created" not in self.stats:
-                self.stats["committees_created"] = 0
-            self.stats["committees_created"] += 1
-
-            return group
-
-        except Exception as e:
-            logger.error(f"Error creating committee {committee_name}: {e}")
-            self.stats["missing_groups"].append(committee_name)
-            return None
 
     def find_committee_group(self, committee_name):
         """Find committee group by name with fuzzy matching, create if missing"""
@@ -793,17 +376,14 @@ class Command(BaseCommand):
 
             # Generate short name (max 50 chars)
             short_name = committee_name
-            if len(short_name) > 20:
+            if len(short_name) > 50:
                 # Try to abbreviate common words
                 abbreviations = {
-                    # "Committee": "Comm",
-                    "Portfolio Committee": "PC",
-                    "Select Committee": "SC",
-                    "Standing Committee": "STDC",
-                    "Joint Committee": "JC",
-                    "Special Committee": "SPC",
-                    "Ad Hoc Committee": "AHOC",
-                    "Joint Standing Committee": "JSC",
+                    "Committee": "Cttee",
+                    "Portfolio": "PC",
+                    "Select": "SC",
+                    "Standing": "SC",
+                    "Joint": "JC",
                     "and": "&",
                     "Development": "Dev",
                     "International": "Intl",
@@ -815,8 +395,8 @@ class Command(BaseCommand):
                     short_name = short_name.replace(full_word, abbrev)
 
                 # If still too long, truncate
-                if len(short_name) > 20:
-                    short_name = short_name[:17] + "..."
+                if len(short_name) > 50:
+                    short_name = short_name[:47] + "..."
 
             # Determine parent group
             parent_group = self.get_or_create_parent_group(
@@ -861,18 +441,18 @@ class Command(BaseCommand):
             return "portfolio_committee"
         elif "select committee" in name_lower:
             return "select_committee"
-        elif "joint committee" in name_lower:
+        elif (
+            "joint standing committee" in name_lower or "joint committee" in name_lower
+        ):
             return "joint_committee"
-        elif "joint standing committee" in name_lower:
-            return "joint_standing_committee"
-        elif "subcommittee" in name_lower:
-            return "subcommittee"
         elif "standing committee" in name_lower:
-            return "standing_committee"
+            return "internal_committee"
         elif "constitutional review" in name_lower:
-            return "constitutional_review_committee"
+            return "special_committee"
         elif "ad hoc" in name_lower:
             return "ad_hoc_committee"
+        elif "public accounts" in name_lower:
+            return "public_accounts_committee"
         elif "multi party" in name_lower or "caucus" in name_lower:
             return "special_committee"
         else:
@@ -883,10 +463,7 @@ class Command(BaseCommand):
         name_lower = committee_name.lower()
 
         # Determine parent based on committee type and name
-        if (
-            committee_type in ["joint_committee", "joint_standing_committee"]
-            or "joint" in name_lower
-        ):
+        if committee_type == "joint_committee" or "joint" in name_lower:
             parent_name = "Joint"
         elif committee_type == "select_committee" or "select committee" in name_lower:
             parent_name = "National Council of Provinces"
@@ -937,25 +514,15 @@ class Command(BaseCommand):
                 members.extend(composition_members)
                 members.extend(alternate_members)
 
-                # Extract non-linked members (like secretaries in <b> tags)
-                non_linked_members = self.extract_non_linked_members(soup)
-                members.extend(non_linked_members)
-
                 # If no structured sections found, fall back to general member extraction
-                if not composition_members and not alternate_members:
-                    linked_members = self.extract_members_general(soup)
-                    members.extend(linked_members)
+                if not members:
+                    members = self.extract_members_general(soup)
                     logger.info(
                         "No structured sections found, using general extraction"
                     )
                 else:
                     logger.info(
                         f"Found {len(composition_members)} composition members and {len(alternate_members)} alternate members"
-                    )
-
-                if non_linked_members:
-                    logger.info(
-                        f"Found {len(non_linked_members)} non-linked members (secretaries, etc.)"
                     )
 
                 logger.info(
@@ -1044,30 +611,25 @@ class Command(BaseCommand):
 
         # Determine role from context
         role = default_role
+        context = ""
 
-        # First check the immediate parent's text (including siblings)
-        # This catches patterns like: <a>Name</a> (Chairperson)
+        # Check parent elements for role indicators
         parent = link.parent
-        if parent:
-            parent_full_text = parent.get_text(strip=True).lower()
+        depth = 0
+        while parent and depth < 3:  # Limit depth to avoid too much context
+            parent_text = parent.get_text().lower()
+            context += parent_text
 
-            # Check for role in parentheses or after the link
-            if re.search(r"\(chairperson\)", parent_full_text):
+            # Check for chairperson indicators
+            if "chair" in parent_text and "deputy" not in parent_text:
                 role = "Committee Chairperson"
-            elif re.search(r"\(deputy\s+chairperson\)", parent_full_text):
+                break
+            elif "deputy" in parent_text and "chair" in parent_text:
                 role = "Committee Deputy Chairperson"
-            elif re.search(r"\(secretary\)", parent_full_text):
-                role = "Committee Secretary"
-            # Check for role labels with colons
-            elif re.search(r"chairperson\s*:", parent_full_text):
-                role = "Committee Chairperson"
-            elif re.search(r"deputy\s+chair", parent_full_text):
-                role = "Committee Deputy Chairperson"
-            elif re.search(r"secretary\s*:", parent_full_text) or (
-                re.search(r"\bcommittee\s+secretary\b", parent_full_text)
-                and len(parent_full_text) < 150
-            ):
-                role = "Committee Secretary"
+                break
+
+            parent = parent.parent
+            depth += 1
 
         return {
             "name": member_name,
@@ -1091,55 +653,6 @@ class Command(BaseCommand):
                 )
                 if member:
                     members.append(member)
-
-        return members
-
-    def extract_non_linked_members(self, soup):
-        """Extract members without person-details links (like secretaries in <b> tags)"""
-        members = []
-        seen_names = set()
-
-        # Find all <b> tags that might contain member names
-        bold_tags = soup.find_all("b")
-
-        for bold_tag in bold_tags:
-            name_text = bold_tag.get_text(strip=True)
-
-            # Skip if too short or already seen
-            if len(name_text) < 5 or name_text in seen_names:
-                continue
-
-            # Check if this looks like a person name (has at least 2 words, starts with capital)
-            if not re.match(r"^[A-Z][a-z]+\s+[A-Z]", name_text):
-                continue
-
-            # Get the parent context to determine role
-            parent = bold_tag.parent
-            if parent:
-                parent_text = parent.get_text(strip=True).lower()
-
-                # Check for secretary role
-                if re.search(r"\bcommittee\s+secretary\b", parent_text):
-                    role = "Committee Secretary"
-                elif re.search(r"\bsecretary\b", parent_text):
-                    role = "Committee Secretary"
-                elif re.search(r"\bdeputy\s+chairperson\b", parent_text):
-                    role = "Committee Deputy Chairperson"
-                elif re.search(r"\bchairperson\b", parent_text):
-                    role = "Committee Chairperson"
-                else:
-                    # Skip if no clear role indicator
-                    continue
-
-                seen_names.add(name_text)
-                members.append(
-                    {
-                        "name": name_text,
-                        "url": None,  # No URL for non-linked members
-                        "role": role,
-                        "section": "non-linked",
-                    }
-                )
 
         return members
 
@@ -1268,12 +781,11 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def create_membership(self, user, group, role_name):
-        """Create group membership and user role"""
+        """Create group membership with role"""
         if not self.dry_run:
             try:
                 role = Role.objects.get(name=role_name)
 
-                # Create or get the group membership with role
                 membership, created = GroupMembership.objects.get_or_create(
                     user=user,
                     group=group,
@@ -1287,26 +799,24 @@ class Command(BaseCommand):
                 if created:
                     self.stats["memberships_created"] += 1
                     if self.verbose:
-                        self.stdout.write(f"Created membership: {user} -> {group}")
-                    logger.info(f"Created membership: {user.username} -> {group.name}")
-                else:
-                    # Update existing membership to be active
-                    if not membership.is_active:
-                        membership.is_active = True
-                        membership.save()
-                        self.stats["memberships_updated"] += 1
-
-                # Update membership role if it changed
-                if membership.role != role:
-                    old_role = membership.role.name if membership.role else "None"
-                    membership.role = role
-                    membership.save()
-                    if self.verbose:
                         self.stdout.write(
-                            f"Updated membership role: {user} from {old_role} to {role_name}"
+                            f"Created membership: {user} -> {group} as {role_name}"
                         )
                     logger.info(
-                        f"Updated user role: {user.username} from {old_role} to {role_name}"
+                        f"Created membership: {user.username} -> {group.name} as {role_name}"
+                    )
+                elif membership.role != role:
+                    old_role = membership.role.name
+                    membership.role = role
+                    membership.is_active = True
+                    membership.save()
+                    self.stats["memberships_updated"] += 1
+                    if self.verbose:
+                        self.stdout.write(
+                            f"Updated membership: {user} -> {group} from {old_role} to {role_name}"
+                        )
+                    logger.info(
+                        f"Updated membership: {user.username} -> {group.name} from {old_role} to {role_name}"
                     )
 
             except Role.DoesNotExist:

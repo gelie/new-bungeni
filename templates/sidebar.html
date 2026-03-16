@@ -217,27 +217,27 @@
     <div class="p-4">
       {% comment %} <h3 class="font-bold text-lg mb-4">Administration</h3> {% endcomment %}
       <ul class="menu menu-md p-0 space-y-4">
-        <li><a hx-get="{% url 'admin_users' %}" hx-target="#content-area" hx-push=url="true"
+        <li><a hx-get="{% url 'admin_users' %}" hx-target="#content-area" hx-push-url="true"
             class="flex items-center gap-2">
             {% lucide "user" class="w-4 h-4" %}
             <span>Users</span>
           </a></li>
-        <li><a hx-get="{% url 'admin_groups' %}" hx-target="#content-area" hx-push=url="true"
+        <li><a hx-get="{% url 'admin_groups' %}" hx-target="#content-area" hx-push-url="true"
             class="flex items-center gap-2">
             {% lucide "users" class="w-4 h-4" %}
             <span>Groups</span>
           </a></li>
-        <li><a hx-get="{% url 'admin_roles' %}" hx-target="#content-area" hx-push=url="true"
+        <li><a hx-get="{% url 'admin_roles' %}" hx-target="#content-area" hx-push-url="true"
             class="flex items-center gap-2">
             {% lucide "shield" class="w-4 h-4" %}
             <span>Roles</span>
           </a></li>
-        <li><a hx-get="{% url 'admin_workflow_types' %}" hx-target="#content-area" hx-push=url="true"
+        <li><a hx-get="{% url 'admin_workflow_types' %}" hx-target="#content-area" hx-push-url="true"
             class="flex items-center gap-2">
             {% lucide "git-branch" class="w-4 h-4" %}
             <span>Workflow Types</span>
           </a></li>
-        <li><a hx-get="{% url 'admin_sharepoint_sites' %}" hx-target="#content-area" hx-push=url="true"
+        <li><a hx-get="{% url 'admin_sharepoint_sites' %}" hx-target="#content-area" hx-push-url="true"
             class="flex items-center gap-2">
             {% lucide "globe" class="w-4 h-4" %}
             <span>SharePoint Sites</span>

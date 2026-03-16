@@ -52,7 +52,7 @@
 }
 
 .sidebar-panel-container.open {
-    width: 200px;
+    width: 160px;
 }
 
 #main-content {
@@ -60,11 +60,11 @@
 }
 
 #main-content.panel-open {
-    margin-left: 264px;
+    margin-left: 224px;
 }
 
 .sidebar-panel {
-    width: 200px;
+    width: 160px;
     min-height: 100vh;
     display: none;
     opacity: 0;

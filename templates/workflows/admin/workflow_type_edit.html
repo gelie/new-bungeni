@@ -433,6 +433,32 @@
       }
     });
 
+    // Handle dropdown item clicks
+    const groupItems = groupsList.querySelectorAll('div[data-value][data-id]');
+    groupItems.forEach(function (item) {
+      item.addEventListener('click', function () {
+        const groupName = this.getAttribute('data-value');
+        const groupId = this.getAttribute('data-id');
+
+        groupInput.value = groupName;
+        selectedGroupInput.value = groupId;
+        groupsList.classList.add('hidden');
+        filterRolesByGroup(groupId);
+      });
+    });
+
+    // Toggle dropdown when clicking on the input
+    groupInput.addEventListener('focus', function () {
+      groupsList.classList.remove('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function (event) {
+      if (!groupInput.contains(event.target) && !groupsList.contains(event.target)) {
+        groupsList.classList.add('hidden');
+      }
+    });
+
     // Role dropdown functionality
     const roleDropdown = document.getElementById('role-dropdown');
     const roleDropdownMenu = document.getElementById('role-dropdown-menu');
