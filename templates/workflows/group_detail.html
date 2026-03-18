@@ -1,29 +1,27 @@
 {% extends 'base.html' %}
-
-{% block title %}{{ group.name }} {% endblock %}
-
+{% block title %}{{ group.name }}{% endblock %}
 {% partialdef content %}
-<div class="space-y-6">
+<div class="max-w-7xl mx-auto space-y-6">
     <div class="text-sm breadcrumbs">
         <ul>
-            <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
-            <li><a href="{% url 'group_list' %}">Groups</a></li>
+            <li>
+                <a href="{% url 'dashboard' %}">Dashboard</a>
+            </li>
+            <li>
+                <a href="{% url 'group_list' %}">Groups</a>
+            </li>
             <li>{{ group.name|truncatewords:5 }}</li>
         </ul>
     </div>
-
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
             <h1 class="text-3xl font-bold">{{ group.name }}</h1>
             <div class="badge badge-lg badge-primary mt-2">{{ group.group_type.name }}</div>
-
             {% if group.description %}
-            <div class="divider"></div>
-            <p class="text-base-content/80">{{ group.description }}</p>
+                <div class="divider"></div>
+                <p class="text-base-content/80">{{ group.description }}</p>
             {% endif %}
-
             <div class="divider"></div>
-
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <div class="text-sm text-base-content/70">Contact Email</div>
@@ -40,7 +38,6 @@
             </div>
         </div>
     </div>
-
     <!-- Members -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
@@ -59,55 +56,56 @@
                     </thead>
                     <tbody>
                         {% for membership in memberships %}
-                        <tr>
-                            <td>
-                                <div class="flex items-center gap-2">
-                                    <div class="avatar avatar-placeholder">
-                                        <div class="bg-primary text-primary-content rounded-full w-8">
-                                            <span class="text-xs">{{ membership.user.first_name.0|default:membership.user.username.0|upper }}</span>
+                            <tr>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="avatar avatar-placeholder">
+                                            <div class="bg-primary text-primary-content rounded-full w-8">
+                                                <span class="text-xs">{{ membership.user.first_name.0|default:membership.user.username.0|upper }}</span>
+                                            </div>
                                         </div>
+                                        {{ membership.user.get_full_name|default:membership.user.username }}
                                     </div>
-                                    {{ membership.user.get_full_name|default:membership.user.username }}
-                                </div>
-                            </td>
-                            <td><span class="badge badge-outline">{{ membership.role.name }}</span></td>
-                            <td>{{ membership.start_date|date:"M Y" }}</td>
-                        </tr>
+                                </td>
+                                <td>
+                                    <span class="badge badge-outline">{{ membership.role.name }}</span>
+                                </td>
+                                <td>{{ membership.start_date|date:"M Y" }}</td>
+                            </tr>
                         {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center text-base-content/50">No members</td>
-                        </tr>
+                            <tr>
+                                <td colspan="3" class="text-center text-base-content/50">No members</td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-
     <!-- Child Groups -->
     {% if children %}
-    <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-            <h2 class="card-title">
-                {% lucide "git-branch" class="w-5 h-5" %}
-                Sub-Groups
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                {% for child in children %}
-                <a href="{% url 'group_detail' child.pk %}" class="card bg-base-200 hover:shadow-lg transition">
-                    <div class="card-body">
-                        <h3 class="font-semibold">{{ child.name }}</h3>
-                        <div class="badge badge-sm badge-outline">{{ child.group_type.name }}</div>
-                    </div>
-                </a>
-                {% endfor %}
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    {% lucide "git-branch" class="w-5 h-5" %}
+                    Sub-Groups
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                    {% for child in children %}
+                        <a href="{% url 'group_detail' child.pk %}"
+                           class="card bg-base-200 hover:shadow-lg transition">
+                            <div class="card-body">
+                                <h3 class="font-semibold">{{ child.name }}</h3>
+                                <div class="badge badge-sm badge-outline">{{ child.group_type.name }}</div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
             </div>
         </div>
-    </div>
     {% endif %}
 </div>
 {% endpartialdef %}
-
 {% block content %}
-{% partial content %}
+    {% partial content %}
 {% endblock %}

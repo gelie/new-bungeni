@@ -1,75 +1,83 @@
 {% extends 'base.html' %}
-
-{% block title %}Create Workflow {% endblock %}
-
+{% block title %}Create Workflow{% endblock %}
 {% partialdef content %}
-<div class="space-y-6">
+<div class="max-w-4xl mx-auto space-y-6">
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-3xl font-bold flex items-center gap-2">
         {% lucide "circle-plus" class="w-8 h-8" %}
-        Create a {% if preselected_type_name %}{{ preselected_type_name|title }} Workflow{% else %}New
-        Workflow{% endif %}
+        Create a
+        {% if preselected_type_name %}
+          {{ preselected_type_name|title }} Workflow
+        {% else %}
+          New
+          Workflow
+        {% endif %}
       </h1>
-      <p class="text-base-content/70 mt-1">{% if preselected_type_name %}Start a new {{ preselected_type_name|lower }}
-        process{% else %}Start a new workflow process{% endif %}</p>
+      <p class="text-base-content/70 mt-1">
+        {% if preselected_type_name %}
+          Start a new {{ preselected_type_name|lower }}
+          process
+        {% else %}
+          Start a new workflow process
+        {% endif %}
+      </p>
     </div>
   </div>
-
   <!-- Form -->
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body">
       <form method="post" class="space-y-6" id="workflow-create-form">
         {% csrf_token %}
-
         <!-- Basic Information -->
         <div class="space-y-4">
           <h3 class="text-lg font-semibold flex items-center gap-2">
             {% lucide "info" class="w-5 h-5" %}
             Basic Information
           </h3>
-
           <!-- Title -->
           <div class="form-control">
             <label class="label">
               <span class="label-text font-medium">Title *</span>
               <span class="label-text-alt text-base-content/70">Required</span>
             </label>
-            <input type="text" name="title" class="input input-bordered w-full" placeholder="Enter workflow title..."
-              required />
+            <input type="text"
+                   name="title"
+                   class="input input-bordered w-full"
+                   placeholder="Enter workflow title..."
+                   required />
           </div>
-
           <!-- Description -->
           <div class="form-control">
             <label class="label">
               <span class="label-text font-medium">Description</span>
               <span class="label-text-alt text-base-content/70">Optional</span>
             </label>
-            <textarea name="description" class="textarea textarea-bordered w-full" rows="3"
-              placeholder="Describe the purpose and scope of this workflow..."></textarea>
+            <textarea name="description"
+                      class="textarea textarea-bordered w-full"
+                      rows="3"
+                      placeholder="Describe the purpose and scope of this workflow..."></textarea>
           </div>
-
           <!-- Workflow Type / Group / Priority / Deadline row -->
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
             <!-- Workflow Type (read-only display) -->
             <div class="form-control">
               <label class="label">
                 <span class="label-text font-medium">Workflow Type *</span>
                 <span class="label-text-alt text-base-content/70">Required</span>
               </label>
-              <select id="workflow-type-select" class="select select-bordered w-full"
-                {% if preselected_type %}disabled{% endif %}>
+              <select id="workflow-type-select"
+                      class="select select-bordered w-full"
+                      {% if preselected_type %}disabled{% endif %}>
                 <option value="">Select a workflow type...</option>
                 {% for wt in workflow_types %}
-                <option value="{{ wt.pk }}" {% if preselected_type == wt.pk|stringformat:"s" %}selected{% endif %}>
-                  {{ wt.name }}</option>
+                  <option value="{{ wt.pk }}"
+                          {% if preselected_type == wt.pk|stringformat:"s" %}selected{% endif %}>{{ wt.name }}</option>
                 {% endfor %}
               </select>
               <input type="hidden" name="workflow_type" value="{{ preselected_type }}" />
             </div>
-
             <!-- Group Selection -->
             <div class="form-control">
               <label class="label">
@@ -78,15 +86,12 @@
               </label>
               <select name="group" class="select select-bordered w-full" required>
                 <option value="">Select a group...</option>
-                {% for group in user_groups %}
-                <option value="{{ group.pk }}">{{ group.name }}</option>
-                {% endfor %}
+                {% for group in user_groups %}<option value="{{ group.pk }}">{{ group.name }}</option>{% endfor %}
               </select>
               <label class="label">
                 <span class="label-text-alt text-base-content/70">Which group owns this workflow</span>
               </label>
             </div>
-
             <!-- Priority -->
             <div class="form-control">
               <label class="label">
@@ -99,18 +104,17 @@
                 <option value="urgent">Urgent</option>
               </select>
             </div>
-
             <!-- Deadline -->
             <div class="form-control">
               <label class="label">
                 <span class="label-text font-medium">Deadline</span>
                 <span class="label-text-alt text-base-content/70">Optional</span>
               </label>
-              <input type="datetime-local" name="deadline" class="input input-bordered w-full" />
+              <input type="datetime-local"
+                     name="deadline"
+                     class="input input-bordered w-full" />
             </div>
-
           </div>
-
           <!-- Event Association -->
           {% comment %} <div class="form-control">
             <label class="label">
@@ -128,42 +132,37 @@
             </label>
           </div> {% endcomment %}
         </div>
-
         <!-- Parent Workflow (if applicable) -->
         {% if parent_workflow %}
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            {% lucide "git-branch" class="w-5 h-5" %}
-            Parent Workflow
-          </h3>
-
-          <div class="alert alert-info">
-            <div class="flex items-center gap-2">
-              {% lucide "info" class="w-4 h-4" %}
-              <span>
-                Creating a sub-workflow of: <strong>{{ parent_workflow.title }}</strong>
-                ({{ parent_workflow.workflow_type.name }})
-              </span>
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+              {% lucide "git-branch" class="w-5 h-5" %}
+              Parent Workflow
+            </h3>
+            <div class="alert alert-info">
+              <div class="flex items-center gap-2">
+                {% lucide "info" class="w-4 h-4" %}
+                <span>
+                  Creating a sub-workflow of: <strong>{{ parent_workflow.title }}</strong>
+                  ({{ parent_workflow.workflow_type.name }})
+                </span>
+              </div>
             </div>
+            <input type="hidden" name="parent_workflow" value="{{ parent_workflow.pk }}" />
+            {% if workflow_types %}
+              <div class="alert alert-success text-sm">
+                {% lucide "circle-check" class="w-4 h-4" %}
+                The relationship type will be set automatically based on the selected workflow type.
+              </div>
+            {% else %}
+              <div class="alert alert-warning">
+                {% lucide "alert-triangle" class="w-4 h-4" %}
+                <span>No allowed child workflow types are configured for
+                  <strong>{{ parent_workflow.workflow_type.name }}</strong>. Please contact an administrator.</span>
+              </div>
+            {% endif %}
           </div>
-
-          <input type="hidden" name="parent_workflow" value="{{ parent_workflow.pk }}" />
-
-          {% if workflow_types %}
-          <div class="alert alert-success text-sm">
-            {% lucide "circle-check" class="w-4 h-4" %}
-            The relationship type will be set automatically based on the selected workflow type.
-          </div>
-          {% else %}
-          <div class="alert alert-warning">
-            {% lucide "alert-triangle" class="w-4 h-4" %}
-            <span>No allowed child workflow types are configured for
-              <strong>{{ parent_workflow.workflow_type.name }}</strong>. Please contact an administrator.</span>
-          </div>
-          {% endif %}
-        </div>
         {% endif %}
-
         <!-- Dynamic Fields (Optional Fields) -->
         <div id="dynamic-fields-section" class="space-y-4" style="display: none;">
           <h3 class="text-lg font-semibold flex items-center gap-2">
@@ -171,19 +170,15 @@
             Additional Information
           </h3>
           <p class="text-sm text-base-content/70">Please provide the following information for this workflow type</p>
-
           <div id="dynamic-fields-container" class="space-y-4">
             <!-- Dynamic fields will be inserted here -->
           </div>
         </div>
-
         <!-- Workflow type JSON schemas for JS -->
         {{ workflow_type_schemas|json_script:"workflow-type-schemas" }}
-
         <!-- Available users and roles for delegate selection -->
         {{ available_users|json_script:"available-users" }}
         {{ delegation_roles|json_script:"delegation-roles" }}
-
         <!-- Form Actions -->
         <div class="flex items-center justify-between pt-6 border-t border-base-300">
           <a href="{% url 'workflow_list' %}" class="btn btn-ghost">
@@ -205,7 +200,6 @@
     </div>
   </div>
 </div>
-
 <script>
   (function () {
     console.log('Script initializing...');
@@ -264,13 +258,7 @@
           <div id="delegate-group-container" class="space-y-3">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div class="form-control relative">
-                <input
-                  type="text"
-                  id="delegate-user-search"
-                  class="input input-bordered w-full"
-                  placeholder="Search for a user..."
-                  autocomplete="off"
-                />
+                <input type="text" id="delegate-user-search" class="input input-bordered w-full" placeholder="Search for a user..." autocomplete="off" />
                 <div id="delegate-user-dropdown" class="hidden absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
               </div>
               <div class="form-control relative">
@@ -684,7 +672,6 @@
   })();
 </script>
 {% endpartialdef %}
-
 {% block content %}
 {% partial content %}
 {% endblock %}

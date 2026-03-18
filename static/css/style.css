@@ -13,6 +13,12 @@
     --parliament-gray: #8a8a8a;
 }
 
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Collapsible Sidebar Styles */
 .sidebar-icon-btn {
     @apply w-14 h-14 rounded-lg flex items-center justify-center transition-all duration-200 hover:bg-base-300 relative no-underline text-base-content;
@@ -57,6 +63,7 @@
 
 #main-content {
     margin-left: 64px;
+    flex: 1;
 }
 
 #main-content.panel-open {
@@ -163,6 +170,54 @@ aside {
     background: var(--parliament-green) !important;
     color: var(--parliament-white) !important;
 }
+
+/* Custom Badge Styles */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    border-radius: 0.375rem;
+    min-height: 1.5rem;
+    min-width: 1.5rem;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.badge-sm {
+    padding: 0.125rem 0.375rem;
+    font-size: 0.7rem;
+    min-height: 1.25rem;
+    min-width: 1.25rem;
+}
+
+.badge-lg {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    min-height: 1.75rem;
+    min-width: 1.75rem;
+}
+
+/* Ensure badge content stays within bounds */
+.badge span,
+.badge .badge-content {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Parliament Green Styles */
+.parliament-green {
+    background: var(--parliament-green) !important;
+    color: var(--parliament-white) !important;
+}
+
 aside a {
     color: var(--parliament-white);
     width: 100%;

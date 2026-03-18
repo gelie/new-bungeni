@@ -15,6 +15,7 @@ dependencies = [
     "django-flatpickr>=1.0.1",
     "django-mptt>=0.18.0",
     "django-ninja>=1.6.0",
+    "djlint>=1.36.4",
     "graphviz>=0.21",
     "httpx>=0.28.1",
     "lucide[django]>=1.1.3",

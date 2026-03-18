@@ -1,83 +1,84 @@
 {% extends 'base.html' %}
-
-{% block title %}{{ workflow.title }} {% endblock %}
-
+{% block title %}{{ workflow.title }}{% endblock %}
 {% partialdef content %}
-<div class="space-y-6">
+<div class="max-w-7xl mx-auto space-y-6">
     <!-- Breadcrumb with Hierarchy -->
     <div class="text-sm breadcrumbs">
         <ul>
-            <li><a href="{% url 'dashboard' %}">Dashboard</a></li>
-            <li><a href="{% url 'workflow_list' %}">Workflows</a></li>
-            {% if hierarchy_path %}
-            {% for workflow_item in hierarchy_path %}
-            {% if forloop.last %}
-            <li>{{ workflow_item.title|truncatewords:5 }}</li>
-            {% else %}
-            <li><a href="{% url 'workflow_detail' workflow_item.pk %}">{{ workflow_item.title|truncatewords:3 }}</a>
+            <li>
+                <a href="{% url 'dashboard' %}">Dashboard</a>
             </li>
-            {% endif %}
-            {% endfor %}
+            <li>
+                <a href="{% url 'workflow_list' %}">Workflows</a>
+            </li>
+            {% if hierarchy_path %}
+                {% for workflow_item in hierarchy_path %}
+                    {% if forloop.last %}
+                        <li>{{ workflow_item.title|truncatewords:5 }}</li>
+                    {% else %}
+                        <li>
+                            <a href="{% url 'workflow_detail' workflow_item.pk %}">{{ workflow_item.title|truncatewords:3 }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
             {% else %}
-            <li>{{ workflow.title|truncatewords:5 }}</li>
+                <li>{{ workflow.title|truncatewords:5 }}</li>
             {% endif %}
         </ul>
     </div>
-
     <!-- Workflow Header (Compact) -->
     <div class="card bg-base-100 shadow-xl overflow-visible">
         <div class="card-body pb-4 overflow-visible">
             <div class="flex justify-between items-end gap-4">
                 <div class="flex-1">
                     {% if workflow.parent_workflow %}
-                    <div class="text-sm text-base-content/60 mb-2">
-                        {% lucide "link" class="w-4 h-4 inline mr-1" %}
-                        {{ workflow.relationship_type.relationship_label|default:"Child" }} of
-                        <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
-                            class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
-                    </div>
+                        <div class="text-sm text-base-content/60 mb-2">
+                            {% lucide "link" class="w-4 h-4 inline mr-1" %}
+                            {{ workflow.relationship_type.relationship_label|default:"Child" }} of
+                            <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
+                               class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
+                        </div>
                     {% endif %}
                     <h1 class="text-2xl font-bold">{{ workflow.title }}</h1>
-
                     <!-- Key Status Indicators (Always Visible) -->
                     <div class="flex flex-wrap gap-2 mt-3">
                         <span class="text-md font-bold flex items-center">Status:</span>
                         {% if available_transitions %}
-                        <div class="dropdown">
-                            <label tabindex="0"
-                                class="badge badge-lg cursor-pointer select-none flex items-center gap-1 pr-2"
-                                style="background-color: {{ workflow.current_state.color }}; color: white;">
-                                {{ workflow.current_state.name }}
-                                {% lucide "chevron-down" class="w-3 h-3 opacity-80" %}
-                            </label>
-                            <ul tabindex="0"
-                                class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-56 z-50 border border-base-300 mt-1">
-                                <li class="menu-title text-xs opacity-50 px-3 py-1">Transition to…</li>
-                                {% for transition in available_transitions %}
-                                <li>
-                                    <a href="{% url 'workflow_transition' workflow.pk transition.pk %}"
-                                        class="flex items-center justify-between">
-                                        {{ transition.name }}
-                                        {% lucide "arrow-right" class="w-4 h-4 ml-auto shrink-0" %}
-                                    </a>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
+                            <div class="dropdown">
+                                <label tabindex="0"
+                                       class="badge badge-lg cursor-pointer select-none flex items-center gap-1 pr-2"
+                                       style="background-color: {{ workflow.current_state.color }};
+                                              color: white">
+                                    {{ workflow.current_state.name }}
+                                    {% lucide "chevron-down" class="w-3 h-3 opacity-80" %}
+                                </label>
+                                <ul tabindex="0"
+                                    class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-56 z-50 border border-base-300 mt-1">
+                                    <li class="menu-title text-xs opacity-50 px-3 py-1">Transition to…</li>
+                                    {% for transition in available_transitions %}
+                                        <li>
+                                            <a href="{% url 'workflow_transition' workflow.pk transition.pk %}"
+                                               class="flex items-center justify-between">
+                                                {{ transition.name }}
+                                                {% lucide "arrow-right" class="w-4 h-4 ml-auto shrink-0" %}
+                                            </a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                         {% else %}
-                        <span class="badge badge-lg"
-                            style="background-color: {{ workflow.current_state.color }}; color: white;">
-                            {{ workflow.current_state.name }}
-                        </span>
+                            <span class="badge badge-lg"
+                                  style="background-color: {{ workflow.current_state.color }};
+                                         color: white">{{ workflow.current_state.name }}</span>
                         {% endif %}
                         <span class="badge badge-lg badge-outline">{{ workflow.workflow_type.name }}</span>
                         {% if workflow.priority == 'urgent' %}
-                        <span class="badge badge-lg badge-error">Urgent</span>
+                            <span class="badge badge-lg badge-error">Urgent</span>
                         {% elif workflow.priority == 'high' %}
-                        <span class="badge badge-lg badge-warning">High Priority</span>
+                            <span class="badge badge-lg badge-warning">High Priority</span>
                         {% endif %}
                         {% if workflow.is_overdue and not workflow.current_state.is_terminal %}
-                        <span class="badge badge-lg badge-error">Overdue</span>
+                            <span class="badge badge-lg badge-error">Overdue</span>
                         {% endif %}
                         <!--
                         {% if workflow.has_sub_workflows %}
@@ -86,44 +87,54 @@
                     -->
                     </div>
                 </div>
-
                 <!-- Quick Actions -->
                 <div class="flex gap-2 flex-wrap">
                     {% if can_edit and allowed_child_configs %}
-                    <label for="bulk-create-modal" class="btn btn-sm bg-gray-600 text-white">
-                        {% lucide "plus" class="w-4 h-4 mr-1" %} Sub Process
-                    </label>
+                        <label for="bulk-create-modal" class="btn btn-sm bg-gray-600 text-white">
+                            {% lucide "plus" class="w-4 h-4 mr-1" %} Related Process
+                        </label>
                     {% endif %}
                     {% if can_refer %}
-                    <label for="refer-modal" class="btn btn-sm btn-warning">
-                        {% lucide "send" class="w-4 h-4 mr-1" %}
-                        {% if active_referral %}Re-refer{% else %}Refer{% endif %}
-                    </label>
+                        <label for="refer-modal" class="btn btn-sm btn-warning">
+                            {% lucide "send" class="w-4 h-4 mr-1" %}
+                            {% if active_referral %}
+                                Re-refer
+                            {% else %}
+                                Refer
+                            {% endif %}
+                        </label>
                     {% endif %}
                     {% if active_referral and can_edit %}
-                    <button id="recall-btn" class="btn btn-sm btn-error btn-outline self-center">
-                        {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
-                    </button>
+                        <button id="recall-btn" class="btn btn-sm btn-error btn-outline self-center">
+                            {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
+                        </button>
                     {% endif %}
-
                     <div class="dropdown dropdown-end">
                         <label tabindex="0" class="btn btn-sm btn-neutral">
                             {% lucide "chevron-down" class="w-5 h-5" %}
                             Actions
                         </label>
-                        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
-                            <li><a href="{% url 'workflow_edit' workflow.pk %}">{% lucide "pencil" class="w-4 h-4" %}
-                                    Edit</a></li>
-                            <li><a onclick="showShareModal()">{% lucide "share-2" class="w-4 h-4" %} Share</a></li>
+                        <ul tabindex="0"
+                            class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
+                            <li>
+                                <a href="{% url 'workflow_edit' workflow.pk %}">{% lucide "pencil" class="w-4 h-4" %}
+                                Edit</a>
+                            </li>
+                            <li>
+                                <a onclick="showShareModal()">{% lucide "share-2" class="w-4 h-4" %} Share</a>
+                            </li>
                             <li>
                                 <details>
                                     <summary>{% lucide "download" class="w-4 h-4" %} Export</summary>
                                     <ul>
-                                        <li><a href="{% url 'workflow_report' workflow.pk %}?format=html"
-                                                target="_blank">
-                                                {% lucide "file-text" class="w-4 h-4" %} View Report (HTML)</a></li>
-                                        <li><a href="{% url 'workflow_report' workflow.pk %}?format=pdf">
-                                                {% lucide "file-down" class="w-4 h-4" %} Download PDF</a></li>
+                                        <li>
+                                            <a href="{% url 'workflow_report' workflow.pk %}?format=html"
+                                               target="_blank">
+                                            {% lucide "file-text" class="w-4 h-4" %} View Report (HTML)</a>
+                                        </li>
+                                        <li>
+                                            <a href="{% url 'workflow_report' workflow.pk %}?format=pdf">{% lucide "file-down" class="w-4 h-4" %} Download PDF</a>
+                                        </li>
                                     </ul>
                                 </details>
                             </li>
@@ -133,7 +144,6 @@
             </div>
         </div>
     </div>
-
     <!-- Tabbed Content -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body p-0">
@@ -146,31 +156,23 @@
                 <a class="tab" data-tab="related">
                     {% lucide "git-branch" class="w-4 h-4 mr-2" %}
                     Related
-                    {% if related_count > 0 %}
-                    <span class="badge badge-sm badge-primary ml-1">
-                        {{ related_count }}
-                    </span>
-                    {% endif %}
+                    {% if related_count > 0 %}<span class="badge badge-sm badge-primary ml-1">{{ related_count }}</span>{% endif %}
                 </a>
                 <a class="tab" data-tab="comments">
                     {% lucide "message-square" class="w-4 h-4 mr-2" %}
                     Notes
-                    {% if comments %}
-                    <span class="badge badge-sm badge-outline ml-1">{{ comments|length }}</span>
-                    {% endif %}
+                    {% if comments %}<span class="badge badge-sm badge-outline ml-1">{{ comments|length }}</span>{% endif %}
                 </a>
                 <a class="tab" data-tab="history">
                     {% lucide "clock" class="w-4 h-4 mr-2" %}
                     History
-                    {% if transition_logs %}
-                    <span class="badge badge-sm badge-outline ml-1">{{ transition_logs|length }}</span>
-                    {% endif %}
+                    {% if transition_logs %}<span class="badge badge-sm badge-outline ml-1">{{ transition_logs|length }}</span>{% endif %}
                 </a>
                 <a class="tab" data-tab="attachments">
                     {% lucide "paperclip" class="w-4 h-4 mr-2" %}
                     Attachments
                     {% if workflow.attachments.all %}
-                    <span class="badge badge-sm badge-primary ml-1">{{ workflow.attachments.all|length }}</span>
+                        <span class="badge badge-sm badge-primary ml-1">{{ workflow.attachments.all|length }}</span>
                     {% endif %}
                 </a>
                 <a class="tab" data-tab="diagram">
@@ -178,16 +180,16 @@
                     Diagram
                 </a>
                 {% if referral_history or can_refer %}
-                <a class="tab" data-tab="referrals">
-                    {% lucide "send" class="w-4 h-4 mr-2" %}
-                    Referrals
-                    {% if active_referral %}<span class="badge badge-sm badge-warning ml-1">Active</span>{% endif %}
-                    {% if referral_history %}<span
-                        class="badge badge-sm badge-outline ml-1">{{ referral_history|length }}</span>{% endif %}
-                </a>
+                    <a class="tab" data-tab="referrals">
+                        {% lucide "send" class="w-4 h-4 mr-2" %}
+                        Referrals
+                        {% if active_referral %}<span class="badge badge-sm badge-warning ml-1">Active</span>{% endif %}
+                        {% if referral_history %}
+                            <span class="badge badge-sm badge-outline ml-1">{{ referral_history|length }}</span>
+                        {% endif %}
+                    </a>
                 {% endif %}
             </div>
-
             <!-- Tab Content -->
             <div class="p-6">
                 <!-- Overview Tab -->
@@ -211,22 +213,19 @@
                                 <div class="flex justify-between">
                                     <span class="text-base-content/70">State</span>
                                     <span class="badge"
-                                        style="background-color: {{ workflow.current_state.color }}; color: white;">
-                                        {{ workflow.current_state.name }}
-                                    </span>
+                                          style="background-color: {{ workflow.current_state.color }};
+                                                 color: white">{{ workflow.current_state.name }}</span>
                                 </div>
                                 {% if workflow.deadline %}
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Deadline</span>
-                                    <span
-                                        class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
-                                        {{ workflow.deadline|date:"M d, Y" }}
-                                    </span>
-                                </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-base-content/70">Deadline</span>
+                                        <span class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
+                                            {{ workflow.deadline|date:"M d, Y" }}
+                                        </span>
+                                    </div>
                                 {% endif %}
                             </div>
                         </div>
-
                         <!-- Ownership & Assignment -->
                         <div class="space-y-4">
                             <h3 class="text-lg font-semibold flex items-center gap-2">
@@ -243,147 +242,130 @@
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-primary text-primary-content rounded-full w-8">
-                                                <span
-                                                    class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
+                                                <span class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
                                             </div>
                                         </div>
                                         <span>{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
                                     </div>
                                 </div>
                                 {% if workflow.assigned_to %}
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Assigned To</span>
-                                    <div class="flex items-center gap-2">
-                                        <div class="avatar avatar-placeholder">
-                                            <div class="bg-secondary text-secondary-content rounded-full w-8">
-                                                <span
-                                                    class="text-xs">{{ workflow.assigned_to.first_name.0|default:workflow.assigned_to.username.0|upper }}</span>
+                                    <div class="flex justify-between">
+                                        <span class="text-base-content/70">Assigned To</span>
+                                        <div class="flex items-center gap-2">
+                                            <div class="avatar avatar-placeholder">
+                                                <div class="bg-secondary text-secondary-content rounded-full w-8">
+                                                    <span class="text-xs">{{ workflow.assigned_to.first_name.0|default:workflow.assigned_to.username.0|upper }}</span>
+                                                </div>
                                             </div>
+                                            <span>{{ workflow.assigned_to.get_full_name|default:workflow.assigned_to.username }}</span>
                                         </div>
-                                        <span>{{ workflow.assigned_to.get_full_name|default:workflow.assigned_to.username }}</span>
                                     </div>
-                                </div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
-
                     {% if workflow.description %}
-                    <div class="mt-6">
-                        <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
-                            {% lucide "file-text" class="w-5 h-5" %}
-                            Description
-                        </h3>
-                        <div class="bg-base-200 rounded-lg p-4">
-                            <div class="prose max-w-none">{{ workflow.description|linebreaks }}</div>
+                        <div class="mt-6">
+                            <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                                {% lucide "file-text" class="w-5 h-5" %}
+                                Description
+                            </h3>
+                            <div class="bg-base-200 rounded-lg p-4">
+                                <div class="prose max-w-none">{{ workflow.description|linebreaks }}</div>
+                            </div>
                         </div>
-                    </div>
                     {% endif %}
-
                     <!-- Custom Fields -->
                     {% if custom_fields %}
-                    <div class="mt-6">
-                        <div class="card bg-base-100 shadow-sm">
-                            <div class="card-body">
-                                <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
-                                    {% lucide "settings" class="w-5 h-5" %}
-                                    Additional Information
-                                </h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {% for field_name, field_data in custom_fields.items %}
-                                    {% if field_name == "delegate_group" %}
-                                    <!-- Special handling for delegate_group -->
-                                    <div class="form-control md:col-span-2">
-                                        <label class="label">
-                                            <span
-                                                class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
-                                        </label>
-                                        <div class="bg-base-200 rounded-lg p-4">
-                                            {% if field_data.value %}
-                                            <div class="space-y-3">
-                                                {% for delegate in field_data.value %}
-                                                <div
-                                                    class="flex items-center justify-between p-3 bg-base-100 rounded-lg border border-base-300">
-                                                    <div class="flex items-center gap-3">
-                                                        <div class="avatar placeholder">
-                                                            <div
-                                                                class="bg-primary text-primary-content rounded-full w-10 h-10 flex items-center justify-center">
-                                                                <span class="text-sm font-medium">
-                                                                    {{ delegate.user_name.0|upper }}
-                                                                </span>
+                        <div class="mt-6">
+                            <div class="card bg-base-100 shadow-sm">
+                                <div class="card-body">
+                                    <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                                        {% lucide "settings" class="w-5 h-5" %}
+                                        Additional Information
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {% for field_name, field_data in custom_fields.items %}
+                                            {% if field_name == "delegate_group" %}
+                                                <!-- Special handling for delegate_group -->
+                                                <div class="form-control md:col-span-2">
+                                                    <label class="label">
+                                                        <span class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
+                                                    </label>
+                                                    <div class="bg-base-200 rounded-lg p-4">
+                                                        {% if field_data.value %}
+                                                            <div class="space-y-3">
+                                                                {% for delegate in field_data.value %}
+                                                                    <div class="flex items-center justify-between p-3 bg-base-100 rounded-lg border border-base-300">
+                                                                        <div class="flex items-center gap-3">
+                                                                            <div class="avatar placeholder">
+                                                                                <div class="bg-primary text-primary-content rounded-full w-10 h-10 flex items-center justify-center">
+                                                                                    <span class="text-sm font-medium">{{ delegate.user_name.0|upper }}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <div class="font-medium">{{ delegate.user_name }}</div>
+                                                                                <div class="text-sm text-base-content/70">{{ delegate.delegation_role }}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <span class="badge badge-outline">{{ delegate.delegation_role }}</span>
+                                                                    </div>
+                                                                {% endfor %}
                                                             </div>
-                                                        </div>
-                                                        <div>
-                                                            <div class="font-medium">{{ delegate.user_name }}</div>
-                                                            <div class="text-sm text-base-content/70">
-                                                                {{ delegate.delegation_role }}</div>
+                                                        {% else %}
+                                                            <span class="text-base-content/50">No delegates assigned</span>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% elif field_name == "event_start_date" or field_name == "event_end_date" %}
+                                                {% if field_name == "event_start_date" %}
+                                                    <div class="form-control md:col-span-2">
+                                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div>
+                                                                <label class="label">
+                                                                    <span class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
+                                                                </label>
+                                                                <div class="bg-base-200 rounded-lg p-3">
+                                                                    <span class="text-base-content">{{ field_data.value|default:"—" }}</span>
+                                                                </div>
+                                                            </div>
+                                                            {% if custom_fields.event_end_date %}
+                                                                <div>
+                                                                    <label class="label">
+                                                                        <span class="label-text font-semibold text-base-content/80">{{ custom_fields.event_end_date.title }}</span>
+                                                                    </label>
+                                                                    <div class="bg-base-200 rounded-lg p-3">
+                                                                        <span class="text-base-content">{{ custom_fields.event_end_date.value|default:"—" }}</span>
+                                                                    </div>
+                                                                </div>
+                                                            {% endif %}
                                                         </div>
                                                     </div>
-                                                    <span
-                                                        class="badge badge-outline">{{ delegate.delegation_role }}</span>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
+                                                {% endif %}
                                             {% else %}
-                                            <span class="text-base-content/50">No delegates assigned</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% elif field_name == "event_start_date" or field_name == "event_end_date" %}
-                                    {% if field_name == "event_start_date" %}
-                                    <div class="form-control md:col-span-2">
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label class="label">
-                                                    <span
-                                                        class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
-                                                </label>
-                                                <div class="bg-base-200 rounded-lg p-3">
-                                                    <span
-                                                        class="text-base-content">{{ field_data.value|default:"—" }}</span>
+                                                <div class="form-control">
+                                                    <label class="label">
+                                                        <span class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
+                                                    </label>
+                                                    <div class="bg-base-200 rounded-lg p-3">
+                                                        {% if field_data.type == "boolean" %}
+                                                            {% if field_data.value %}
+                                                                <span class="badge badge-success">Yes</span>
+                                                            {% else %}
+                                                                <span class="badge badge-ghost">No</span>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="text-base-content">{{ field_data.value|default:"—" }}</span>
+                                                        {% endif %}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            {% if custom_fields.event_end_date %}
-                                            <div>
-                                                <label class="label">
-                                                    <span
-                                                        class="label-text font-semibold text-base-content/80">{{ custom_fields.event_end_date.title }}</span>
-                                                </label>
-                                                <div class="bg-base-200 rounded-lg p-3">
-                                                    <span
-                                                        class="text-base-content">{{ custom_fields.event_end_date.value|default:"—" }}</span>
-                                                </div>
-                                            </div>
                                             {% endif %}
-                                        </div>
+                                        {% endfor %}
                                     </div>
-                                    {% endif %}
-                                    {% else %}
-                                    <div class="form-control">
-                                        <label class="label">
-                                            <span
-                                                class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
-                                        </label>
-                                        <div class="bg-base-200 rounded-lg p-3">
-                                            {% if field_data.type == "boolean" %}
-                                            {% if field_data.value %}
-                                            <span class="badge badge-success">Yes</span>
-                                            {% else %}
-                                            <span class="badge badge-ghost">No</span>
-                                            {% endif %}
-                                            {% else %}
-                                            <span class="text-base-content">{{ field_data.value|default:"—" }}</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% endif %}
-                                    {% endfor %}
                                 </div>
                             </div>
                         </div>
-                    </div>
                     {% endif %}
-
                     <!-- Timeline & System Information (merged from Details tab) -->
                     <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="space-y-4">
@@ -401,17 +383,15 @@
                                     <span>{{ workflow.updated_at|date:"F d, Y H:i" }}</span>
                                 </div>
                                 {% if workflow.deadline %}
-                                <div class="flex justify-between">
-                                    <span class="text-base-content/70">Deadline</span>
-                                    <span
-                                        class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
-                                        {{ workflow.deadline|date:"F d, Y H:i" }}
-                                    </span>
-                                </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-base-content/70">Deadline</span>
+                                        <span class="{% if workflow.is_overdue and not workflow.current_state.is_terminal %}text-error font-semibold{% endif %}">
+                                            {{ workflow.deadline|date:"F d, Y H:i" }}
+                                        </span>
+                                    </div>
                                 {% endif %}
                             </div>
                         </div>
-
                         <div class="space-y-4">
                             <h3 class="text-lg font-semibold flex items-center gap-2">
                                 {% lucide "settings" class="w-5 h-5" %}
@@ -427,287 +407,277 @@
                                     <span>{{ workflow.hierarchy_level }}</span>
                                 </div>
                                 {% if active_referral %}
-                                <div class="flex justify-between items-center">
-                                    <span class="text-base-content/70">Referred To</span>
-                                    <div class="flex items-center gap-2">
-                                        <span class="badge badge-warning badge-sm">Active</span>
-                                        <a href="{% url 'group_detail' active_referral.referred_to.pk %}"
-                                            class="link link-hover text-sm font-medium">
-                                            {{ active_referral.referred_to.name|truncatewords:4 }}
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-base-content/70">Referred To</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="badge badge-warning badge-sm">Active</span>
+                                            <a href="{% url 'group_detail' active_referral.referred_to.pk %}"
+                                               class="link link-hover text-sm font-medium">
+                                                {{ active_referral.referred_to.name|truncatewords:4 }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-base-content/70">Referred By</span>
+                                        <span class="text-sm">{{ active_referral.referred_by.get_full_name|default:active_referral.referred_by.username }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-base-content/70">Referred At</span>
+                                        <span class="text-sm">{{ active_referral.referred_at|date:"Y-m-d H:i" }}</span>
+                                    </div>
+                                {% elif workflow.referred_to %}
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-base-content/70">Referred To</span>
+                                        <a href="{% url 'group_detail' workflow.referred_to.pk %}"
+                                           class="btn btn-outline btn-xs">
+                                            {{ workflow.referred_to.name|truncatewords:3 }}
                                         </a>
                                     </div>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-base-content/70">Referred By</span>
-                                    <span
-                                        class="text-sm">{{ active_referral.referred_by.get_full_name|default:active_referral.referred_by.username }}</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-base-content/70">Referred At</span>
-                                    <span class="text-sm">{{ active_referral.referred_at|date:"Y-m-d H:i" }}</span>
-                                </div>
-                                {% elif workflow.referred_to %}
-                                <div class="flex justify-between items-center">
-                                    <span class="text-base-content/70">Referred To</span>
-                                    <a href="{% url 'group_detail' workflow.referred_to.pk %}"
-                                        class="btn btn-outline btn-xs">
-                                        {{ workflow.referred_to.name|truncatewords:3 }}
-                                    </a>
-                                </div>
                                 {% endif %}
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <!-- Related Tab -->
                 <div id="tab-related" class="tab-content">
                     <div class="space-y-6">
                         <!-- Parent Workflow -->
                         {% if workflow.parent_workflow %}
-                        <div>
-                            <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
-                                {% lucide "arrow-up" class="w-5 h-5" %}
-                                Parent {{ workflow.parent_workflow.workflow_type.name }}
-                            </h3>
-                            <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
-                                class="block p-4 rounded-lg border-2 border-base-300 hover:border-primary hover:bg-base-200 transition-all duration-200">
-                                <div class="flex items-start gap-3">
-                                    <div class="flex-shrink-0 mt-1">
-                                        <span class="text-2xl">📁</span>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-lg">{{ workflow.parent_workflow.title }}</div>
-                                        <div class="text-sm text-base-content/60 mt-1">
-                                            {{ workflow.parent_workflow.workflow_type.name }}
-                                            {% if workflow.relationship_type %}
-                                            • This is a {{ workflow.relationship_type.relationship_label|lower }}
-                                            {% endif %}
-                                        </div>
-                                        <div class="flex items-center gap-2 mt-2">
-                                            <span class="badge"
-                                                style="background-color: {{ workflow.parent_workflow.current_state.color }}; color: white;">
-                                                {{ workflow.parent_workflow.current_state.name }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        {% endif %}
-
-                        <!-- Sub-workflows -->
-                        {% if sub_workflows %}
-                        <div>
-                            <h3 class="text-lg font-semibold flex items-center justify-between mb-4">
-                                <span class="flex items-center gap-2">
-                                    {% lucide "folder-tree" class="w-5 h-5" %}
-                                    Related {{ workflow.workflow_type.name }}s
-                                </span>
-                                <span class="badge badge-primary">{{ sub_workflows|length }}</span>
-                            </h3>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {% for sub_workflow in sub_workflows %}
-                                <a href="{% url 'workflow_detail' sub_workflow.pk %}"
-                                    class="block p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-base-200 hover:shadow-md transition-all duration-200">
-                                    <div class="flex items-start gap-2">
+                            <div>
+                                <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                                    {% lucide "arrow-up" class="w-5 h-5" %}
+                                    Parent {{ workflow.parent_workflow.workflow_type.name }}
+                                </h3>
+                                <a href="{% url 'workflow_detail' workflow.parent_workflow.pk %}"
+                                   class="block p-4 rounded-lg border-2 border-base-300 hover:border-primary hover:bg-base-200 transition-all duration-200">
+                                    <div class="flex items-start gap-3">
                                         <div class="flex-shrink-0 mt-1">
-                                            <span class="text-base-content/40">└─</span>
+                                            <span class="text-2xl">📁</span>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-semibold truncate">{{ sub_workflow.title }}</div>
-                                            <div class="text-xs text-base-content/60 mt-1">
-                                                {{ sub_workflow.workflow_type.name }}
-                                                {% if sub_workflow.relationship_type %}
-                                                • {{ sub_workflow.relationship_type.relationship_label }}
-                                                {% endif %}
+                                            <div class="font-semibold text-lg">{{ workflow.parent_workflow.title }}</div>
+                                            <div class="text-sm text-base-content/60 mt-1">
+                                                {{ workflow.parent_workflow.workflow_type.name }}
+                                                {% if workflow.relationship_type %}• This is a {{ workflow.relationship_type.relationship_label|lower }}{% endif %}
                                             </div>
                                             <div class="flex items-center gap-2 mt-2">
-                                                <span class="badge badge-xs"
-                                                    style="background-color: {{ sub_workflow.current_state.color }}; color: white;">
-                                                    {{ sub_workflow.current_state.name }}
+                                                <span class="badge"
+                                                      style="background-color: {{ workflow.parent_workflow.current_state.color }};
+                                                             color: white">
+                                                    {{ workflow.parent_workflow.current_state.name }}
                                                 </span>
-                                                {% if sub_workflow.priority == 'urgent' %}
-                                                <span class="badge badge-xs badge-error">Urgent</span>
-                                                {% elif sub_workflow.priority == 'high' %}
-                                                <span class="badge badge-xs badge-warning">High</span>
-                                                {% endif %}
                                             </div>
                                         </div>
                                     </div>
                                 </a>
-                                {% endfor %}
                             </div>
-                        </div>
                         {% endif %}
-
+                        <!-- Sub-workflows -->
+                        {% if sub_workflows %}
+                            <div>
+                                <h3 class="text-lg font-semibold flex items-center justify-between mb-4">
+                                    <span class="flex items-center gap-2">
+                                        {% lucide "folder-tree" class="w-5 h-5" %}
+                                        Related {{ workflow.workflow_type.name }}s
+                                    </span>
+                                    <span class="badge badge-primary">{{ sub_workflows|length }}</span>
+                                </h3>
+                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {% for sub_workflow in sub_workflows %}
+                                        <a href="{% url 'workflow_detail' sub_workflow.pk %}"
+                                           class="block p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-base-200 hover:shadow-md transition-all duration-200">
+                                            <div class="flex items-start gap-2">
+                                                <div class="flex-shrink-0 mt-1">
+                                                    <span class="text-base-content/40">└─</span>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <div class="font-semibold truncate">{{ sub_workflow.title }}</div>
+                                                    <div class="text-xs text-base-content/60 mt-1">
+                                                        {{ sub_workflow.workflow_type.name }}
+                                                        {% if sub_workflow.relationship_type %}• {{ sub_workflow.relationship_type.relationship_label }}{% endif %}
+                                                    </div>
+                                                    <div class="flex items-center gap-2 mt-2">
+                                                        <span class="badge badge-xs"
+                                                              style="background-color: {{ sub_workflow.current_state.color }};
+                                                                     color: white">
+                                                            {{ sub_workflow.current_state.name }}
+                                                        </span>
+                                                        {% if sub_workflow.priority == 'urgent' %}
+                                                            <span class="badge badge-xs badge-error">Urgent</span>
+                                                        {% elif sub_workflow.priority == 'high' %}
+                                                            <span class="badge badge-xs badge-warning">High</span>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
                         <!-- Sibling workflows -->
                         {% if sibling_workflows %}
-                        <div>
-                            <h3 class="text-lg font-semibold flex items-center justify-between mb-4">
-                                <span class="flex items-center gap-2">
-                                    {% lucide "git-branch" class="w-5 h-5" %}
-                                    Related Items
-                                </span>
-                                <span class="badge badge-outline">{{ sibling_workflows|length }}</span>
-                            </h3>
-                            <div class="space-y-2">
-                                {% for sibling in sibling_workflows %}
-                                <a href="{% url 'workflow_detail' sibling.pk %}"
-                                    class="block p-3 rounded-lg border border-base-300 hover:border-primary hover:bg-base-200 transition-all duration-200">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-base-content/40 text-xs">└─</span>
-                                        <div class="flex-1">
-                                            <div class="font-medium truncate">{{ sibling.title }}</div>
-                                            <div class="text-xs text-base-content/60">
-                                                {% if sibling.relationship_type %}
-                                                {{ sibling.relationship_type.relationship_label }}
-                                                {% endif %}
+                            <div>
+                                <h3 class="text-lg font-semibold flex items-center justify-between mb-4">
+                                    <span class="flex items-center gap-2">
+                                        {% lucide "git-branch" class="w-5 h-5" %}
+                                        Related Items
+                                    </span>
+                                    <span class="badge badge-outline">{{ sibling_workflows|length }}</span>
+                                </h3>
+                                <div class="space-y-2">
+                                    {% for sibling in sibling_workflows %}
+                                        <a href="{% url 'workflow_detail' sibling.pk %}"
+                                           class="block p-3 rounded-lg border border-base-300 hover:border-primary hover:bg-base-200 transition-all duration-200">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-base-content/40 text-xs">└─</span>
+                                                <div class="flex-1">
+                                                    <div class="font-medium truncate">{{ sibling.title }}</div>
+                                                    <div class="text-xs text-base-content/60">
+                                                        {% if sibling.relationship_type %}{{ sibling.relationship_type.relationship_label }}{% endif %}
+                                                    </div>
+                                                </div>
+                                                <span class="badge badge-xs"
+                                                      style="background-color: {{ sibling.current_state.color }};
+                                                             color: white">{{ sibling.current_state.name }}</span>
                                             </div>
-                                        </div>
-                                        <span class="badge badge-xs"
-                                            style="background-color: {{ sibling.current_state.color }}; color: white;">
-                                            {{ sibling.current_state.name }}
-                                        </span>
-                                    </div>
-                                </a>
-                                {% endfor %}
+                                        </a>
+                                    {% endfor %}
+                                </div>
                             </div>
-                        </div>
                         {% endif %}
-
                         {% if not workflow.parent_workflow and not sub_workflows and not sibling_workflows %}
-                        <div class="text-center py-12">
-                            <div class="text-base-content/50">
-                                {% lucide "git-branch" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
-                                <p class="text-lg">No related workflows</p>
-                                <p class="text-sm mt-2">This workflow has no parent or child relationships</p>
+                            <div class="text-center py-12">
+                                <div class="text-base-content/50">
+                                    {% lucide "git-branch" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                                    <p class="text-lg">No related workflows</p>
+                                    <p class="text-sm mt-2">This workflow has no parent or child relationships</p>
+                                </div>
                             </div>
-                        </div>
                         {% endif %}
                     </div>
                 </div>
-
                 <!-- Comments Tab -->
                 <div id="tab-comments" class="tab-content">
                     <div class="space-y-6">
                         <!-- Comments List -->
                         <div class="space-y-4">
                             {% for comment in comments %}
-                            <div class="flex gap-3 p-4 bg-base-200 rounded-lg">
-                                <div class="avatar avatar-placeholder">
-                                    <div class="bg-neutral text-neutral-content rounded-full h-10 w-10">
-                                        <span
-                                            class="text-sm">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
-                                    </div>
-                                </div>
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <div class="font-semibold text-sm">
-                                            {{ comment.user.get_full_name|default:comment.user.username }}
-                                            <span class="text-xs text-base-content/60 font-normal ml-2">
-                                                {{ comment.created_at|timesince }} ago
-                                            </span>
+                                <div class="flex gap-3 p-4 bg-base-200 rounded-lg">
+                                    <div class="avatar avatar-placeholder">
+                                        <div class="bg-neutral text-neutral-content rounded-full h-10 w-10">
+                                            <span class="text-sm">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
                                         </div>
-                                        {% if comment.user == request.user %}
-                                        <form method="post" action="{% url 'comment_delete' workflow.pk comment.pk %}">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-ghost btn-xs text-error"
-                                                title="Delete comment">
-                                                {% lucide "trash-2" class="w-4 h-4" %}
-                                            </button>
-                                        </form>
-                                        {% endif %}
                                     </div>
-                                    <div class="flex items-start gap-3">
-                                        <div class="flex-1">
-                                            <div class="text-sm">{{ comment.text }}</div>
-
-                                            <!-- Debug: Check if attachments exist -->
-                                            <!-- {{ comment.attachments.all|length }} attachments found -->
-
-                                            <!-- Comment Attachments - Inline -->
-                                            {% if comment.attachments.all %}
-                                            <div class="flex flex-wrap items-center gap-2 mt-2">
-                                                {% for attachment in comment.attachments.all %}
-                                                <a href="{{ attachment.get_sharepoint_url }}" target="_blank"
-                                                    class="flex items-center gap-1 px-2 py-1 bg-base-100 border border-base-300 hover:bg-primary hover:text-primary-content rounded text-xs link link-primary transition-colors">
-                                                    {% if attachment.mimetype %}
-                                                    {% if 'pdf' in attachment.mimetype %}
-                                                    {% lucide "file-text" class="w-3 h-3" %}
-                                                    {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
-                                                    {% lucide "file-text" class="w-3 h-3" %}
-                                                    {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
-                                                    {% lucide "file-spreadsheet" class="w-3 h-3" %}
-                                                    {% elif 'image' in attachment.mimetype %}
-                                                    {% lucide "image" class="w-3 h-3" %}
-                                                    {% else %}
-                                                    {% lucide "file" class="w-3 h-3" %}
-                                                    {% endif %}
-                                                    {% else %}
-                                                    {% lucide "file" class="w-3 h-3" %}
-                                                    {% endif %}
-                                                    <span class="truncate max-w-[150px]">{{ attachment.name }}</span>
-                                                    {% if attachment.size %}<span
-                                                        class="text-base-content/60">({{ attachment.size|filesizeformat }})</span>{% endif %}
-                                                </a>
-                                                {% endfor %}
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <div class="font-semibold text-sm">
+                                                {{ comment.user.get_full_name|default:comment.user.username }}
+                                                <span class="text-xs text-base-content/60 font-normal ml-2">{{ comment.created_at|timesince }} ago</span>
                                             </div>
-                                            {% else %}
-                                            <!-- No attachments for this comment -->
+                                            {% if comment.user == request.user %}
+                                                <form method="post"
+                                                      action="{% url 'comment_delete' workflow.pk comment.pk %}">
+                                                    {% csrf_token %}
+                                                    <button type="submit"
+                                                            class="btn btn-ghost btn-xs text-error"
+                                                            title="Delete comment">
+                                                        {% lucide "trash-2" class="w-4 h-4" %}
+                                                    </button>
+                                                </form>
                                             {% endif %}
                                         </div>
+                                        <div class="flex items-start gap-3">
+                                            <div class="flex-1">
+                                                <div class="text-sm">{{ comment.text }}</div>
+                                                <!-- Debug: Check if attachments exist -->
+                                                <!-- {{ comment.attachments.all|length }} attachments found -->
+                                                <!-- Comment Attachments - Inline -->
+                                                {% if comment.attachments.all %}
+                                                    <div class="flex flex-wrap items-center gap-2 mt-2">
+                                                        {% for attachment in comment.attachments.all %}
+                                                            <a href="{{ attachment.get_sharepoint_url }}"
+                                                               target="_blank"
+                                                               class="flex items-center gap-1 px-2 py-1 bg-base-100 border border-base-300 hover:bg-primary hover:text-primary-content rounded text-xs link link-primary transition-colors">
+                                                                {% if attachment.mimetype %}
+                                                                    {% if 'pdf' in attachment.mimetype %}
+                                                                        {% lucide "file-text" class="w-3 h-3" %}
+                                                                    {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
+                                                                        {% lucide "file-text" class="w-3 h-3" %}
+                                                                    {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
+                                                                        {% lucide "file-spreadsheet" class="w-3 h-3" %}
+                                                                    {% elif 'image' in attachment.mimetype %}
+                                                                        {% lucide "image" class="w-3 h-3" %}
+                                                                    {% else %}
+                                                                        {% lucide "file" class="w-3 h-3" %}
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    {% lucide "file" class="w-3 h-3" %}
+                                                                {% endif %}
+                                                                <span class="truncate max-w-[150px]">{{ attachment.name }}</span>
+                                                                {% if attachment.size %}<span class="text-base-content/60">({{ attachment.size|filesizeformat }})</span>{% endif %}
+                                                            </a>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% else %}
+                                                    <!-- No attachments for this comment -->
+                                                {% endif %}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
                             {% empty %}
-                            <div class="text-center py-12">
-                                <div class="text-base-content/50">
-                                    {% lucide "message-square" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
-                                    <p class="text-lg">No notes yet</p>
-                                    <p class="text-sm mt-2">Add a note for internal reference.</p>
+                                <div class="text-center py-12">
+                                    <div class="text-base-content/50">
+                                        {% lucide "message-square" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                                        <p class="text-lg">No notes yet</p>
+                                        <p class="text-sm mt-2">Add a note for internal reference.</p>
+                                    </div>
                                 </div>
-                            </div>
                             {% endfor %}
                         </div>
-
                         <!-- Add Comment Form -->
                         <div class="border-t pt-6">
-                            <form method="post" action="{% url 'workflow_detail' workflow.pk %}" class="space-y-4">
+                            <form method="post"
+                                  action="{% url 'workflow_detail' workflow.pk %}"
+                                  class="space-y-4">
                                 {% csrf_token %}
                                 <div class="flex gap-3">
                                     <div class="avatar avatar-placeholder">
                                         <div class="bg-primary text-primary-content rounded-full h-10 w-10">
-                                            <span
-                                                class="text-sm">{{ request.user.first_name.0|default:request.user.username.0|upper }}</span>
+                                            <span class="text-sm">{{ request.user.first_name.0|default:request.user.username.0|upper }}</span>
                                         </div>
                                     </div>
                                     <div class="flex-1">
-                                        <textarea name="comment" placeholder="Add a note..."
-                                            class="textarea textarea-bordered w-full" rows="3" required></textarea>
-
+                                        <textarea name="comment"
+                                                  placeholder="Add a note..."
+                                                  class="textarea textarea-bordered w-full"
+                                                  rows="3"
+                                                  required></textarea>
                                         <!-- Comment Attachments Section -->
                                         <div id="comment-attachments" class="mt-3 hidden">
                                             <div class="flex items-center justify-between mb-2">
                                                 <span class="text-sm font-medium">Attachments</span>
-                                                <button type="button" onclick="clearCommentAttachments()"
-                                                    class="btn btn-ghost btn-xs text-error">
+                                                <button type="button"
+                                                        onclick="clearCommentAttachments()"
+                                                        class="btn btn-ghost btn-xs text-error">
                                                     {% lucide "x" class="w-3 h-3" %}
                                                     Clear All
                                                 </button>
                                             </div>
                                             <div id="comment-attachments-list" class="space-y-2"></div>
                                         </div>
-
                                         <!-- Attachment Buttons -->
                                         <div class="flex gap-2 mt-3">
-                                            <button type="button" onclick="showCommentSharepointModal()"
-                                                class="btn btn-outline">
+                                            <button type="button"
+                                                    onclick="showCommentSharepointModal()"
+                                                    class="btn btn-outline">
                                                 {% lucide "paperclip" class="w-3 h-3 mr-1" %}
                                                 Attach from SharePoint
                                             </button>
-                                            <button type="button" onclick="showCommentUploadModal()"
-                                                class="btn btn-outline">
+                                            <button type="button"
+                                                    onclick="showCommentUploadModal()"
+                                                    class="btn btn-outline">
                                                 {% lucide "upload" class="w-3 h-3 mr-1" %}
                                                 Upload File
                                             </button>
@@ -721,52 +691,45 @@
                                     </button>
                                 </div>
                                 <!-- Hidden input for comment attachment IDs -->
-                                <input type="hidden" id="comment-attachment-ids" name="attachment_ids" value="">
+                                <input type="hidden"
+                                       id="comment-attachment-ids"
+                                       name="attachment_ids"
+                                       value="">
                             </form>
                         </div>
                     </div>
                 </div>
-
                 <!-- History Tab -->
                 <div id="tab-history" class="tab-content">
                     <div class="space-y-4">
                         {% for log in transition_logs %}
-                        <div class="flex gap-4 p-4 bg-base-200 rounded-lg">
-                            <div class="flex-shrink-0">
-                                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                                    {% lucide "zap" class="w-5 h-5 text-primary-content" %}
+                            <div class="flex gap-4 p-4 bg-base-200 rounded-lg">
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                                        {% lucide "zap" class="w-5 h-5 text-primary-content" %}
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="font-semibold">{{ log.transition.name }}</span>
+                                        <span class="text-xs text-base-content/60">{{ log.timestamp|timesince }} ago</span>
+                                    </div>
+                                    <div class="text-sm text-base-content/70 mb-2">{{ log.from_state.name }} → {{ log.to_state.name }}</div>
+                                    <div class="text-sm mb-2">by {{ log.user.get_full_name|default:log.user.username }}</div>
+                                    {% if log.comment %}<div class="bg-base-300 rounded p-2 text-sm">{{ log.comment }}</div>{% endif %}
                                 </div>
                             </div>
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="font-semibold">{{ log.transition.name }}</span>
-                                    <span class="text-xs text-base-content/60">{{ log.timestamp|timesince }} ago</span>
-                                </div>
-                                <div class="text-sm text-base-content/70 mb-2">
-                                    {{ log.from_state.name }} → {{ log.to_state.name }}
-                                </div>
-                                <div class="text-sm mb-2">
-                                    by {{ log.user.get_full_name|default:log.user.username }}
-                                </div>
-                                {% if log.comment %}
-                                <div class="bg-base-300 rounded p-2 text-sm">
-                                    {{ log.comment }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
                         {% empty %}
-                        <div class="text-center py-12">
-                            <div class="text-base-content/50">
-                                {% lucide "clock" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
-                                <p class="text-lg">No history yet</p>
-                                <p class="text-sm mt-2">Workflow transitions will appear here</p>
+                            <div class="text-center py-12">
+                                <div class="text-base-content/50">
+                                    {% lucide "clock" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                                    <p class="text-lg">No history yet</p>
+                                    <p class="text-sm mt-2">Workflow transitions will appear here</p>
+                                </div>
                             </div>
-                        </div>
                         {% endfor %}
                     </div>
                 </div>
-
                 <!-- Attachments Tab -->
                 <div id="tab-attachments" class="tab-content">
                     <div class="space-y-4">
@@ -784,315 +747,306 @@
                                 </button>
                             </div>
                         </div>
-
                         <!-- Attachments List -->
                         {% if workflow.attachments.all %}
-                        {% for attachment in workflow.attachments.all %}
-                        <div class="border rounded-lg p-4 hover:bg-base-200 transition-colors">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-4">
-                                    <div class="text-primary">
-                                        {% if attachment.mimetype %}
-                                        {% if 'pdf' in attachment.mimetype %}
-                                        {% lucide "file-text" class="w-8 h-8" %}
-                                        {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
-                                        {% lucide "file-text" class="w-8 h-8" %}
-                                        {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
-                                        {% lucide "file-spreadsheet" class="w-8 h-8" %}
-                                        {% elif 'image' in attachment.mimetype %}
-                                        {% lucide "image" class="w-8 h-8" %}
-                                        {% else %}
-                                        {% lucide "file" class="w-8 h-8" %}
-                                        {% endif %}
-                                        {% else %}
-                                        {% lucide "file" class="w-8 h-8" %}
-                                        {% endif %}
-                                    </div>
-                                    <div>
-                                        <h4 class="font-semibold">{{ attachment.name }}</h4>
-                                        <p class="text-sm text-base-content/70">
-                                            {% if attachment.size %}{{ attachment.size|filesizeformat }} • {% endif %}
-                                            {{ attachment.type|title }} •
-                                            {{ attachment.created_at|date:"M d, Y H:i" }}
-                                            {% if attachment.uploaded_by %}by
-                                            {{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}{% endif %}
-                                        </p>
-                                        {% if attachment.sharepoint_folder_path %}
-                                        <p class="text-xs text-base-content/50">📁
-                                            {{ attachment.sharepoint_folder_path }}</p>
-                                        {% endif %}
+                            {% for attachment in workflow.attachments.all %}
+                                <div class="border rounded-lg p-4 hover:bg-base-200 transition-colors">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-4">
+                                            <div class="text-primary">
+                                                {% if attachment.mimetype %}
+                                                    {% if 'pdf' in attachment.mimetype %}
+                                                        {% lucide "file-text" class="w-8 h-8" %}
+                                                    {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
+                                                        {% lucide "file-text" class="w-8 h-8" %}
+                                                    {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
+                                                        {% lucide "file-spreadsheet" class="w-8 h-8" %}
+                                                    {% elif 'image' in attachment.mimetype %}
+                                                        {% lucide "image" class="w-8 h-8" %}
+                                                    {% else %}
+                                                        {% lucide "file" class="w-8 h-8" %}
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% lucide "file" class="w-8 h-8" %}
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <h4 class="font-semibold">{{ attachment.name }}</h4>
+                                                <p class="text-sm text-base-content/70">
+                                                    {% if attachment.size %}{{ attachment.size|filesizeformat }} •{% endif %}
+                                                    {{ attachment.type|title }} •
+                                                    {{ attachment.created_at|date:"M d, Y H:i" }}
+                                                    {% if attachment.uploaded_by %}
+                                                        by
+                                                        {{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}
+                                                    {% endif %}
+                                                </p>
+                                                {% if attachment.sharepoint_folder_path %}
+                                                    <p class="text-xs text-base-content/50">
+                                                        📁
+                                                        {{ attachment.sharepoint_folder_path }}
+                                                    </p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <a href="{{ attachment.get_sharepoint_url }}"
+                                               target="_blank"
+                                               class="btn btn-ghost btn-sm">
+                                                {% lucide "external-link" class="w-4 h-4" %}
+                                            </a>
+                                            <button onclick="deleteAttachment({{ attachment.id }})"
+                                                    class="btn btn-ghost btn-sm text-error">
+                                                {% lucide "trash-2" class="w-4 h-4" %}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-2">
-                                    <a href="{{ attachment.get_sharepoint_url }}" target="_blank"
-                                        class="btn btn-ghost btn-sm">
-                                        {% lucide "external-link" class="w-4 h-4" %}
-                                    </a>
-                                    <button onclick="deleteAttachment({{ attachment.id }})"
-                                        class="btn btn-ghost btn-sm text-error">
-                                        {% lucide "trash-2" class="w-4 h-4" %}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
+                            {% endfor %}
                         {% else %}
-                        <div class="text-center py-12 text-base-content/50">
-                            {% lucide "paperclip" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
-                            <p class="text-lg">No attachments yet</p>
-                            <p class="text-sm">Click "Upload File" to add your first attachment</p>
-                        </div>
+                            <div class="text-center py-12 text-base-content/50">
+                                {% lucide "paperclip" class="w-16 h-16 mx-auto mb-4 opacity-30" %}
+                                <p class="text-lg">No attachments yet</p>
+                                <p class="text-sm">Click "Upload File" to add your first attachment</p>
+                            </div>
                         {% endif %}
-
                         <!-- Comment Attachments Section -->
                         {% if comments %}
-                        {% regroup comments by user as comment_groups %}
-                        <div class="mt-8 pt-8 border-t border-base-300">
-                            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                                {% lucide "message-square" class="w-5 h-5" %}
-                                Comment Attachments
-                            </h3>
-                            {% for group in comment_groups %}
-                            {% for comment in group.list %}
-                            {% if comment.attachments.all %}
-                            <div class="mb-6">
-                                <div class="flex items-center gap-2 mb-3 text-sm text-base-content/70">
-                                    <div class="avatar avatar-placeholder">
-                                        <div class="bg-neutral text-neutral-content rounded-full w-6">
-                                            <span
-                                                class="text-xs">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="font-medium">{{ comment.user.get_full_name|default:comment.user.username }}</span>
-                                    <span>•</span>
-                                    <span>{{ comment.created_at|timesince }} ago</span>
-                                </div>
-                                <div class="bg-base-50 rounded-lg p-3 mb-2">
-                                    <p class="text-sm mb-2">{{ comment.text|truncatewords:20 }}</p>
-                                </div>
-                                <div class="space-y-2">
-                                    {% for attachment in comment.attachments.all %}
-                                    <div class="border rounded-lg p-3 hover:bg-base-200 transition-colors">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center gap-3">
-                                                <div class="text-primary">
-                                                    {% if attachment.mimetype %}
-                                                    {% if 'pdf' in attachment.mimetype %}
-                                                    {% lucide "file-text" class="w-6 h-6" %}
-                                                    {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
-                                                    {% lucide "file-text" class="w-6 h-6" %}
-                                                    {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
-                                                    {% lucide "file-spreadsheet" class="w-6 h-6" %}
-                                                    {% elif 'image' in attachment.mimetype %}
-                                                    {% lucide "image" class="w-6 h-6" %}
-                                                    {% else %}
-                                                    {% lucide "file" class="w-6 h-6" %}
-                                                    {% endif %}
-                                                    {% else %}
-                                                    {% lucide "file" class="w-6 h-6" %}
-                                                    {% endif %}
+                            {% regroup comments by user as comment_groups %}
+                            <div class="mt-8 pt-8 border-t border-base-300">
+                                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                                    {% lucide "message-square" class="w-5 h-5" %}
+                                    Comment Attachments
+                                </h3>
+                                {% for group in comment_groups %}
+                                    {% for comment in group.list %}
+                                        {% if comment.attachments.all %}
+                                            <div class="mb-6">
+                                                <div class="flex items-center gap-2 mb-3 text-sm text-base-content/70">
+                                                    <div class="avatar avatar-placeholder">
+                                                        <div class="bg-neutral text-neutral-content rounded-full w-6">
+                                                            <span class="text-xs">{{ comment.user.first_name.0|default:comment.user.username.0|upper }}</span>
+                                                        </div>
+                                                    </div>
+                                                    <span class="font-medium">{{ comment.user.get_full_name|default:comment.user.username }}</span>
+                                                    <span>•</span>
+                                                    <span>{{ comment.created_at|timesince }} ago</span>
                                                 </div>
-                                                <div>
-                                                    <h4 class="font-medium text-sm">{{ attachment.name }}</h4>
-                                                    <p class="text-xs text-base-content/70">
-                                                        {% if attachment.size %}{{ attachment.size|filesizeformat }} •
-                                                        {% endif %}
-                                                        {{ attachment.type|title }} •
-                                                        {{ attachment.created_at|date:"M d, Y H:i" }}
-                                                    </p>
+                                                <div class="bg-base-50 rounded-lg p-3 mb-2">
+                                                    <p class="text-sm mb-2">{{ comment.text|truncatewords:20 }}</p>
+                                                </div>
+                                                <div class="space-y-2">
+                                                    {% for attachment in comment.attachments.all %}
+                                                        <div class="border rounded-lg p-3 hover:bg-base-200 transition-colors">
+                                                            <div class="flex items-center justify-between">
+                                                                <div class="flex items-center gap-3">
+                                                                    <div class="text-primary">
+                                                                        {% if attachment.mimetype %}
+                                                                            {% if 'pdf' in attachment.mimetype %}
+                                                                                {% lucide "file-text" class="w-6 h-6" %}
+                                                                            {% elif 'word' in attachment.mimetype or 'document' in attachment.mimetype %}
+                                                                                {% lucide "file-text" class="w-6 h-6" %}
+                                                                            {% elif 'excel' in attachment.mimetype or 'spreadsheet' in attachment.mimetype %}
+                                                                                {% lucide "file-spreadsheet" class="w-6 h-6" %}
+                                                                            {% elif 'image' in attachment.mimetype %}
+                                                                                {% lucide "image" class="w-6 h-6" %}
+                                                                            {% else %}
+                                                                                {% lucide "file" class="w-6 h-6" %}
+                                                                            {% endif %}
+                                                                        {% else %}
+                                                                            {% lucide "file" class="w-6 h-6" %}
+                                                                        {% endif %}
+                                                                    </div>
+                                                                    <div>
+                                                                        <h4 class="font-medium text-sm">{{ attachment.name }}</h4>
+                                                                        <p class="text-xs text-base-content/70">
+                                                                            {% if attachment.size %}{{ attachment.size|filesizeformat }} •{% endif %}
+                                                                            {{ attachment.type|title }} •
+                                                                            {{ attachment.created_at|date:"M d, Y H:i" }}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="flex items-center gap-2">
+                                                                    <a href="{{ attachment.get_sharepoint_url }}"
+                                                                       target="_blank"
+                                                                       class="btn btn-ghost btn-xs">
+                                                                        {% lucide "external-link" class="w-3 h-3" %}
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
                                                 </div>
                                             </div>
-                                            <div class="flex items-center gap-2">
-                                                <a href="{{ attachment.get_sharepoint_url }}" target="_blank"
-                                                    class="btn btn-ghost btn-xs">
-                                                    {% lucide "external-link" class="w-3 h-3" %}
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        {% endif %}
                                     {% endfor %}
-                                </div>
+                                {% endfor %}
+                                {% if not comments %}
+                                    {% for comment in comments %}
+                                        {% if comment.attachments.all %}
+                                            {% comment %} This should never happen due to the regroup logic {% endcomment %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <div class="text-center py-8 text-base-content/50">
+                                        <p class="text-sm">No attachments in comments yet</p>
+                                    </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
-                            {% endfor %}
-                            {% endfor %}
-                            {% if not comments %}
-                            {% for comment in comments %}
-                            {% if comment.attachments.all %}
-                            {% comment %} This should never happen due to the regroup logic {% endcomment %}
-                            {% endif %}
-                            {% endfor %}
-                            <div class="text-center py-8 text-base-content/50">
-                                <p class="text-sm">No attachments in comments yet</p>
-                            </div>
-                            {% endif %}
-                        </div>
                         {% endif %}
                     </div>
                 </div>
-
                 <!-- Referrals Tab -->
                 <div id="tab-referrals" class="tab-content">
                     <div class="space-y-6">
-
                         <!-- Active Referral Banner -->
                         {% if active_referral %}
-                        <div class="alert alert-warning shadow">
-                            <div class="flex items-start gap-3 w-full">
-                                {% lucide "send" class="w-5 h-5 shrink-0 mt-0.5" %}
-                                <div class="flex-1">
-                                    <div class="font-semibold">Currently referred to
-                                        {{ active_referral.referred_to.name }}</div>
-                                    <div class="text-sm mt-0.5">
-                                        By
-                                        {{ active_referral.referred_by.get_full_name|default:active_referral.referred_by.username }}
-                                        on {{ active_referral.referred_at|date:"Y-m-d H:i" }}
-                                        {% if active_referral.config.label %} &mdash;
-                                        <em>{{ active_referral.config.label }}</em>{% endif %}
+                            <div class="alert alert-warning shadow">
+                                <div class="flex items-start gap-3 w-full">
+                                    {% lucide "send" class="w-5 h-5 shrink-0 mt-0.5" %}
+                                    <div class="flex-1">
+                                        <div class="font-semibold">
+                                            Currently referred to
+                                            {{ active_referral.referred_to.name }}
+                                        </div>
+                                        <div class="text-sm mt-0.5">
+                                            By
+                                            {{ active_referral.referred_by.get_full_name|default:active_referral.referred_by.username }}
+                                            on {{ active_referral.referred_at|date:"Y-m-d H:i" }}
+                                            {% if active_referral.config.label %}
+                                                &mdash;
+                                                <em>{{ active_referral.config.label }}</em>
+                                            {% endif %}
+                                        </div>
+                                        {% if active_referral.reason %}<div class="text-sm mt-1 italic">"{{ active_referral.reason }}"</div>{% endif %}
                                     </div>
-                                    {% if active_referral.reason %}
-                                    <div class="text-sm mt-1 italic">"{{ active_referral.reason }}"</div>
+                                    {% if can_edit %}
+                                        <button id="recall-btn-tab" class="btn btn-error btn-sm shrink-0">
+                                            {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall
+                                        </button>
                                     {% endif %}
                                 </div>
-                                {% if can_edit %}
-                                <button id="recall-btn-tab" class="btn btn-error btn-sm shrink-0">
-                                    {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall
-                                </button>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info shadow">
+                                {% lucide "info" class="w-5 h-5" %}
+                                <span>This workflow is not currently referred to any group.</span>
+                                {% if can_refer %}
+                                    <label for="refer-modal" class="btn btn-warning btn-sm ml-auto">
+                                        {% lucide "send" class="w-4 h-4 mr-1" %} Refer Now
+                                    </label>
                                 {% endif %}
                             </div>
-                        </div>
-                        {% else %}
-                        <div class="alert alert-info shadow">
-                            {% lucide "info" class="w-5 h-5" %}
-                            <span>This workflow is not currently referred to any group.</span>
-                            {% if can_refer %}
-                            <label for="refer-modal" class="btn btn-warning btn-sm ml-auto">
-                                {% lucide "send" class="w-4 h-4 mr-1" %} Refer Now
-                            </label>
-                            {% endif %}
-                        </div>
                         {% endif %}
-
                         <!-- Referral History -->
                         {% if referral_history %}
-                        <div>
-                            <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
-                                {% lucide "clock" class="w-5 h-5" %}
-                                Referral History
-                            </h3>
-                            <div class="overflow-x-auto">
-                                <table class="table table-sm w-full">
-                                    <thead>
-                                        <tr>
-                                            <th>Group</th>
-                                            <th>Label</th>
-                                            <th>Reason</th>
-                                            <th>Referred By</th>
-                                            <th>Referred At</th>
-                                            <th>Status</th>
-                                            <th>Recalled At</th>
-                                            <th>Recall Reason</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for ref in referral_history %}
-                                        <tr class="{% if ref.is_active %}bg-warning/10{% endif %}">
-                                            <td class="font-medium">{{ ref.referred_to.name }}</td>
-                                            <td class="text-sm text-base-content/60">{{ ref.config.label|default:"—" }}
-                                            </td>
-                                            <td class="text-sm max-w-xs truncate" title="{{ ref.reason }}">
-                                                {{ ref.reason|default:"—" }}</td>
-                                            <td class="text-sm">
-                                                {{ ref.referred_by.get_full_name|default:ref.referred_by.username }}
-                                            </td>
-                                            <td class="text-sm">{{ ref.referred_at|date:"Y-m-d H:i" }}</td>
-                                            <td>
-                                                {% if ref.is_active %}
-                                                <span class="badge badge-warning badge-sm">Active</span>
-                                                {% else %}
-                                                <span class="badge badge-ghost badge-sm">Recalled</span>
-                                                {% endif %}
-                                            </td>
-                                            <td class="text-sm">{{ ref.recalled_at|date:"Y-m-d H:i"|default:"—" }}</td>
-                                            <td class="text-sm max-w-xs truncate" title="{{ ref.recall_reason }}">
-                                                {{ ref.recall_reason|default:"—" }}</td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
+                            <div>
+                                <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+                                    {% lucide "clock" class="w-5 h-5" %}
+                                    Referral History
+                                </h3>
+                                <div class="overflow-x-auto">
+                                    <table class="table table-sm w-full">
+                                        <thead>
+                                            <tr>
+                                                <th>Group</th>
+                                                <th>Label</th>
+                                                <th>Reason</th>
+                                                <th>Referred By</th>
+                                                <th>Referred At</th>
+                                                <th>Status</th>
+                                                <th>Recalled At</th>
+                                                <th>Recall Reason</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for ref in referral_history %}
+                                                <tr class="{% if ref.is_active %}bg-warning/10{% endif %}">
+                                                    <td class="font-medium">{{ ref.referred_to.name }}</td>
+                                                    <td class="text-sm text-base-content/60">{{ ref.config.label|default:"—" }}</td>
+                                                    <td class="text-sm max-w-xs truncate" title="{{ ref.reason }}">{{ ref.reason|default:"—" }}</td>
+                                                    <td class="text-sm">{{ ref.referred_by.get_full_name|default:ref.referred_by.username }}</td>
+                                                    <td class="text-sm">{{ ref.referred_at|date:"Y-m-d H:i" }}</td>
+                                                    <td>
+                                                        {% if ref.is_active %}
+                                                            <span class="badge badge-warning badge-sm">Active</span>
+                                                        {% else %}
+                                                            <span class="badge badge-ghost badge-sm">Recalled</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="text-sm">{{ ref.recalled_at|date:"Y-m-d H:i"|default:"—" }}</td>
+                                                    <td class="text-sm max-w-xs truncate" title="{{ ref.recall_reason }}">{{ ref.recall_reason|default:"—" }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
                         {% endif %}
-
                         <!-- Allowed Referral Targets -->
                         {% if referral_configs %}
-                        <div>
-                            <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
-                                {% lucide "users" class="w-5 h-5" %}
-                                Configured Referral Targets
-                            </h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {% for cfg in referral_configs %}
-                                <div class="card bg-base-200 shadow-sm">
-                                    <div class="card-body p-4">
-                                        <div class="font-medium text-sm">{{ cfg.target_group.name }}</div>
-                                        {% if cfg.label %}<div class="text-xs text-base-content/60 mt-0.5">
-                                            {{ cfg.label }}</div>{% endif %}
-                                        <div class="flex flex-wrap gap-1 mt-2">
-                                            {% for role in cfg.referred_transition_roles.all %}
-                                            <span class="badge badge-primary badge-xs">{{ role.name }}</span>
-                                            {% empty %}
-                                            <span class="text-xs text-base-content/40">No transition roles</span>
-                                            {% endfor %}
+                            <div>
+                                <h3 class="text-lg font-semibold flex items-center gap-2 mb-3">
+                                    {% lucide "users" class="w-5 h-5" %}
+                                    Configured Referral Targets
+                                </h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {% for cfg in referral_configs %}
+                                        <div class="card bg-base-200 shadow-sm">
+                                            <div class="card-body p-4">
+                                                <div class="font-medium text-sm">{{ cfg.target_group.name }}</div>
+                                                {% if cfg.label %}<div class="text-xs text-base-content/60 mt-0.5">{{ cfg.label }}</div>{% endif %}
+                                                <div class="flex flex-wrap gap-1 mt-2">
+                                                    {% for role in cfg.referred_transition_roles.all %}
+                                                        <span class="badge badge-primary badge-xs">{{ role.name }}</span>
+                                                    {% empty %}
+                                                        <span class="text-xs text-base-content/40">No transition roles</span>
+                                                    {% endfor %}
+                                                </div>
+                                                {% if can_refer %}
+                                                    <button class="btn btn-warning btn-xs mt-2 refer-quick-btn"
+                                                            data-group-id="{{ cfg.target_group.pk }}"
+                                                            data-group-name="{{ cfg.target_group.name }}"
+                                                            data-label="{{ cfg.label }}">
+                                                        {% lucide "send" class="w-3 h-3 mr-1" %} Refer to this group
+                                                    </button>
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                        {% if can_refer %}
-                                        <button class="btn btn-warning btn-xs mt-2 refer-quick-btn"
-                                            data-group-id="{{ cfg.target_group.pk }}"
-                                            data-group-name="{{ cfg.target_group.name }}" data-label="{{ cfg.label }}">
-                                            {% lucide "send" class="w-3 h-3 mr-1" %} Refer to this group
-                                        </button>
-                                        {% endif %}
-                                    </div>
+                                    {% endfor %}
                                 </div>
-                                {% endfor %}
                             </div>
-                        </div>
                         {% endif %}
-
                     </div>
                 </div>
-
                 <!-- Diagram Tab -->
                 <div id="tab-diagram" class="tab-content">
                     <div class="space-y-4">
-
                         <!-- Diagram Image -->
-                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl" open>
+                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl"
+                                 open>
                             <summary class="collapse-title text-lg font-semibold flex items-center gap-2">
                                 {% lucide "workflow" class="w-5 h-5" %}
                                 {{ workflow.workflow_type.name }} Workflow Diagram
                             </summary>
                             <div class="collapse-content">
                                 {% if diagram_url %}
-                                <div class="bg-base-200 rounded-xl p-4 flex justify-center overflow-auto">
-                                    <img src="{{ diagram_url }}"
-                                        alt="{{ workflow.workflow_type.name }} workflow diagram"
-                                        class="max-w-full rounded-lg shadow" />
-                                </div>
+                                    <div class="bg-base-200 rounded-xl p-4 flex justify-center overflow-auto">
+                                        <img src="{{ diagram_url }}"
+                                             alt="{{ workflow.workflow_type.name }} workflow diagram"
+                                             class="max-w-full rounded-lg shadow" />
+                                    </div>
                                 {% else %}
-                                <div class="alert alert-warning">
-                                    {% lucide "triangle-alert" class="w-4 h-4" %}
-                                    <span>No diagram available for this workflow type. Run <code
-                                            class="font-mono">manage.py generate_workflow_diagrams</code> to generate
+                                    <div class="alert alert-warning">
+                                        {% lucide "triangle-alert" class="w-4 h-4" %}
+                                        <span>No diagram available for this workflow type. Run <code class="font-mono">manage.py generate_workflow_diagrams</code> to generate
                                         one.</span>
-                                </div>
+                                    </div>
                                 {% endif %}
                             </div>
                         </details>
-
                         <!-- States & Permissions Table -->
-                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl" open>
+                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl"
+                                 open>
                             <summary class="collapse-title text-lg font-semibold flex items-center gap-2">
                                 {% lucide "shield" class="w-5 h-5" %}
                                 States &amp; Permissions
@@ -1112,61 +1066,82 @@
                                         </thead>
                                         <tbody>
                                             {% for state in diagram_states %}
-                                            {% if state.permissions.all %}
-                                            {% for perm in state.permissions.all %}
-                                            <tr>
-                                                {% if forloop.first %}
-                                                <td rowspan="{{ state.permissions.all|length }}"
-                                                    class="font-medium align-top">
-                                                    <span class="badge badge-sm"
-                                                        style="background-color: {{ state.color }}; color: white;">
-                                                        {{ state.name }}
-                                                    </span>
-                                                </td>
-                                                <td rowspan="{{ state.permissions.all|length }}"
-                                                    class="align-top text-sm text-base-content/60">
-                                                    {% if state.is_initial %}Initial{% elif state.is_terminal %}Terminal{% else %}Regular{% endif %}
-                                                </td>
+                                                {% if state.permissions.all %}
+                                                    {% for perm in state.permissions.all %}
+                                                        <tr>
+                                                            {% if forloop.first %}
+                                                                <td rowspan="{{ state.permissions.all|length }}"
+                                                                    class="font-medium align-top">
+                                                                    <span class="badge badge-sm"
+                                                                          style="background-color: {{ state.color }};
+                                                                                 color: white">{{ state.name }}</span>
+                                                                </td>
+                                                                <td rowspan="{{ state.permissions.all|length }}"
+                                                                    class="align-top text-sm text-base-content/60">
+                                                                    {% if state.is_initial %}
+                                                                        Initial
+                                                                    {% elif state.is_terminal %}
+                                                                        Terminal
+                                                                    {% else %}
+                                                                        Regular
+                                                                    {% endif %}
+                                                                </td>
+                                                            {% endif %}
+                                                            <td class="text-sm">{{ perm.role.name }}</td>
+                                                            <td class="text-center">
+                                                                {% if perm.can_view %}
+                                                                    {% lucide "check" class="w-4 h-4 text-success mx-auto" %}
+                                                                {% else %}
+                                                                    <span class="text-base-content/30">—</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td class="text-center">
+                                                                {% if perm.can_edit %}
+                                                                    {% lucide "check" class="w-4 h-4 text-success mx-auto" %}
+                                                                {% else %}
+                                                                    <span class="text-base-content/30">—</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td class="text-center">
+                                                                {% if perm.can_delete %}
+                                                                    {% lucide "check" class="w-4 h-4 text-success mx-auto" %}
+                                                                {% else %}
+                                                                    <span class="text-base-content/30">—</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <tr>
+                                                        <td class="font-medium">
+                                                            <span class="badge badge-sm"
+                                                                  style="background-color: {{ state.color }};
+                                                                         color: white">{{ state.name }}</span>
+                                                        </td>
+                                                        <td class="text-sm text-base-content/60">
+                                                            {% if state.is_initial %}
+                                                                Initial
+                                                            {% elif state.is_terminal %}
+                                                                Terminal
+                                                            {% else %}
+                                                                Regular
+                                                            {% endif %}
+                                                        </td>
+                                                        <td colspan="4" class="text-sm text-base-content/40 italic">
+                                                            No
+                                                            permissions defined — visible to all group members
+                                                        </td>
+                                                    </tr>
                                                 {% endif %}
-                                                <td class="text-sm">{{ perm.role.name }}</td>
-                                                <td class="text-center">
-                                                    {% if perm.can_view %}{% lucide "check" class="w-4 h-4 text-success mx-auto" %}{% else %}<span
-                                                        class="text-base-content/30">—</span>{% endif %}
-                                                </td>
-                                                <td class="text-center">
-                                                    {% if perm.can_edit %}{% lucide "check" class="w-4 h-4 text-success mx-auto" %}{% else %}<span
-                                                        class="text-base-content/30">—</span>{% endif %}
-                                                </td>
-                                                <td class="text-center">
-                                                    {% if perm.can_delete %}{% lucide "check" class="w-4 h-4 text-success mx-auto" %}{% else %}<span
-                                                        class="text-base-content/30">—</span>{% endif %}
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                            {% else %}
-                                            <tr>
-                                                <td class="font-medium">
-                                                    <span class="badge badge-sm"
-                                                        style="background-color: {{ state.color }}; color: white;">
-                                                        {{ state.name }}
-                                                    </span>
-                                                </td>
-                                                <td class="text-sm text-base-content/60">
-                                                    {% if state.is_initial %}Initial{% elif state.is_terminal %}Terminal{% else %}Regular{% endif %}
-                                                </td>
-                                                <td colspan="4" class="text-sm text-base-content/40 italic">No
-                                                    permissions defined — visible to all group members</td>
-                                            </tr>
-                                            {% endif %}
                                             {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
                         </details>
-
                         <!-- Transitions Table -->
-                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl" open>
+                        <details class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl"
+                                 open>
                             <summary class="collapse-title text-lg font-semibold flex items-center gap-2">
                                 {% lucide "arrow-right-left" class="w-5 h-5" %}
                                 Transitions &amp; Allowed Roles
@@ -1185,38 +1160,39 @@
                                         </thead>
                                         <tbody>
                                             {% for t in diagram_transitions %}
-                                            <tr>
-                                                <td class="font-medium">{{ t.name }}</td>
-                                                <td>
-                                                    <span
-                                                        class="badge badge-sm badge-outline">{{ t.from_state.name }}</span>
-                                                </td>
-                                                <td>
-                                                    <span class="badge badge-sm"
-                                                        style="background-color: {{ t.to_state.color }}; color: white;">{{ t.to_state.name }}</span>
-                                                </td>
-                                                <td class="text-sm">
-                                                    {% for role in t.allowed_roles.all %}
-                                                    <span class="badge badge-xs badge-ghost mr-1">{{ role.name }}</span>
-                                                    {% empty %}
-                                                    <span class="text-base-content/40 italic">None</span>
-                                                    {% endfor %}
-                                                </td>
-                                                <td class="text-center">
-                                                    {% if t.requires_comment %}{% lucide "check" class="w-4 h-4 text-warning mx-auto" %}{% else %}<span
-                                                        class="text-base-content/30">—</span>{% endif %}
-                                                </td>
-                                            </tr>
+                                                <tr>
+                                                    <td class="font-medium">{{ t.name }}</td>
+                                                    <td>
+                                                        <span class="badge badge-sm badge-outline">{{ t.from_state.name }}</span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge badge-sm"
+                                                              style="background-color: {{ t.to_state.color }};
+                                                                     color: white">{{ t.to_state.name }}</span>
+                                                    </td>
+                                                    <td class="text-sm">
+                                                        {% for role in t.allowed_roles.all %}
+                                                            <span class="badge badge-xs badge-ghost mr-1">{{ role.name }}</span>
+                                                        {% empty %}
+                                                            <span class="text-base-content/40 italic">None</span>
+                                                        {% endfor %}
+                                                    </td>
+                                                    <td class="text-center">
+                                                        {% if t.requires_comment %}
+                                                            {% lucide "check" class="w-4 h-4 text-warning mx-auto" %}
+                                                        {% else %}
+                                                            <span class="text-base-content/30">—</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
                                             {% endfor %}
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
                         </details>
-
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -1295,7 +1271,6 @@
         padding: 0.25rem 0.5rem;
     }
 </style>
-
 <noscript>
     <style>
         /* Show all tab content when JavaScript is disabled */
@@ -1315,7 +1290,6 @@
         }
     </style>
 </noscript>
-
 <script>
     // Tab switching functionality
     document.addEventListener('DOMContentLoaded', function () {
@@ -1866,7 +1840,7 @@
                             <div class="font-medium">${file.name}</div>
                             <div class="text-sm text-base-content/70">${fileSize}</div>
                         </div>
-                        <div class="radio">
+                        <div class="flex items-center justify-center">
                             <input type="radio" name="sharepoint-file" value="${file.id}" />
                         </div>
                     `;
@@ -1962,49 +1936,59 @@
         return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
     }
 </script>
-
 <!-- Upload Modal -->
-<div id="upload-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+<div id="upload-modal"
+     class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-base-100 rounded-lg p-6 w-full max-w-md">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Upload File to SharePoint</h3>
-            <button onclick="hideUploadModal()" class="text-base-content/50 hover:text-base-content">
-                {% lucide "x" class="w-5 h-5" %}
-            </button>
+            <button onclick="hideUploadModal()"
+                    class="text-base-content/50 hover:text-base-content">{% lucide "x" class="w-5 h-5" %}</button>
         </div>
-
-        <form id="upload-form" enctype="multipart/form-data" class="space-y-4" novalidate>
+        <form id="upload-form"
+              enctype="multipart/form-data"
+              class="space-y-4"
+              novalidate>
             <!-- Site Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">SharePoint Site</label>
-                <select id="site-select" name="site_id" required class="select select-bordered w-full">
+                <select id="site-select"
+                        name="site_id"
+                        required
+                        class="select select-bordered w-full">
                     <option value="">Select a site...</option>
                 </select>
             </div>
-
             <!-- Drive Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Document Library</label>
-                <select id="drive-select" name="drive_id" required class="select select-bordered w-full" disabled>
+                <select id="drive-select"
+                        name="drive_id"
+                        required
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Select a library...</option>
                 </select>
             </div>
-
             <!-- Folder Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
-                <select id="folder-select" name="folder_id" class="select select-bordered w-full" disabled>
+                <select id="folder-select"
+                        name="folder_id"
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Root Folder</option>
                 </select>
                 <p class="text-xs text-base-content/50 mt-1">Leave empty to upload to the root directory</p>
             </div>
-
             <!-- File Upload -->
             <div>
                 <label class="block text-sm font-medium mb-1">File</label>
-                <input type="file" name="file" required class="file-input file-input-bordered w-full">
+                <input type="file"
+                       name="file"
+                       required
+                       class="file-input file-input-bordered w-full">
             </div>
-
             <!-- Attachment Type -->
             <div>
                 <label class="block text-sm font-medium mb-1">Type</label>
@@ -2014,82 +1998,77 @@
                     <option value="petition">Petition</option>
                 </select>
             </div>
-
             <!-- Progress Bar -->
             <div id="upload-progress" class="hidden">
                 <div class="bg-base-300 rounded-full h-2">
-                    <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300"
-                        style="width: 0%"></div>
+                    <div id="progress-bar"
+                         class="bg-primary h-2 rounded-full transition-all duration-300"
+                         style="width: 0%"></div>
                 </div>
-                <p class="text-sm mt-1">Uploading... <span id="progress-text">0%</span></p>
+                <p class="text-sm mt-1">
+                    Uploading... <span id="progress-text">0%</span>
+                </p>
             </div>
-
             <!-- Hidden field for workflow ID -->
             <input type="hidden" name="workflow_id" value="{{ workflow.id }}">
-
             <!-- Buttons -->
             <div class="flex gap-3 pt-4">
-                <button type="button" onclick="hideUploadModal()" class="flex-1 btn btn-outline">
-                    Cancel
-                </button>
-                <button type="submit" class="flex-1 btn btn-primary">
-                    Upload
-                </button>
+                <button type="button"
+                        onclick="hideUploadModal()"
+                        class="flex-1 btn btn-outline">Cancel</button>
+                <button type="submit" class="flex-1 btn btn-primary">Upload</button>
             </div>
         </form>
     </div>
 </div>
-
 <!-- SharePoint File Selection Modal -->
-<div id="sharepoint-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+<div id="sharepoint-modal"
+     class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-base-100 rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Select File from SharePoint</h3>
-            <button onclick="hideSharepointModal()" class="text-base-content/50 hover:text-base-content">
-                {% lucide "x" class="w-5 h-5" %}
-            </button>
+            <button onclick="hideSharepointModal()"
+                    class="text-base-content/50 hover:text-base-content">{% lucide "x" class="w-5 h-5" %}</button>
         </div>
-
         <!-- Navigation -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <!-- Site Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">SharePoint Site</label>
-                <select id="sharepoint-site-select" onchange="loadSharepointDrives()"
-                    class="select select-bordered w-full">
+                <select id="sharepoint-site-select"
+                        onchange="loadSharepointDrives()"
+                        class="select select-bordered w-full">
                     <option value="">Select a site...</option>
                 </select>
             </div>
-
             <!-- Drive Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Document Library</label>
-                <select id="sharepoint-drive-select" onchange="loadSharepointFolders()"
-                    class="select select-bordered w-full" disabled>
+                <select id="sharepoint-drive-select"
+                        onchange="loadSharepointFolders()"
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Select a library...</option>
                 </select>
             </div>
-
             <!-- Folder Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
-                <select id="sharepoint-folder-select" onchange="loadSharepointFiles()"
-                    class="select select-bordered w-full" disabled>
+                <select id="sharepoint-folder-select"
+                        onchange="loadSharepointFiles()"
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Root Folder</option>
                 </select>
                 <p class="text-xs text-base-content/50 mt-1">Leave empty to view root files</p>
             </div>
         </div>
-
         <!-- Files List -->
         <div class="border rounded-lg p-4 max-h-60 overflow-y-auto">
             <div id="sharepoint-files-list" class="space-y-2">
-                <p class="text-center text-base-content/50 py-8">
-                    📁 Select a folder to view files
-                </p>
+                <p class="text-center text-base-content/50 py-8">📁 Select a folder to view files</p>
             </div>
         </div>
-
         <!-- Attachment Type -->
         <div class="mt-4">
             <label class="block text-sm font-medium mb-1">Type</label>
@@ -2099,69 +2078,76 @@
                 <option value="petition">Petition</option>
             </select>
         </div>
-
         <!-- Hidden field for workflow ID -->
         <input type="hidden" id="sharepoint-workflow-id" value="{{ workflow.id }}">
-
         <!-- Buttons -->
         <div class="flex gap-3 pt-4">
-            <button type="button" onclick="hideSharepointModal()" class="flex-1 btn btn-outline">
-                Cancel
-            </button>
-            <button type="button" id="sharepoint-select-btn" disabled onclick="linkSharepointFile()"
-                class="flex-1 btn btn-primary">
-                Select File
-            </button>
+            <button type="button"
+                    onclick="hideSharepointModal()"
+                    class="flex-1 btn btn-outline">Cancel</button>
+            <button type="button"
+                    id="sharepoint-select-btn"
+                    disabled
+                    onclick="linkSharepointFile()"
+                    class="flex-1 btn btn-primary">Select File</button>
         </div>
     </div>
 </div>
-
 <!-- Comment Attachment Upload Modal -->
 <div id="comment-upload-modal"
-    class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+     class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-base-100 rounded-lg p-6 w-full max-w-2xl">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Upload File for Comment</h3>
-            <button onclick="hideCommentUploadModal()" class="text-base-content/50 hover:text-base-content">
-                {% lucide "x" class="w-5 h-5" %}
-            </button>
+            <button onclick="hideCommentUploadModal()"
+                    class="text-base-content/50 hover:text-base-content">{% lucide "x" class="w-5 h-5" %}</button>
         </div>
-
-        <form id="comment-upload-form" method="post" enctype="multipart/form-data"
-            action="{% url 'attachment_upload' %}">
+        <form id="comment-upload-form"
+              method="post"
+              enctype="multipart/form-data"
+              action="{% url 'attachment_upload' %}">
             {% csrf_token %}
             <!-- Site Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">SharePoint Site</label>
-                <select id="comment-site-select" name="site_id" required class="select select-bordered w-full" disabled>
+                <select id="comment-site-select"
+                        name="site_id"
+                        required
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Loading sites...</option>
                 </select>
             </div>
-
             <!-- Drive Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Document Library</label>
-                <select id="comment-drive-select" name="drive_id" required class="select select-bordered w-full"
-                    disabled>
+                <select id="comment-drive-select"
+                        name="drive_id"
+                        required
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Select a library...</option>
                 </select>
             </div>
-
             <!-- Folder Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
-                <select id="comment-folder-select" name="folder_id" class="select select-bordered w-full" disabled>
+                <select id="comment-folder-select"
+                        name="folder_id"
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Root Folder</option>
                 </select>
                 <p class="text-xs text-base-content/50 mt-1">Leave empty to upload to the root directory</p>
             </div>
-
             <!-- File Upload -->
             <div>
                 <label class="block text-sm font-medium mb-1">File</label>
-                <input type="file" name="file" required class="file-input file-input-bordered w-full">
+                <input type="file"
+                       name="file"
+                       required
+                       class="file-input file-input-bordered w-full">
             </div>
-
             <!-- Attachment Type -->
             <div>
                 <label class="block text-sm font-medium mb-1">Type</label>
@@ -2171,109 +2157,104 @@
                     <option value="petition">Petition</option>
                 </select>
             </div>
-
             <!-- Progress Bar -->
             <div id="comment-upload-progress" class="hidden">
                 <div class="bg-base-300 rounded-full h-2">
-                    <div id="comment-progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300"
-                        style="width: 0%"></div>
+                    <div id="comment-progress-bar"
+                         class="bg-primary h-2 rounded-full transition-all duration-300"
+                         style="width: 0%"></div>
                 </div>
-                <p class="text-sm mt-1">Uploading... <span id="comment-progress-text">0%</span></p>
+                <p class="text-sm mt-1">
+                    Uploading... <span id="comment-progress-text">0%</span>
+                </p>
             </div>
-
             <!-- Hidden field for workflow ID -->
             <input type="hidden" name="workflow_id" value="{{ workflow.id }}">
-
             <!-- Buttons -->
             <div class="flex gap-3 pt-4">
-                <button type="button" onclick="hideCommentUploadModal()" class="flex-1 btn btn-outline">
-                    Cancel
-                </button>
-                <button type="submit" class="flex-1 btn btn-primary">
-                    Upload
-                </button>
+                <button type="button"
+                        onclick="hideCommentUploadModal()"
+                        class="flex-1 btn btn-outline">Cancel</button>
+                <button type="submit" class="flex-1 btn btn-primary">Upload</button>
             </div>
         </form>
     </div>
 </div>
-
 <!-- Comment SharePoint File Selection Modal -->
 <div id="comment-sharepoint-modal"
-    class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+     class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-base-100 rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Select File from SharePoint for Comment</h3>
-            <button onclick="hideCommentSharepointModal()" class="text-base-content/50 hover:text-base-content">
-                {% lucide "x" class="w-5 h-5" %}
-            </button>
+            <button onclick="hideCommentSharepointModal()"
+                    class="text-base-content/50 hover:text-base-content">{% lucide "x" class="w-5 h-5" %}</button>
         </div>
-
         <!-- Navigation -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <!-- Site Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">SharePoint Site</label>
-                <select id="comment-sharepoint-site-select" onchange="loadCommentSharepointDrives()"
-                    class="select select-bordered w-full">
+                <select id="comment-sharepoint-site-select"
+                        onchange="loadCommentSharepointDrives()"
+                        class="select select-bordered w-full">
                     <option value="">Select a site...</option>
                 </select>
             </div>
-
             <!-- Drive Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Document Library</label>
-                <select id="comment-sharepoint-drive-select" onchange="loadCommentSharepointFolders()"
-                    class="select select-bordered w-full" disabled>
+                <select id="comment-sharepoint-drive-select"
+                        onchange="loadCommentSharepointFolders()"
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Select a library...</option>
                 </select>
             </div>
-
             <!-- Folder Selection -->
             <div>
                 <label class="block text-sm font-medium mb-1">Folder (Optional)</label>
-                <select id="comment-sharepoint-folder-select" onchange="loadCommentSharepointFiles()"
-                    class="select select-bordered w-full" disabled>
+                <select id="comment-sharepoint-folder-select"
+                        onchange="loadCommentSharepointFiles()"
+                        class="select select-bordered w-full"
+                        disabled>
                     <option value="">Root Folder</option>
                 </select>
                 <p class="text-xs text-base-content/50 mt-1">Leave empty to view root files</p>
             </div>
         </div>
-
         <!-- Files List -->
         <div class="border rounded-lg p-4 max-h-60 overflow-y-auto">
             <div id="comment-sharepoint-files-list" class="space-y-2">
-                <p class="text-center text-base-content/50 py-8">
-                    📁 Select a folder to view files
-                </p>
+                <p class="text-center text-base-content/50 py-8">📁 Select a folder to view files</p>
             </div>
         </div>
-
         <!-- Attachment Type -->
         <div class="mt-4">
             <label class="block text-sm font-medium mb-1">Type</label>
-            <select id="comment-sharepoint-type-select" class="select select-bordered w-full">
+            <select id="comment-sharepoint-type-select"
+                    class="select select-bordered w-full">
                 <option value="document">Document</option>
                 <option value="response">Response</option>
                 <option value="petition">Petition</option>
             </select>
         </div>
-
         <!-- Hidden field for workflow ID -->
-        <input type="hidden" id="comment-sharepoint-workflow-id" value="{{ workflow.id }}">
-
+        <input type="hidden"
+               id="comment-sharepoint-workflow-id"
+               value="{{ workflow.id }}">
         <!-- Buttons -->
         <div class="flex gap-3 pt-4">
-            <button type="button" onclick="hideCommentSharepointModal()" class="flex-1 btn btn-outline">
-                Cancel
-            </button>
-            <button type="button" id="comment-sharepoint-select-btn" disabled onclick="linkCommentSharepointFile()"
-                class="flex-1 btn btn-primary">
-                Select File
-            </button>
+            <button type="button"
+                    onclick="hideCommentSharepointModal()"
+                    class="flex-1 btn btn-outline">Cancel</button>
+            <button type="button"
+                    id="comment-sharepoint-select-btn"
+                    disabled
+                    onclick="linkCommentSharepointFile()"
+                    class="flex-1 btn btn-primary">Select File</button>
         </div>
     </div>
 </div>
-
 <script>
     // Comment attachment functionality
     let commentAttachments = [];
@@ -2294,6 +2275,20 @@
 
     function hideCommentSharepointModal() {
         document.getElementById('comment-sharepoint-modal').classList.add('hidden');
+        // Reset form
+        document.getElementById('comment-sharepoint-site-select').value = '';
+        document.getElementById('comment-sharepoint-drive-select').value = '';
+        document.getElementById('comment-sharepoint-drive-select').disabled = true;
+        document.getElementById('comment-sharepoint-folder-select').value = '';
+        document.getElementById('comment-sharepoint-folder-select').disabled = true;
+        document.getElementById('comment-sharepoint-folder-select').innerHTML = '<option value="">Root Folder</option>';
+        document.getElementById('comment-sharepoint-files-list').innerHTML = `
+            <p class="text-center text-base-content/50 py-8">
+                📁 Select a folder or leave empty to view root files
+            </p>
+        `;
+        document.getElementById('comment-sharepoint-select-btn').disabled = true;
+        selectedCommentSharepointFile = null;
     }
 
     function clearCommentAttachments() {
@@ -2506,12 +2501,14 @@
                     selectBtn.disabled = true;
                 } else {
                     list.innerHTML = files.map(file => `
-                    <div class="flex items-center gap-3 p-2 hover:bg-base-200 rounded cursor-pointer" onclick="selectCommentSharepointFile('${file.id}', '${file.name.replace(/'/g, "\\'").replace(/"/g, '\\"')}', '${file.mimetype || ''}', '${file.size || 0}')">
-                        <input type="radio" name="comment-sharepoint-file" value="${file.id}">
-                        <span class="text-primary">${getFileIcon(file.mimetype)}</span>
+                    <div class="flex items-center gap-3 p-3 rounded-lg border hover:bg-base-200 cursor-pointer transition-colors" onclick="selectCommentSharepointFile('${file.id}', '${file.name.replace(/'/g, "\\'").replace(/"/g, '\\"')}', '${file.mimetype || ''}', '${file.size || 0}')">
+                        <div class="text-primary">${getFileIcon(file.mimetype)}</div>
                         <div class="flex-1">
                             <div class="font-medium">${file.name}</div>
-                            <div class="text-xs text-base-content/60">${file.size ? formatFileSize(file.size) : ''}</div>
+                            <div class="text-sm text-base-content/70">${file.size ? formatFileSize(file.size) : ''}</div>
+                        </div>
+                        <div class="flex items-center justify-center">
+                            <input type="radio" name="comment-sharepoint-file" value="${file.id}" />
                         </div>
                     </div>
                 `).join('');
@@ -2533,6 +2530,8 @@
         document.querySelectorAll('input[name="comment-sharepoint-file"]').forEach(radio => {
             radio.checked = radio.value == id;
         });
+        // Enable select button
+        document.getElementById('comment-sharepoint-select-btn').disabled = false;
     }
 
     function linkCommentSharepointFile() {
@@ -2585,76 +2584,82 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 </script>
-
 {% if can_refer %}
-<!-- Referral Modal -->
-<input type="checkbox" id="refer-modal" class="modal-toggle" />
-<div class="modal" role="dialog">
-    <div class="modal-box w-full max-w-lg">
-        <h3 class="font-bold text-lg mb-1">Refer Workflow</h3>
-        <p class="text-sm text-base-content/60 mb-4">Select a group to refer this workflow to. The referred group will
-            be notified.</p>
-
-        <div class="form-control mb-3">
-            <label class="label"><span class="label-text font-medium">Refer To</span></label>
-            <select id="refer-group-select" class="select select-bordered w-full">
-                <option value="">— Select group —</option>
-                {% for cfg in referral_configs %}
-                <option value="{{ cfg.target_group.pk }}" data-label="{{ cfg.label }}">
-                    {{ cfg.target_group.name }}{% if cfg.label %} ({{ cfg.label }}){% endif %}
-                </option>
-                {% endfor %}
-            </select>
+    <!-- Referral Modal -->
+    <input type="checkbox" id="refer-modal" class="modal-toggle" />
+    <div class="modal" role="dialog">
+        <div class="modal-box w-full max-w-lg">
+            <h3 class="font-bold text-lg mb-1">Refer Workflow</h3>
+            <p class="text-sm text-base-content/60 mb-4">
+                Select a group to refer this workflow to. The referred group will
+                be notified.
+            </p>
+            <div class="form-control mb-3">
+                <label class="label">
+                    <span class="label-text font-medium">Refer To</span>
+                </label>
+                <select id="refer-group-select" class="select select-bordered w-full">
+                    <option value="">— Select group —</option>
+                    {% for cfg in referral_configs %}
+                        <option value="{{ cfg.target_group.pk }}" data-label="{{ cfg.label }}">
+                            {{ cfg.target_group.name }}
+                            {% if cfg.label %}
+                                ({{ cfg.label }})
+                            {% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text font-medium">Reason <span class="text-base-content/40 font-normal">(optional)</span></span>
+                </label>
+                <textarea id="refer-reason"
+                          class="textarea textarea-bordered w-full"
+                          rows="3"
+                          placeholder="Reason for referral…"></textarea>
+            </div>
+            <div id="refer-error" class="alert alert-error mb-3 hidden"></div>
+            <div class="modal-action">
+                <label for="refer-modal" class="btn btn-ghost">Cancel</label>
+                <button type="button" id="refer-submit-btn" class="btn btn-warning">
+                    {% lucide "send" class="w-4 h-4 mr-1" %} Refer
+                </button>
+            </div>
         </div>
-
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text font-medium">Reason <span
-                        class="text-base-content/40 font-normal">(optional)</span></span></label>
-            <textarea id="refer-reason" class="textarea textarea-bordered w-full" rows="3"
-                placeholder="Reason for referral…"></textarea>
-        </div>
-
-        <div id="refer-error" class="alert alert-error mb-3 hidden"></div>
-
-        <div class="modal-action">
-            <label for="refer-modal" class="btn btn-ghost">Cancel</label>
-            <button type="button" id="refer-submit-btn" class="btn btn-warning">
-                {% lucide "send" class="w-4 h-4 mr-1" %} Refer
-            </button>
-        </div>
+        <label class="modal-backdrop" for="refer-modal"></label>
     </div>
-    <label class="modal-backdrop" for="refer-modal"></label>
-</div>
 {% endif %}
-
 {% if active_referral and can_edit %}
-<!-- Recall Confirmation Modal -->
-<input type="checkbox" id="recall-modal" class="modal-toggle" />
-<div class="modal" role="dialog">
-    <div class="modal-box w-full max-w-md">
-        <h3 class="font-bold text-lg mb-1">Recall Referral</h3>
-        <p class="text-sm text-base-content/60 mb-4">
-            This will recall the active referral to <strong>{{ active_referral.referred_to.name }}</strong>.
-            The workflow will no longer be accessible to that group.
-        </p>
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text font-medium">Recall Reason <span
-                        class="text-base-content/40 font-normal">(optional)</span></span></label>
-            <textarea id="recall-reason" class="textarea textarea-bordered w-full" rows="2"
-                placeholder="Reason for recall…"></textarea>
+    <!-- Recall Confirmation Modal -->
+    <input type="checkbox" id="recall-modal" class="modal-toggle" />
+    <div class="modal" role="dialog">
+        <div class="modal-box w-full max-w-md">
+            <h3 class="font-bold text-lg mb-1">Recall Referral</h3>
+            <p class="text-sm text-base-content/60 mb-4">
+                This will recall the active referral to <strong>{{ active_referral.referred_to.name }}</strong>.
+                The workflow will no longer be accessible to that group.
+            </p>
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text font-medium">Recall Reason <span class="text-base-content/40 font-normal">(optional)</span></span>
+                </label>
+                <textarea id="recall-reason"
+                          class="textarea textarea-bordered w-full"
+                          rows="2"
+                          placeholder="Reason for recall…"></textarea>
+            </div>
+            <div id="recall-error" class="alert alert-error mb-3 hidden"></div>
+            <div class="modal-action">
+                <label for="recall-modal" class="btn btn-ghost">Cancel</label>
+                <button type="button" id="recall-submit-btn" class="btn btn-error">
+                    {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
+                </button>
+            </div>
         </div>
-        <div id="recall-error" class="alert alert-error mb-3 hidden"></div>
-        <div class="modal-action">
-            <label for="recall-modal" class="btn btn-ghost">Cancel</label>
-            <button type="button" id="recall-submit-btn" class="btn btn-error">
-                {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
-            </button>
-        </div>
+        <label class="modal-backdrop" for="recall-modal"></label>
     </div>
-    <label class="modal-backdrop" for="recall-modal"></label>
-</div>
 {% endif %}
-
 <script>
     (function () {
         const REFER_URL = '{% url "workflow_refer" workflow.pk %}';
@@ -2758,60 +2763,62 @@
         }
     })();
 </script>
-
 {% if can_edit and allowed_child_configs %}
-<!-- Bulk Sub-workflow Creation Modal -->
-<input type="checkbox" id="bulk-create-modal" class="modal-toggle" />
-<div class="modal" role="dialog">
-    <div class="modal-box w-11/12 max-w-none">
-        <h3 class="font-bold text-lg mb-1">Add Sub-workflows</h3>
-        <p class="text-sm text-base-content/60 mb-4">Fill in as many rows as needed. Rows with an empty title will be
-            skipped.</p>
-
-        <div class="form-control mb-4">
-            <label class="label"><span class="label-text font-medium">Sub-workflow Type</span></label>
-            <select id="bulk-wf-type" class="select select-bordered w-full max-w-xs">
-                {% for config in allowed_child_configs %}
-                <option value="{{ config.child_type.pk }}">{{ config.relationship_label }} —
-                    {{ config.child_type.name }}</option>
-                {% endfor %}
-            </select>
+    <!-- Bulk Sub-workflow Creation Modal -->
+    <input type="checkbox" id="bulk-create-modal" class="modal-toggle" />
+    <div class="modal" role="dialog">
+        <div class="modal-box w-11/12 max-w-none">
+            <h3 class="font-bold text-lg mb-1">Add Sub-workflows</h3>
+            <p class="text-sm text-base-content/60 mb-4">
+                Fill in as many rows as needed. Rows with an empty title will be
+                skipped.
+            </p>
+            <div class="form-control mb-4">
+                <label class="label">
+                    <span class="label-text font-medium">Sub-workflow Type</span>
+                </label>
+                <select id="bulk-wf-type" class="select select-bordered w-full max-w-xs">
+                    {% for config in allowed_child_configs %}
+                        <option value="{{ config.child_type.pk }}">
+                            {{ config.relationship_label }} —
+                            {{ config.child_type.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table table-sm w-full">
+                    <thead>
+                        <tr>
+                            <th class="w-6 text-base-content/50">#</th>
+                            <th>
+                                Title <span class="text-error">*</span>
+                            </th>
+                            <th class="w-32">Priority</th>
+                            <th class="w-40">Deadline</th>
+                            <th>Description</th>
+                            <th class="w-8"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulk-rows">
+                    </tbody>
+                </table>
+            </div>
+            <button type="button"
+                    onclick="bulkAddRow()"
+                    class="btn btn-ghost btn-sm mt-3">{% lucide "plus" class="w-4 h-4" %} Add row</button>
+            <div id="bulk-error" class="alert alert-error mt-3 hidden"></div>
+            <div class="modal-action">
+                <label for="bulk-create-modal" class="btn btn-ghost">Cancel</label>
+                <button type="button"
+                        onclick="bulkSubmit()"
+                        class="btn btn-primary"
+                        id="bulk-submit-btn">{% lucide "save" class="w-4 h-4 mr-1" %} Create All</button>
+            </div>
         </div>
-
-        <div class="overflow-x-auto">
-            <table class="table table-sm w-full">
-                <thead>
-                    <tr>
-                        <th class="w-6 text-base-content/50">#</th>
-                        <th>Title <span class="text-error">*</span></th>
-                        <th class="w-32">Priority</th>
-                        <th class="w-40">Deadline</th>
-                        <th>Description</th>
-                        <th class="w-8"></th>
-                    </tr>
-                </thead>
-                <tbody id="bulk-rows">
-                </tbody>
-            </table>
-        </div>
-
-        <button type="button" onclick="bulkAddRow()" class="btn btn-ghost btn-sm mt-3">
-            {% lucide "plus" class="w-4 h-4" %} Add row
-        </button>
-
-        <div id="bulk-error" class="alert alert-error mt-3 hidden"></div>
-
-        <div class="modal-action">
-            <label for="bulk-create-modal" class="btn btn-ghost">Cancel</label>
-            <button type="button" onclick="bulkSubmit()" class="btn btn-primary" id="bulk-submit-btn">
-                {% lucide "save" class="w-4 h-4 mr-1" %} Create All
-            </button>
-        </div>
+        <label class="modal-backdrop" for="bulk-create-modal"></label>
     </div>
-    <label class="modal-backdrop" for="bulk-create-modal"></label>
-</div>
-
-<script>
+    <script>
     const BULK_CREATE_URL = "{% url 'workflow_bulk_create' workflow.pk %}";
     const CSRF_TOKEN = getCookie('csrftoken');
 
@@ -2918,58 +2925,59 @@
             }
         }
     });
-</script>
+    </script>
 {% endif %}
-
 <!-- Share Modal -->
-<div id="share-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+<div id="share-modal"
+     class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
     <div class="bg-base-100 rounded-lg p-6 w-full max-w-md">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-semibold">Share Workflow</h3>
-            <button onclick="hideShareModal()" class="text-base-content/50 hover:text-base-content">
-                {% lucide "x" class="w-5 h-5" %}
-            </button>
+            <button onclick="hideShareModal()"
+                    class="text-base-content/50 hover:text-base-content">{% lucide "x" class="w-5 h-5" %}</button>
         </div>
-
         <!-- Share Options -->
         <div class="space-y-4">
             <!-- Copy Link -->
             <div>
                 <label class="block text-sm font-medium mb-2">Share Link</label>
                 <div class="flex gap-2">
-                    <input type="text" id="share-link" readonly
-                        value="{{ request.scheme }}://{{ request.get_host }}{% url 'workflow_detail' workflow.pk %}"
-                        class="input input-bordered flex-1 text-sm">
-                    <button onclick="copyShareLink()" class="btn btn-primary">
-                        {% lucide "copy" class="w-4 h-4" %}
-                    </button>
+                    <input type="text"
+                           id="share-link"
+                           readonly
+                           value="{{ request.scheme }}://{{ request.get_host }}{% url 'workflow_detail' workflow.pk %}"
+                           class="input input-bordered flex-1 text-sm">
+                    <button onclick="copyShareLink()" class="btn btn-primary">{% lucide "copy" class="w-4 h-4" %}</button>
                 </div>
                 <p class="text-xs text-base-content/60 mt-1">Anyone with this link can view the workflow</p>
             </div>
-
             <!-- Report Link -->
             <div>
                 <label class="block text-sm font-medium mb-2">Report Link</label>
                 <div class="flex gap-2">
-                    <input type="text" id="report-link" readonly
-                        value="{{ request.scheme }}://{{ request.get_host }}{% url 'workflow_report' workflow.pk %}?format=html"
-                        class="input input-bordered flex-1 text-sm">
-                    <button onclick="copyReportLink()" class="btn btn-primary">
-                        {% lucide "copy" class="w-4 h-4" %}
-                    </button>
+                    <input type="text"
+                           id="report-link"
+                           readonly
+                           value="{{ request.scheme }}://{{ request.get_host }}{% url 'workflow_report' workflow.pk %}?format=html"
+                           class="input input-bordered flex-1 text-sm">
+                    <button onclick="copyReportLink()" class="btn btn-primary">{% lucide "copy" class="w-4 h-4" %}</button>
                 </div>
                 <p class="text-xs text-base-content/60 mt-1">Share the comprehensive report view</p>
             </div>
-
             <!-- Email Share -->
             <div>
                 <label class="block text-sm font-medium mb-2">Share via Email</label>
                 <form id="email-share-form" class="space-y-3">
                     {% csrf_token %}
-                    <input type="email" name="email" placeholder="recipient@example.com"
-                        class="input input-bordered w-full" required>
-                    <textarea name="message" placeholder="Optional message..." class="textarea textarea-bordered w-full"
-                        rows="3"></textarea>
+                    <input type="email"
+                           name="email"
+                           placeholder="recipient@example.com"
+                           class="input input-bordered w-full"
+                           required>
+                    <textarea name="message"
+                              placeholder="Optional message..."
+                              class="textarea textarea-bordered w-full"
+                              rows="3"></textarea>
                     <button type="submit" class="btn btn-primary w-full">
                         {% lucide "mail" class="w-4 h-4 mr-2" %}
                         Send Email
@@ -2979,7 +2987,6 @@
         </div>
     </div>
 </div>
-
 <script>
     function showShareModal() {
         document.getElementById('share-modal').classList.remove('hidden');
@@ -3057,9 +3064,7 @@
             });
     });
 </script>
-
 {% endpartialdef %}
-
 {% block content %}
-{% partial content %}
+    {% partial content %}
 {% endblock content %}

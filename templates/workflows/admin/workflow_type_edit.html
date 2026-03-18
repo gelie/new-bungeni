@@ -1,11 +1,7 @@
 {% extends 'base.html' %}
-
-{% block title %}Edit Workflow Template {% endblock %}
-
-
+{% block title %}Edit Workflow Template{% endblock %}
 {% partialdef content %}
-
-<div class="space-y-6">
+<div class="max-w-4xl mx-auto space-y-6">
   <!-- Header -->
   <div class="flex items-center justify-between flex-wrap gap-3">
     <div>
@@ -16,335 +12,333 @@
       <p class="text-base-content/70 mt-1">Modify workflow template settings and optional fields</p>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
-      <a href="{% url 'admin_workflow_type_states' workflow_type.pk %}" class="btn btn-outline btn-sm">
-        {% lucide "circle-dot" class="w-4 h-4" %} States
-      </a>
-      <a href="{% url 'admin_workflow_type_transitions' workflow_type.pk %}" class="btn btn-outline btn-sm">
-        {% lucide "arrow-right-left" class="w-4 h-4" %} Transitions
-      </a>
-      <a href="{% url 'admin_workflow_type_referral_configs' workflow_type.pk %}" class="btn btn-outline btn-sm">
-        {% lucide "send" class="w-4 h-4" %} Referral Configs
-      </a>
+      <a href="{% url 'admin_workflow_type_states' workflow_type.pk %}"
+         class="btn btn-outline btn-sm">{% lucide "circle-dot" class="w-4 h-4" %} States</a>
+      <a href="{% url 'admin_workflow_type_transitions' workflow_type.pk %}"
+         class="btn btn-outline btn-sm">{% lucide "arrow-right-left" class="w-4 h-4" %} Transitions</a>
+      <a href="{% url 'admin_workflow_type_referral_configs' workflow_type.pk %}"
+         class="btn btn-outline btn-sm">{% lucide "send" class="w-4 h-4" %} Referral Configs</a>
     </div>
   </div>
-
   <!-- Form -->
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body">
       <!-- Store group data as JSON in data attribute -->
       <div id="group-data" data-groups='{
         {% for group in groups %}
-        "{{ group.name|lower }}": {{ group.id }}{% if not forloop.last %},{% endif %}
-        {% endfor %}
-      }' style="display: none;"></div>
-
-      <!-- Store group-roles mapping as JSON in data attribute -->
-      <div id="group-roles-data" data-group-roles='{{ group_roles|safe }}' style="display: none;"></div>
-
-      <form method="post" class="space-y-6">
-        {% csrf_token %}
-
-        <!-- Basic Information -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            {% lucide "info" class="w-5 h-5" %}
-            Basic Information
-          </h3>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Name -->
+          "{{ group.name|lower }}": {{ group.id }}{% if not forloop.last %},{% endif %} {% endfor %} }' style="display: none;">
+        </div>
+        <!-- Store group-roles mapping as JSON in data attribute -->
+        <div id="group-roles-data"
+             data-group-roles='{{ group_roles|safe }}'
+             style="display: none"></div>
+        <form method="post" class="space-y-6">
+          {% csrf_token %}
+          <!-- Basic Information -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+              {% lucide "info" class="w-5 h-5" %}
+              Basic Information
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Name -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Template Name *</span>
+                  <span class="label-text-alt text-base-content/70">Required</span>
+                </label>
+                <input type="text"
+                       name="name"
+                       class="input input-bordered w-full"
+                       placeholder="e.g., Petition Workflow"
+                       value="{{ workflow_type.name }}"
+                       required />
+              </div>
+              <!-- Status -->
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Status</span>
+                </label>
+                <div class="flex items-center gap-3 mt-3">
+                  <input type="checkbox"
+                         name="enabled"
+                         class="toggle toggle-primary"
+                         {% if workflow_type.enabled %}checked{% endif %} />
+                  <span class="text-sm">Enable this template</span>
+                </div>
+              </div>
+            </div>
+            <!-- Description -->
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-medium">Template Name *</span>
+                <span class="label-text font-medium">Description</span>
+                <span class="label-text-alt text-base-content/70">Optional</span>
+              </label>
+              <textarea name="description"
+                        class="textarea textarea-bordered w-full"
+                        rows="3"
+                        placeholder="Describe the purpose and use case of this workflow template...">{{ workflow_type.description }}</textarea>
+            </div>
+          </div>
+          <!-- Group Assignment -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+              {% lucide "users" class="w-5 h-5" %}
+              Group Assignment
+            </h3>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Owner Group *</span>
                 <span class="label-text-alt text-base-content/70">Required</span>
               </label>
-              <input type="text" name="name" class="input input-bordered w-full" placeholder="e.g., Petition Workflow"
-                value="{{ workflow_type.name }}" required />
+              <!-- Searchable group input -->
+              <div class="relative">
+                <input type="text"
+                       name="group_name"
+                       class="input input-bordered w-full"
+                       placeholder="Search and select group..."
+                       value="{{ workflow_type.group.name }}" />
+                <input type="hidden"
+                       name="group"
+                       id="selected-group"
+                       value="{{ workflow_type.group.id }}" />
+                <!-- Dropdown menu -->
+                <div id="groups-list"
+                     class="absolute top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg z-10 hidden max-h-48 overflow-y-auto">
+                  {% for group in groups %}
+                    <div class="p-2 hover:bg-base-200 cursor-pointer rounded"
+                         data-value="{{ group.name }}"
+                         data-id="{{ group.id }}">
+                      <div class="flex items-center gap-2">
+                        {% lucide "users" class="w-4 h-4" %}
+                        <span>{{ group.name }}</span>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">The group that owns all workflows of this type</span>
+              </label>
             </div>
-
-            <!-- Status -->
+          </div>
+          <!-- Create Permissions -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+              {% lucide "shield-check" class="w-5 h-5" %}
+              Create Permissions
+            </h3>
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-medium">Status</span>
+                <span class="label-text font-medium">Roles that can create workflows</span>
+                <span class="label-text-alt text-base-content/70">Select one or more roles</span>
               </label>
-              <div class="flex items-center gap-3 mt-3">
-                <input type="checkbox" name="enabled" class="toggle toggle-primary"
-                  {% if workflow_type.enabled %}checked{% endif %} />
-                <span class="text-sm">Enable this template</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Description -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Description</span>
-              <span class="label-text-alt text-base-content/70">Optional</span>
-            </label>
-            <textarea name="description" class="textarea textarea-bordered w-full" rows="3"
-              placeholder="Describe the purpose and use case of this workflow template...">{{ workflow_type.description }}</textarea>
-          </div>
-        </div>
-
-        <!-- Group Assignment -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            {% lucide "users" class="w-5 h-5" %}
-            Group Assignment
-          </h3>
-
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Owner Group *</span>
-              <span class="label-text-alt text-base-content/70">Required</span>
-            </label>
-
-            <!-- Searchable group input -->
-            <div class="relative">
-              <input type="text" name="group_name" class="input input-bordered w-full"
-                placeholder="Search and select group..." value="{{ workflow_type.group.name }}" />
-              <input type="hidden" name="group" id="selected-group" value="{{ workflow_type.group.id }}" />
-
-              <!-- Dropdown menu -->
-              <div id="groups-list"
-                class="absolute top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg z-10 hidden max-h-48 overflow-y-auto">
-                {% for group in groups %}
-                <div class="p-2 hover:bg-base-200 cursor-pointer rounded" data-value="{{ group.name }}"
-                  data-id="{{ group.id }}">
-                  <div class="flex items-center gap-2">
-                    {% lucide "users" class="w-4 h-4" %}
-                    <span>{{ group.name }}</span>
-                  </div>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-
-            <label class="label">
-              <span class="label-text-alt text-base-content/70">The group that owns all workflows of this type</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Create Permissions -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            {% lucide "shield-check" class="w-5 h-5" %}
-            Create Permissions
-          </h3>
-
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Roles that can create workflows</span>
-              <span class="label-text-alt text-base-content/70">Select one or more roles</span>
-            </label>
-
-            <!-- Searchable multi-select dropdown -->
-            <div class="relative">
-              <input type="text" id="role-dropdown" class="input input-bordered w-full"
-                placeholder="Search and select roles..." readonly />
-              <input type="hidden" name="create_roles" id="selected-roles" />
-
-              <!-- Dropdown menu -->
-              <div id="role-dropdown-menu"
-                class="absolute top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg z-10 hidden max-h-48 overflow-y-auto">
-                <div class="p-2">
-                  <input type="text" id="role-search-input" class="input input-bordered w-full input-sm mb-2"
-                    placeholder="Search roles..." onclick="event.stopPropagation()" />
-                  <div id="role-options-list">
-                    {% for role in roles %}
-                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-base-200 role-option"
-                      data-role-name="{{ role.name|lower }}" data-role-id="{{ role.id }}" data-available-groups="">
-                      <input type="checkbox" value="{{ role.id }}" class="checkbox checkbox-primary checkbox-sm"
-                        onclick="event.stopPropagation()"
-                        {% if role in workflow_type.create_roles.all %}checked{% endif %} />
-                      <span class="text-sm">{{ role.name }}</span>
-                    </label>
-                    {% endfor %}
+              <!-- Searchable multi-select dropdown -->
+              <div class="relative">
+                <input type="text"
+                       id="role-dropdown"
+                       class="input input-bordered w-full"
+                       placeholder="Search and select roles..."
+                       readonly />
+                <input type="hidden" name="create_roles" id="selected-roles" />
+                <!-- Dropdown menu -->
+                <div id="role-dropdown-menu"
+                     class="absolute top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg shadow-lg z-10 hidden max-h-48 overflow-y-auto">
+                  <div class="p-2">
+                    <input type="text"
+                           id="role-search-input"
+                           class="input input-bordered w-full input-sm mb-2"
+                           placeholder="Search roles..."
+                           onclick="event.stopPropagation()" />
+                    <div id="role-options-list">
+                      {% for role in roles %}
+                        <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-base-200 role-option"
+                               data-role-name="{{ role.name|lower }}"
+                               data-role-id="{{ role.id }}"
+                               data-available-groups="">
+                          <input type="checkbox"
+                                 value="{{ role.id }}"
+                                 class="checkbox checkbox-primary checkbox-sm"
+                                 onclick="event.stopPropagation()"
+                                 {% if role in workflow_type.create_roles.all %}checked{% endif %} />
+                          <span class="text-sm">{{ role.name }}</span>
+                        </label>
+                      {% endfor %}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-
-            <label class="label">
-              <span class="label-text-alt text-base-content/70">Only users with these roles can create workflows of this
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">Only users with these roles can create workflows of this
                 type</span>
-            </label>
+              </label>
+            </div>
           </div>
-        </div>
-
-        <!-- Optional Fields -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            {% lucide "settings" class="w-5 h-5" %}
-            Optional Fields
-          </h3>
-          <p class="text-sm text-base-content/70">Add custom fields that will be available when creating workflows of
-            this type</p>
-
-          <div id="optional-fields-container" class="space-y-3">
-            <!-- Existing fields will be loaded here -->
+          <!-- Optional Fields -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+              {% lucide "settings" class="w-5 h-5" %}
+              Optional Fields
+            </h3>
+            <p class="text-sm text-base-content/70">
+              Add custom fields that will be available when creating workflows of
+              this type
+            </p>
+            <div id="optional-fields-container" class="space-y-3">
+              <!-- Existing fields will be loaded here -->
+            </div>
+            <button type="button" id="add-field-btn" class="btn btn-outline btn-sm">
+              {% lucide "plus" class="w-4 h-4" %}
+              Add Field
+            </button>
           </div>
-
-          <button type="button" id="add-field-btn" class="btn btn-outline btn-sm">
-            {% lucide "plus" class="w-4 h-4" %}
-            Add Field
-          </button>
-        </div>
-
-        <!-- States & Transitions Management -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold flex items-center gap-2">
-            {% lucide "git-branch" class="w-5 h-5" %}
-            States & Transitions
-          </h3>
-          <p class="text-sm text-base-content/70">Define the workflow states and transitions for this workflow type</p>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- States Management -->
-            <div class="card bg-base-200 border border-base-300">
-              <div class="card-body p-4">
-                <div class="flex items-center justify-between mb-3">
-                  <h4 class="font-medium flex items-center gap-2">
-                    {% lucide "circle-dot" class="w-4 h-4" %}
-                    Workflow States
-                  </h4>
-                  <span class="badge badge-ghost badge-sm" id="states-count">{{ workflow_type.states.count }}
+          <!-- States & Transitions Management -->
+          <div class="space-y-4">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+              {% lucide "git-branch" class="w-5 h-5" %}
+              States & Transitions
+            </h3>
+            <p class="text-sm text-base-content/70">Define the workflow states and transitions for this workflow type</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- States Management -->
+              <div class="card bg-base-200 border border-base-300">
+                <div class="card-body p-4">
+                  <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-medium flex items-center gap-2">
+                      {% lucide "circle-dot" class="w-4 h-4" %}
+                      Workflow States
+                    </h4>
+                    <span class="badge badge-ghost badge-sm" id="states-count">{{ workflow_type.states.count }}
                     states</span>
+                  </div>
+                  <p class="text-sm text-base-content/70 mb-3">Define the different states a workflow can be in</p>
+                  <button type="button"
+                          class="btn btn-outline btn-sm w-full"
+                          onclick="openStatesModal('{{ workflow_type.pk }}')">
+                    {% lucide "settings" class="w-4 h-4" %}
+                    Manage States
+                  </button>
                 </div>
-                <p class="text-sm text-base-content/70 mb-3">Define the different states a workflow can be in</p>
-                <button type="button" class="btn btn-outline btn-sm w-full"
-                  onclick="openStatesModal('{{ workflow_type.pk }}')">
-                  {% lucide "settings" class="w-4 h-4" %}
-                  Manage States
-                </button>
               </div>
-            </div>
-
-            <!-- Transitions Management -->
-            <div class="card bg-base-200 border border-base-300">
-              <div class="card-body p-4">
-                <div class="flex items-center justify-between mb-3">
-                  <h4 class="font-medium flex items-center gap-2">
-                    {% lucide "arrow-right-left" class="w-4 h-4" %}
-                    Workflow Transitions
-                  </h4>
-                  <span class="badge badge-ghost badge-sm" id="transitions-count">{{ workflow_type.transitions.count }}
+              <!-- Transitions Management -->
+              <div class="card bg-base-200 border border-base-300">
+                <div class="card-body p-4">
+                  <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-medium flex items-center gap-2">
+                      {% lucide "arrow-right-left" class="w-4 h-4" %}
+                      Workflow Transitions
+                    </h4>
+                    <span class="badge badge-ghost badge-sm" id="transitions-count">{{ workflow_type.transitions.count }}
                     transitions</span>
+                  </div>
+                  <p class="text-sm text-base-content/70 mb-3">Define how workflows move between states</p>
+                  <button type="button"
+                          class="btn btn-outline btn-sm w-full"
+                          onclick="openTransitionsModal('{{ workflow_type.pk }}')">
+                    {% lucide "settings" class="w-4 h-4" %}
+                    Manage Transitions
+                  </button>
                 </div>
-                <p class="text-sm text-base-content/70 mb-3">Define how workflows move between states</p>
-                <button type="button" class="btn btn-outline btn-sm w-full"
-                  onclick="openTransitionsModal('{{ workflow_type.pk }}')">
-                  {% lucide "settings" class="w-4 h-4" %}
-                  Manage Transitions
-                </button>
+              </div>
+            </div>
+            <div class="alert alert-info">
+              <div class="flex items-center gap-2">
+                {% lucide "info" class="w-4 h-4" %}
+                <span class="text-sm">
+                  Configure states and transitions to define the workflow process flow. States represent workflow stages,
+                  and transitions define how workflows move between them.
+                </span>
               </div>
             </div>
           </div>
-
-          <div class="alert alert-info">
-            <div class="flex items-center gap-2">
-              {% lucide "info" class="w-4 h-4" %}
-              <span class="text-sm">
-                Configure states and transitions to define the workflow process flow. States represent workflow stages,
-                and transitions define how workflows move between them.
-              </span>
+          <!-- Form Actions -->
+          <div class="flex items-center justify-between pt-6 border-t border-base-300">
+            <a href="{% url 'admin_workflow_types' %}" class="btn btn-ghost">
+              {% lucide "x" class="w-4 h-4" %}
+              Cancel
+            </a>
+            <div class="flex items-center gap-3">
+              <button type="reset" class="btn btn-ghost">
+                {% lucide "refresh-cw" class="w-4 h-4" %}
+                Reset
+              </button>
+              <button type="submit" class="btn btn-primary">
+                {% lucide "check" class="w-4 h-4" %}
+                Update Template
+              </button>
             </div>
           </div>
-        </div>
-
-        <!-- Form Actions -->
-        <div class="flex items-center justify-between pt-6 border-t border-base-300">
-          <a href="{% url 'admin_workflow_types' %}" class="btn btn-ghost">
-            {% lucide "x" class="w-4 h-4" %}
-            Cancel
-          </a>
-          <div class="flex items-center gap-3">
-            <button type="reset" class="btn btn-ghost">
-              {% lucide "refresh-cw" class="w-4 h-4" %}
-              Reset
-            </button>
-            <button type="submit" class="btn btn-primary">
-              {% lucide "check" class="w-4 h-4" %}
-              Update Template
-            </button>
-          </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
-  </div>
-
-  <!-- Help Section -->
-  <div class="card bg-base-100 shadow-sm mt-6">
-    <div class="card-body">
-      <h3 class="card-title text-lg flex items-center gap-2">
-        {% lucide "circle-help" class="w-5 h-5" %}
-        Template Editing Help
-      </h3>
-
-      <div class="text-sm space-y-3 mt-4">
-        <div>
-          <p class="font-semibold mb-2">Editing Guidelines:</p>
-          <ul class="space-y-1 ml-4">
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span>Review group assignment before changing - it affects permissions</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span>Modifying fields may affect existing workflows</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span>Disabling a template prevents new workflow creation</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span>Required fields cannot be removed if data exists</span>
-            </li>
-          </ul>
+    <!-- Help Section -->
+    <div class="card bg-base-100 shadow-sm mt-6">
+      <div class="card-body">
+        <h3 class="card-title text-lg flex items-center gap-2">
+          {% lucide "circle-help" class="w-5 h-5" %}
+          Template Editing Help
+        </h3>
+        <div class="text-sm space-y-3 mt-4">
+          <div>
+            <p class="font-semibold mb-2">Editing Guidelines:</p>
+            <ul class="space-y-1 ml-4">
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span>Review group assignment before changing - it affects permissions</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span>Modifying fields may affect existing workflows</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span>Disabling a template prevents new workflow creation</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span>Required fields cannot be removed if data exists</span>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <p class="font-semibold mb-2">Optional Fields:</p>
+            <ul class="space-y-1 ml-4">
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span><strong>Text/Long Text:</strong> For short or extended text input</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span><strong>Number:</strong> For numeric values (integers/decimals)</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span><strong>Date/DateTime:</strong> For date and time selection</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span><strong>Email/URL:</strong> For email addresses and web links</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span><strong>Dropdown/Radio:</strong> For predefined option selection</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-primary">•</span>
+                <span><strong>Checkbox:</strong> For true/false or yes/no options</span>
+              </li>
+            </ul>
+          </div>
+          <div class="divider my-2"></div>
+          <p class="text-xs text-base-content/70">
+            Changes will take effect immediately for new workflows. Existing
+            workflows may need manual updates.
+          </p>
         </div>
-
-        <div>
-          <p class="font-semibold mb-2">Optional Fields:</p>
-          <ul class="space-y-1 ml-4">
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span><strong>Text/Long Text:</strong> For short or extended text input</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span><strong>Number:</strong> For numeric values (integers/decimals)</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span><strong>Date/DateTime:</strong> For date and time selection</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span><strong>Email/URL:</strong> For email addresses and web links</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span><strong>Dropdown/Radio:</strong> For predefined option selection</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-primary">•</span>
-              <span><strong>Checkbox:</strong> For true/false or yes/no options</span>
-            </li>
-          </ul>
-        </div>
-
-        <div class="divider my-2"></div>
-
-        <p class="text-xs text-base-content/70">Changes will take effect immediately for new workflows. Existing
-          workflows may need manual updates.</p>
       </div>
     </div>
   </div>
-</div>
-
-<script>
+  <script>
   document.addEventListener('DOMContentLoaded', function () {
     // Group selection handling
     const groupInput = document.querySelector('input[name="group_name"]');
@@ -633,24 +627,14 @@
               <label class="label">
                 <span class="label-text text-xs">Field Name *</span>
               </label>
-              <input type="text"
-                     name="field_name_${fieldId}"
-                     class="input input-bordered input-sm"
-                     placeholder="e.g., priority_level"
-                     value="${data.name}"
-                     pattern="[a-z0-9_]+"
-                     title="Only lowercase letters, numbers, and underscores" />
+              <input type="text" name="field_name_${fieldId}" class="input input-bordered input-sm" placeholder="e.g., priority_level" value="${data.name}" pattern="[a-z0-9_]+" title="Only lowercase letters, numbers, and underscores" />
             </div>
 
             <div class="form-control">
               <label class="label">
                 <span class="label-text text-xs">Display Label *</span>
               </label>
-              <input type="text"
-                     name="field_label_${fieldId}"
-                     class="input input-bordered input-sm"
-                     placeholder="e.g., Priority Level"
-                     value="${data.label}" />
+              <input type="text" name="field_label_${fieldId}" class="input input-bordered input-sm" placeholder="e.g., Priority Level" value="${data.label}" />
             </div>
           </div>
 
@@ -659,9 +643,7 @@
               <label class="label">
                 <span class="label-text text-xs">Field Type</span>
               </label>
-              <select name="field_type_${fieldId}"
-                      class="select select-bordered select-sm"
-                      onchange="handleFieldTypeChange(${fieldId})">
+              <select name="field_type_${fieldId}" class="select select-bordered select-sm" onchange="handleFieldTypeChange(${fieldId})">
                 ${Object.entries(fieldTypes).map(([value, config]) =>
       `<option value="${value}" ${data.type === value ? 'selected' : ''}>${config.label}</option>`
     ).join('')}
@@ -686,11 +668,7 @@
               <label class="label">
                 <span class="label-text text-xs">Options (comma-separated)</span>
               </label>
-              <input type="text"
-                     name="field_options_${fieldId}"
-                     class="input input-bordered input-sm"
-                     placeholder="Option 1, Option 2, Option 3"
-                     value="${data.options}" />
+              <input type="text" name="field_options_${fieldId}" class="input input-bordered input-sm" placeholder="Option 1, Option 2, Option 3" value="${data.options}" />
             </div>
           </div>
 
@@ -698,11 +676,7 @@
             <label class="label">
               <span class="label-text text-xs">Help Text</span>
             </label>
-            <input type="text"
-                   name="field_help_${fieldId}"
-                   class="input input-bordered input-sm"
-                   placeholder="Optional help text for users"
-                   value="${data.help_text}" />
+            <input type="text" name="field_help_${fieldId}" class="input input-bordered input-sm" placeholder="Optional help text for users" value="${data.help_text}" />
           </div>
         </div>
       `;
@@ -878,9 +852,8 @@
     // Open transitions management modal/page
     window.open(`/manage/workflow-types/${workflowTypeId}/transitions/`, '_blank', 'width=800,height=600');
   }
-</script>
+  </script>
 {% endpartialdef content %}
-
 {% block content %}
-{% partial content %}
+  {% partial content %}
 {% endblock %}
