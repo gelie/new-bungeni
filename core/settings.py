@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "background_task",
     "chartjs",
     "flatpickr",
     "lucide",
@@ -238,14 +239,17 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 # EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
 # EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 # EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-# DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@bungeni.local")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@parliament.gov.za")
 
-# Background tasks (Django 6.0)
-TASKS = {
-    "default": {
-        "BACKEND": "django.tasks.backends.immediate.ImmediateBackend",
-    }
-}
+# Background tasks configuration
+MAX_ATTEMPTS = 3
+BACKGROUND_TASK_RUN_ASYNC = True
+
+# Background tasks settings
+BACKGROUND_TASK_ASYNC_THREADS = 4
+
+# Background task priority
+BACKGROUND_TASK_PRIORITY_ORDERING = "DESC"
 
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB

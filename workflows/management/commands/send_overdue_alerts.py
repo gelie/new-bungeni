@@ -40,7 +40,9 @@ class Command(BaseCommand):
             return
 
         if options["sync"]:
-            result = notify_overdue_workflows.call(
+            from workflows.tasks import _notify_overdue_workflows_sync
+
+            result = _notify_overdue_workflows_sync(
                 site_url=site_url, workflow_id=workflow_id, force=force
             )
             self.stdout.write(
@@ -51,7 +53,9 @@ class Command(BaseCommand):
                 )
             )
         else:
-            notify_overdue_workflows.enqueue(
+            from workflows.tasks import notify_overdue_workflows
+
+            notify_overdue_workflows(
                 site_url=site_url, workflow_id=workflow_id, force=force
             )
-            self.stdout.write(self.style.SUCCESS("Overdue alerts task enqueued."))
+            self.stdout.write(self.style.SUCCESS("Overdue alerts task scheduled."))

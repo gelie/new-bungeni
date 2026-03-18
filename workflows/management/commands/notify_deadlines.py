@@ -71,9 +71,9 @@ class Command(BaseCommand):
             self.stdout.write("=" * 60)
 
             if not dry_run:
-                from workflows.tasks import notify_pending_deadlines as _notify_pending
+                from workflows.tasks import _notify_pending_deadlines_sync
 
-                pending_result = _notify_pending.func(
+                pending_result = _notify_pending_deadlines_sync(
                     site_url=site_url,
                     workflow_id=workflow_id,
                     days_before=days_before,
@@ -99,9 +99,9 @@ class Command(BaseCommand):
             self.stdout.write("=" * 60)
 
             if not dry_run:
-                from workflows.tasks import notify_overdue_workflows as _notify_overdue
+                from workflows.tasks import _notify_overdue_workflows_sync
 
-                overdue_result = _notify_overdue.func(
+                overdue_result = _notify_overdue_workflows_sync(
                     site_url=site_url,
                     workflow_id=workflow_id,
                     force=force,
@@ -129,9 +129,9 @@ class Command(BaseCommand):
             )
             self.stdout.write("=" * 60)
 
-            from workflows.tasks import transition_overdue_to_followup as _transition
+            from workflows.tasks import _transition_overdue_to_followup_sync
 
-            transition_result = _transition.func(
+            transition_result = _transition_overdue_to_followup_sync(
                 workflow_id=workflow_id,
                 auto_transition=not dry_run,
             )

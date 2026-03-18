@@ -1,50 +1,51 @@
 {% load static %}
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en" data-theme="emerald">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}Workflow Manager{% endblock %}</title>
-  <link rel="icon" href="{% static 'favicon.ico' %}" type="image/x-icon">
-  {% block styles %}
-  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
-  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
-  <link rel="stylesheet" href="{% static 'css/fonts.css' %}" />
-  <!-- Flatpickr CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css" />
-  {% endblock %}
-  {% block extra_head %}{% endblock %}
-  {% block scripts %}
-  <script src="{% static 'js/htmx.min.js' %}"></script>
-  <!--<script src="{% static 'js/lucide.min.js' %}"></script>-->
-  <!-- Flatpickr JS -->
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  {% endblock %}
-</head>
-
-<body class="bg-base-200">
-  {% include 'navbar.html' %}
-  {% include 'sidebar.html' %}
-
-  <!-- Main Content -->
-  <div id="main-content" class="ml-20">
-    <main id="content-area" class="p-6" hx-target="this" hx-swap="innerHTML">
-      {% if messages %}
-      <div class="mb-4 space-y-2">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-          <span>{{ message }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% block content %}{% endblock %}
-    </main>
-  </div>
-  <script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {% block title %}Workflow Manager{% endblock %}
+    </title>
+    <link rel="icon" href="{% static 'favicon.ico' %}" type="image/x-icon">
+    {% block styles %}
+      <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+      <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+      <link rel="stylesheet" href="{% static 'css/fonts.css' %}" />
+      <!-- Flatpickr CSS -->
+      <link rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+      <link rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css" />
+    {% endblock %}
+    {% block extra_head %}{% endblock %}
+    {% block scripts %}
+      <script src="{% static 'js/htmx.min.js' %}"></script>
+      <script src="{% static 'js/_hyperscript.min.js' %}"></script>
+      <!-- Flatpickr JS -->
+      <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    {% endblock %}
+  </head>
+  <body class="bg-base-200">
+    {% include 'navbar.html' %}
+    {% include 'sidebar.html' %}
+    <!-- Main Content -->
+    <div id="main-content" class="ml-20">
+      <main id="content-area" class="p-6" hx-target="this" hx-swap="innerHTML">
+        {% if messages %}
+          <div class="mb-4 space-y-2">
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags }}"
+                   _="on load wait 5s then remove me">
+                <span>{{ message }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    <script>
     (function () {
       // Initialize Lucide icons
       // lucide.createIcons();
@@ -386,8 +387,7 @@
         setActivePanelFromPage();
       });
     })();
-  </script>
-  {% block extra_js %}{% endblock %}
-</body>
-
+    </script>
+    {% block extra_js %}{% endblock %}
+  </body>
 </html>

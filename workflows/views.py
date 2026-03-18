@@ -1362,7 +1362,11 @@ def workflow_edit(request, pk):
 
     # Capture old values before saving for notification diffing
     old_assigned_to = workflow.assigned_to
-    old_referred_to = workflow.referred_to
+    old_referred_to = (
+        workflow.referred_to_groups.first()
+        if workflow.referred_to_groups.exists()
+        else None
+    )
 
     assigned_to_id = request.POST.get("assigned_to") or None
     referred_to_id = request.POST.get("referred_to") or None
@@ -1396,7 +1400,7 @@ def workflow_edit(request, pk):
     workflow.priority = priority
     workflow.data = workflow_data
     workflow.assigned_to = new_assigned_to
-    workflow.referred_to = new_referred_to
+    # Note: referrals are now managed through the referral system, not direct assignment
     workflow.event = new_event
     if deadline:
         workflow.deadline = deadline
@@ -1644,7 +1648,7 @@ def workflow_transition(request, pk, transition_id):
     workflow = get_object_or_404(Workflow, pk=pk)
     transition = get_object_or_404(Transition, pk=transition_id)
 
-    # Check if user can perform this transition
+    # Check if user can perform this transition (applies to both GET and POST)
     available_transitions = workflow.get_available_transitions(request.user)
     if transition not in available_transitions:
         messages.error(
@@ -1747,7 +1751,7 @@ def workflow_transition(request, pk, transition_id):
             site_url = f"{request.scheme}://{request.get_host()}"
             triggered_by = request.user.get_full_name() or request.user.username
 
-            send_transition_alert.enqueue(
+            send_transition_alert(
                 workflow_id=workflow.pk,
                 workflow_title=workflow.title,
                 workflow_type_name=workflow.workflow_type.name,
