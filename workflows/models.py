@@ -475,6 +475,10 @@ class State(models.Model):
         help_text="Is this the initial state?",  # ignore
     )  # type: ignore
     is_terminal = models.BooleanField(default=False, help_text="Is this a final state?")  # type: ignore
+    allows_referrals = models.BooleanField(
+        default=True,
+        help_text="Can workflows in this state be referred to other groups?",
+    )  # type: ignore
 
     # Ordering for display
     order = models.IntegerField(default=0)  # type: ignore
@@ -632,14 +636,12 @@ class Workflow(models.Model):
         related_name="assigned_workflows",
     )
 
-    # Referral system
-    referred_to = models.ForeignKey(
+    # Referral system - now supports multiple referrals
+    referred_to_groups = models.ManyToManyField(
         Group,
-        on_delete=models.SET_NULL,
-        null=True,
         blank=True,
         related_name="referred_workflows",
-        help_text="Group this workflow is referred to",
+        help_text="Groups this workflow is referred to",
     )
 
     # Parent-child workflow relationships
@@ -846,16 +848,40 @@ class Workflow(models.Model):
         return self.workflow_type.group
 
     @property
+    def active_referrals(self):
+        """Return all currently active WorkflowReferrals."""
+        return self.referrals.filter(recalled_at__isnull=True).order_by("-referred_at")
+
+    @property
     def active_referral(self):
-        """Return the currently active WorkflowReferral, or None."""
+        """Return the most recent active WorkflowReferral, or None (for backward compatibility)."""
+        return self.active_referrals.first()
+
+    @property
+    def is_referred(self):
+        """Check if workflow has any active referrals."""
+        return self.active_referrals.exists()
+
+    @property
+    def referral_deadline(self):
+        """Get the earliest deadline among active referrals, or None if no deadlines."""
         return (
-            self.referrals.filter(recalled_at__isnull=True)
-            .order_by("-referred_at")
+            self.active_referrals.filter(deadline__isnull=False)
+            .order_by("deadline")
             .first()
+            .deadline
+            if self.active_referrals.filter(deadline__isnull=False).exists()
+            else None
         )
 
     def get_available_transitions(self, user):
         """Get transitions available to a user from current state"""
+
+        # Block all transitions if workflow has active referrals
+        # Owner can still recall all referrals but cannot make other transitions
+        if self.is_referred:
+            return Transition.objects.none()
+
         user_roles = []
 
         # Check RBAC WorkflowGroupAccess first
@@ -882,27 +908,12 @@ class Workflow(models.Model):
                 ).values_list("role", flat=True)
             )
 
-        # Referred group: only roles explicitly allowed by the referral config
-        if self.referred_to:
-            referral = self.active_referral
-            if referral and referral.config:
-                allowed_referred_roles = list(
-                    referral.config.referred_transition_roles.values_list(
-                        "id", flat=True
-                    )
-                )
-            else:
-                # Fallback: all roles in referred group (legacy behaviour)
-                allowed_referred_roles = list(
-                    user.memberships.filter(
-                        group=self.referred_to, is_active=True
-                    ).values_list("role", flat=True)
-                )
+        # Referred groups: allow all roles in any referred group (no config dependency)
+        for referred_group in self.referred_to_groups.all():
             referred_user_roles = list(
                 user.memberships.filter(
-                    group=self.referred_to,
+                    group=referred_group,
                     is_active=True,
-                    role__in=allowed_referred_roles,
                 ).values_list("role", flat=True)
             )
             user_roles = user_roles + referred_user_roles
@@ -916,19 +927,19 @@ class Workflow(models.Model):
     def _user_roles_for_workflow(self, user):
         """Return queryset of role IDs the user holds in this workflow's relevant groups."""
         groups = [self.effective_group]
-        if self.referred_to:
-            groups.append(self.referred_to)
+        groups.extend(self.referred_to_groups.all())
         return user.memberships.filter(group__in=groups, is_active=True).values_list(
             "role", flat=True
         )
 
     def _user_in_workflow_groups(self, user):
-        """Return True if the user is a member of the workflow's group or referred group."""
+        """Return True if the user is a member of the workflow's group or any referred group."""
         user_groups = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
         )
+        referred_group_ids = list(self.referred_to_groups.values_list("id", flat=True))
         return self.effective_group.id in user_groups or (
-            self.referred_to and self.referred_to.id in user_groups
+            any(group_id in user_groups for group_id in referred_group_ids)
         )
 
     def _check_rbac_permission(self, user, permission_type):
@@ -1038,10 +1049,10 @@ class Workflow(models.Model):
         if not self._user_in_workflow_groups(user):
             return False
 
-        # Members of the referred group always get view access
-        if self.referred_to:
+        # Members of any referred group always get view access
+        for referred_group in self.referred_to_groups.all():
             referred_member = user.memberships.filter(
-                group=self.referred_to, is_active=True
+                group=referred_group, is_active=True
             ).exists()
             if referred_member:
                 return True
@@ -1065,18 +1076,13 @@ class Workflow(models.Model):
         if not self._user_in_workflow_groups(user):
             return False
 
-        # Check referral config for edit permission on referred group members
-        if self.referred_to:
-            referral = self.active_referral
-            if referral and referral.config:
-                allowed_edit_roles = list(
-                    referral.config.referred_edit_roles.values_list("id", flat=True)
-                )
-                in_referred = user.memberships.filter(
-                    group=self.referred_to, is_active=True, role__in=allowed_edit_roles
-                ).exists()
-                if in_referred:
-                    return True
+        # Members of any referred group get edit access (no config dependency)
+        for referred_group in self.referred_to_groups.all():
+            in_referred = user.memberships.filter(
+                group=referred_group, is_active=True
+            ).exists()
+            if in_referred:
+                return True
 
         # Check state permissions only (no role fallback)
         user_roles = self._user_roles_for_workflow(user)
@@ -1226,9 +1232,15 @@ class WorkflowReferral(models.Model):
         null=True,
         blank=True,
         related_name="referral_instances",
-        help_text="The referral config that governs permissions for this referral",
+        help_text="The referral config that governs permissions for this referral (deprecated)",
     )
     reason = models.TextField(blank=True, help_text="Reason for the referral")
+    deadline = models.DateTimeField(
+        null=True, blank=True, help_text="Deadline for referral response (optional)"
+    )
+    deadline_notified = models.BooleanField(
+        default=False, help_text="Whether deadline notifications have been sent"
+    )
     referred_by = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
@@ -1257,6 +1269,25 @@ class WorkflowReferral(models.Model):
     @property
     def is_active(self):
         return self.recalled_at is None
+
+    def save(self, *args, **kwargs):
+        """Override save to update workflow's referred_to_groups when referral is active."""
+        super().save(*args, **kwargs)
+
+        # Update the workflow's referred_to_groups based on active referrals
+        if self.is_active:
+            self.workflow.referred_to_groups.add(self.referred_to)
+        else:
+            # If this referral is recalled, check if there are other active referrals to this group
+            other_active = (
+                self.workflow.referrals.filter(
+                    referred_to=self.referred_to, recalled_at__isnull=True
+                )
+                .exclude(id=self.id)
+                .exists()
+            )
+            if not other_active:
+                self.workflow.referred_to_groups.remove(self.referred_to)
 
 
 # ============================================================================
@@ -1733,6 +1764,8 @@ class Notification(models.Model):
     VERB_DELEGATION_APPROVED = "delegation_approved"
     VERB_DELEGATION_REVOKED = "delegation_revoked"
     VERB_DELEGATION_EXPIRED = "delegation_expired"
+    VERB_DEADLINE_WARNING = "deadline_warning"
+    VERB_AUTO_RECALL = "auto_recall"
 
     VERB_CHOICES = [
         (VERB_TRANSITION, "Transition"),
@@ -1745,6 +1778,8 @@ class Notification(models.Model):
         (VERB_DELEGATION_APPROVED, "Delegation Approved"),
         (VERB_DELEGATION_REVOKED, "Delegation Revoked"),
         (VERB_DELEGATION_EXPIRED, "Delegation Expired"),
+        (VERB_DEADLINE_WARNING, "Deadline Warning"),
+        (VERB_AUTO_RECALL, "Auto Recall"),
     ]
 
     user = models.ForeignKey(

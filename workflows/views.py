@@ -148,7 +148,7 @@ def dashboard(request):
             Workflow.objects.filter(
                 Q(group_access__group__in=user_groups)
                 | Q(workflow_type__group__in=user_groups)
-                | Q(referred_to__in=user_groups)
+                | Q(referred_to_groups__in=user_groups)
             )
             .distinct()
             .select_related("workflow_type", "current_state", "owner")
@@ -323,7 +323,7 @@ def workflow_list(request):
             Workflow.objects.filter(
                 Q(group_access__group__in=user_groups)
                 | Q(workflow_type__group__in=user_groups)
-                | Q(referred_to__in=user_groups),
+                | Q(referred_to_groups__in=user_groups),
                 parent_workflow__isnull=True,
             )
             .distinct()
@@ -917,14 +917,17 @@ def workflow_detail(request, pk):
     )
 
     # Referral context
-    active_referral = workflow.active_referral
+    active_referrals = workflow.active_referrals
     referral_history = workflow.referrals.select_related(
-        "referred_to", "referred_by", "recalled_by", "config"
+        "referred_to", "referred_by", "recalled_by"
     ).order_by("-referred_at")
-    referral_configs = WorkflowTypeReferralConfig.objects.filter(
-        workflow_type=workflow.workflow_type
-    ).select_related("target_group")
-    can_refer = workflow.can_user_edit(request.user) and referral_configs.exists()
+    can_refer = (
+        workflow.can_user_edit(request.user) and workflow.current_state.allows_referrals
+    )  # Check state permission
+
+    # Add referral status information
+    is_referred = workflow.is_referred
+    referral_deadline = workflow.referral_deadline
 
     # Get custom fields schema and data
     workflow_schema = workflow.workflow_type.json_schema or {}
@@ -989,16 +992,17 @@ def workflow_detail(request, pk):
         "has_children": workflow.has_sub_workflows,
         "hierarchy_level": workflow.hierarchy_level,
         "related_count": related_count,
-        "allowed_child_configs": allowed_child_configs,
-        "can_edit": workflow.can_user_edit(request.user),
+        "active_referrals": active_referrals,
+        "referral_history": referral_history,
+        "can_refer": can_refer,
+        "is_referred": is_referred,
+        "referral_deadline": referral_deadline,
         "diagram_url": diagram_url,
         "diagram_states": diagram_states,
         "diagram_transitions": diagram_transitions,
-        "active_referral": active_referral,
-        "referral_history": referral_history,
-        "referral_configs": referral_configs,
-        "can_refer": can_refer,
         "custom_fields": custom_fields,
+        "allowed_child_configs": allowed_child_configs,
+        "referral_configs": [],  # Deprecated - keeping for template compatibility
     }
 
     return context
@@ -1452,44 +1456,57 @@ def workflow_refer(request, pk):
     if action == "refer":
         group_id = request.POST.get("group_id")
         reason = (request.POST.get("reason") or "").strip()
+        deadline_str = request.POST.get("deadline", "").strip()
 
         if not group_id:
             return JsonResponse({"error": "group_id is required."}, status=400)
 
         target_group = get_object_or_404(Group, pk=group_id)
 
-        # Validate against referral config
-        config = WorkflowTypeReferralConfig.objects.filter(
-            workflow_type=workflow.workflow_type,
-            target_group=target_group,
-        ).first()
-        if not config:
+        # Check if current state allows referrals
+        if not workflow.current_state.allows_referrals:
             return JsonResponse(
                 {
-                    "error": f"This workflow type cannot be referred to '{target_group.name}'."
+                    "error": f"Workflows in state '{workflow.current_state.name}' cannot be referred."
                 },
                 status=400,
             )
 
-        # Recall any existing active referral first
-        active = workflow.active_referral
-        if active:
-            active.recalled_at = timezone.now()
-            active.recalled_by = request.user
-            active.recall_reason = "Superseded by new referral"
-            active.save()
+        # Check if workflow is already referred to this group
+        if workflow.referred_to_groups.filter(id=target_group.id).exists():
+            return JsonResponse(
+                {
+                    "error": f"This workflow is already referred to '{target_group.name}'."
+                },
+                status=400,
+            )
 
+        # Parse deadline if provided
+        deadline = None
+        if deadline_str:
+            try:
+                from datetime import datetime
+
+                deadline = datetime.fromisoformat(deadline_str.replace("Z", "+00:00"))
+            except ValueError:
+                return JsonResponse(
+                    {
+                        "error": "Invalid deadline format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+                    },
+                    status=400,
+                )
+
+        # Create referral without config dependency
         referral = WorkflowReferral.objects.create(
             workflow=workflow,
             referred_to=target_group,
-            config=config,
+            config=None,  # No longer using referral configs
             reason=reason,
+            deadline=deadline,
             referred_by=request.user,
         )
 
-        # Update the denormalised field for fast queryset filtering
-        workflow.referred_to = target_group
-        workflow.save(update_fields=["referred_to"])
+        # The workflow's referred_to_groups will be updated automatically by the referral's save method
 
         # Notify all active members of the referred group
         actor = request.user.get_full_name() or request.user.username
@@ -1528,23 +1545,37 @@ def workflow_refer(request, pk):
                 "referral_id": referral.pk,
                 "referred_to": target_group.name,
                 "referred_at": referral.referred_at.strftime("%Y-%m-%d %H:%M"),
-                "label": config.label or "",
+                "label": "",  # No longer using config labels
             }
         )
 
     elif action == "recall":
+        group_id = request.POST.get("group_id")
         recall_reason = (request.POST.get("recall_reason") or "").strip()
-        active = workflow.active_referral
-        if not active:
-            return JsonResponse({"error": "No active referral to recall."}, status=400)
 
-        active.recalled_at = timezone.now()
-        active.recalled_by = request.user
-        active.recall_reason = recall_reason
-        active.save()
+        if not group_id:
+            return JsonResponse(
+                {"error": "group_id is required for recall."}, status=400
+            )
 
-        workflow.referred_to = None
-        workflow.save(update_fields=["referred_to"])
+        target_group = get_object_or_404(Group, pk=group_id)
+
+        # Find active referral to this specific group
+        active_referral = workflow.referrals.filter(
+            referred_to=target_group, recalled_at__isnull=True
+        ).first()
+
+        if not active_referral:
+            return JsonResponse(
+                {"error": f"No active referral to '{target_group.name}' to recall."},
+                status=400,
+            )
+        active_referral.recalled_at = timezone.now()
+        active_referral.recalled_by = request.user
+        active_referral.recall_reason = recall_reason
+        active_referral.save()
+
+        # The workflow's referred_to_groups will be updated automatically by the referral's save method
 
         AuditLog.objects.create(
             content_type=ContentType.objects.get_for_model(workflow),
@@ -1556,7 +1587,7 @@ def workflow_refer(request, pk):
             .strip()
             or request.META.get("REMOTE_ADDR"),
             changes={
-                "recalled_referral": active.referred_to.name,
+                "recalled_referral": active_referral.referred_to.name,
                 "recall_reason": recall_reason,
             },
         )
@@ -1567,21 +1598,44 @@ def workflow_refer(request, pk):
 
 
 @login_required
-def api_referral_configs(request, pk):
-    """Return allowed referral targets for a workflow's type as JSON."""
+def api_referral_targets(request, pk):
+    """Return all groups that a workflow can be referred to as JSON or HTML for HTMX."""
     workflow = get_object_or_404(Workflow, pk=pk)
-    configs = WorkflowTypeReferralConfig.objects.filter(
-        workflow_type=workflow.workflow_type
-    ).select_related("target_group")
+
+    # Get search query from request
+    search_query = request.GET.get("search", "").strip()
+
+    # Get all groups except those the workflow is already referred to
+    already_referred = workflow.referred_to_groups.values_list("id", flat=True)
+    groups = Group.objects.exclude(id__in=already_referred).order_by("name")
+
+    # Filter by search query if provided
+    if search_query:
+        groups = groups.filter(name__icontains=search_query)
+
+    # Check if this is an HTMX request (wants HTML)
+    if request.headers.get("HX-Request"):
+        from django.template.loader import render_to_string
+
+        html = render_to_string(
+            "workflows/partials/group_search_results.html",
+            {
+                "groups": groups,
+                "search_query": search_query,
+            },
+        )
+        return HttpResponse(html)
+
+    # Return JSON for regular API requests
     data = [
         {
-            "group_id": c.target_group.pk,
-            "group_name": c.target_group.name,
-            "label": c.label or "",
+            "group_id": g.pk,
+            "group_name": g.name,
+            "label": "",  # No longer using config labels
         }
-        for c in configs
+        for g in groups
     ]
-    return JsonResponse({"configs": data})
+    return JsonResponse({"targets": data})
 
 
 @login_required
@@ -1639,14 +1693,14 @@ def workflow_transition(request, pk, transition_id):
         workflow.current_state = transition.to_state
         workflow.save()
 
-        # Auto-recall any active referral when reaching a terminal state
+        # Auto-recall all active referrals when reaching a terminal state
         if transition.to_state.is_terminal:
-            active_referral = workflow.active_referral
-            if active_referral:
-                active_referral.recalled_at = timezone.now()
-                active_referral.recalled_by = request.user
-                active_referral.recall_reason = f"Auto-recalled: workflow reached terminal state '{transition.to_state.name}'."
-                active_referral.save()
+            active_referrals = workflow.active_referrals
+            for referral in active_referrals:
+                referral.recalled_at = timezone.now()
+                referral.recalled_by = request.user
+                referral.recall_reason = f"Auto-recalled: workflow reached terminal state '{transition.to_state.name}'."
+                referral.save()
 
         # Always notify the workflow owner (unless they triggered it)
         if workflow.owner != request.user:
@@ -1978,7 +2032,7 @@ def reports(request):
             Workflow.objects.filter(
                 Q(group_access__group__in=user_groups)
                 | Q(workflow_type__group__in=user_groups)
-                | Q(referred_to__in=user_groups)
+                | Q(referred_to_groups__in=user_groups)
             )
             .distinct()
             .select_related("workflow_type", "current_state", "owner")
@@ -2119,7 +2173,7 @@ def reports_export_csv(request):
             Workflow.objects.filter(
                 Q(group_access__group__in=user_groups)
                 | Q(workflow_type__group__in=user_groups)
-                | Q(referred_to__in=user_groups)
+                | Q(referred_to_groups__in=user_groups)
             )
             .distinct()
             .select_related("workflow_type", "current_state", "owner")
@@ -2264,7 +2318,7 @@ def reports_export_excel(request):
             Workflow.objects.filter(
                 Q(group_access__group__in=user_groups)
                 | Q(workflow_type__group__in=user_groups)
-                | Q(referred_to__in=user_groups)
+                | Q(referred_to_groups__in=user_groups)
             )
             .distinct()
             .select_related("workflow_type", "current_state", "owner")
@@ -2527,7 +2581,7 @@ def reports_recent_activity_pdf(request):
             Workflow.objects.filter(
                 Q(group_access__group__in=user_groups)
                 | Q(workflow_type__group__in=user_groups)
-                | Q(referred_to__in=user_groups)
+                | Q(referred_to_groups__in=user_groups)
             )
             .distinct()
             .select_related("workflow_type", "current_state", "owner")

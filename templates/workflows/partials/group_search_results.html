@@ -1,0 +1,29 @@
+{% if groups %}
+    {% for group in groups %}
+        <div class="flex items-center justify-between p-2 hover:bg-base-200 rounded cursor-pointer group-item" 
+             data-group-id="{{ group.pk }}" 
+             data-group-name="{{ group.name }}">
+            <div class="flex items-center gap-2">
+                <input type="checkbox" class="checkbox checkbox-sm group-checkbox" 
+                       data-group-id="{{ group.pk }}" 
+                       data-group-name="{{ group.name }}">
+                <span class="text-sm font-medium">{{ group.name }}</span>
+            </div>
+            <button class="btn btn-xs btn-ghost add-group-btn" 
+                    data-group-id="{{ group.pk }}" 
+                    data-group-name="{{ group.name }}">
+                {% lucide "plus" class="w-3 h-3" %} Add
+            </button>
+        </div>
+    {% endfor %}
+{% else %}
+    {% if search_query %}
+        <div class="text-center text-base-content/50 py-4">
+            No groups found matching "{{ search_query }}"
+        </div>
+    {% else %}
+        <div class="text-center text-base-content/50 py-4">
+            No available groups to refer to.
+        </div>
+    {% endif %}
+{% endif %}

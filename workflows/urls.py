@@ -95,9 +95,9 @@ urlpatterns = [
         name="workflow_refer",
     ),
     path(
-        "api/workflows/<int:pk>/referral-configs/",
-        views.api_referral_configs,
-        name="api_referral_configs",
+        "api/workflows/<int:pk>/referral-targets/",
+        views.api_referral_targets,
+        name="api_referral_targets",
     ),
     # SharePoint API endpoints
     path(

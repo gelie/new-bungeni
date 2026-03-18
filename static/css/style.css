@@ -252,7 +252,7 @@ aside a.active {
 
 div.alert.alert-warning {
     background-color: rgba(170, 170, 127, 0.5) !important;
-    color: var(--parliament-black) !important;
+    color: var(--content-base-content) !important;
     border-color: rgba(170, 170, 127, 0.5) !important;
 }
 
