@@ -33,4 +33,5 @@ dependencies = [
 [dependency-groups]
 dev = [
     "django-stubs>=5.2.9",
+
 ]

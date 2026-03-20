@@ -212,4 +212,6 @@ urlpatterns = [
     ),
     # User search for delegation
     path("user-search/", views.user_search, name="user_search"),
+    # Group search for dynamic lookup
+    path("group-search/", views.group_search, name="group_search"),
 ]

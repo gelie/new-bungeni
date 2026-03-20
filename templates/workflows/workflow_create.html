@@ -1,5 +1,7 @@
-{% extends 'base.html' %}
-{% block title %}Create Workflow{% endblock %}
+{% extends "base.html" %}
+{% block title %}
+  Create Workflow
+{% endblock title %}
 {% partialdef content %}
 <div class="max-w-4xl mx-auto space-y-6">
   <!-- Header -->
@@ -164,7 +166,7 @@
           </div>
         {% endif %}
         <!-- Dynamic Fields (Optional Fields) -->
-        <div id="dynamic-fields-section" class="space-y-4" style="display: none;">
+        <div id="dynamic-fields-section" class="space-y-4 hidden">
           <h3 class="text-lg font-semibold flex items-center gap-2">
             {% lucide "settings" class="w-5 h-5" %}
             Additional Information
@@ -244,72 +246,122 @@
 
       let fieldHtml = '';
 
-      console.log(`Creating field: ${fieldName}, Type: ${fieldConfig.type}`);
+      console.log('Creating field: ' + fieldName + ', Type: ' + fieldConfig.type);
 
       // Special handling for delegate_group field - check by name (schema type is 'string' but data is array)
       if (fieldName === 'delegate_group') {
         console.log('✓ Rendering delegate_group field with special UI');
-        fieldHtml = `
-          <label class="label">
-            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-            ${requiredLabel}
-          </label>
-          ${fieldConfig.description ? `<div class="label"><span class="label-text-alt text-base-content/70">${fieldConfig.description}</span></div>` : ''}
-          <div id="delegate-group-container" class="space-y-3">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="form-control relative">
-                <input type="text" id="delegate-user-search" class="input input-bordered w-full" placeholder="Search for a user..." autocomplete="off" />
-                <div id="delegate-user-dropdown" class="hidden absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
-              </div>
-              <div class="form-control relative">
-                <select id="delegate-role-select" class="select select-bordered w-full">
-                  <option value="">Select a role...</option>
-                </select>
-              </div>
-            </div>
-            <button type="button" id="add-delegate-btn" class="btn btn-primary btn-sm">
-              Add Delegate
-            </button>
-            <div id="selected-delegates" class="space-y-2">
-              <!-- Selected delegates will be listed here -->
-            </div>
-          </div>
-          <input type="hidden" name="field_delegate_group" id="delegate-group-data" />
-        `;
+        fieldHtml = '<label class="label">' +
+          '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+          requiredLabel +
+          '</label>' +
+          (fieldConfig.description ? '<div class="label"><span class="label-text-alt text-base-content/70">' + fieldConfig.description + '</span></div>' : '') +
+          '<div id="delegate-group-container" class="space-y-3">' +
+          '<div class="grid grid-cols-1 md:grid-cols-2 gap-3">' +
+          '<div class="form-control relative">' +
+          '<input type="text" id="delegate-user-search" class="input input-bordered w-full" placeholder="Search for a user..." autocomplete="off" />' +
+          '<div id="delegate-user-dropdown" class="hidden absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>' +
+          '</div>' +
+          '<div class="form-control relative">' +
+          '<select id="delegate-role-select" class="select select-bordered w-full">' +
+          '<option value="">Select a role...</option>' +
+          '</select>' +
+          '</div>' +
+          '</div>' +
+          '<button type="button" id="add-delegate-btn" class="btn btn-primary btn-sm">' +
+          'Add Delegate' +
+          '</button>' +
+          '<div id="selected-delegates" class="space-y-2">' +
+          '<!-- Selected delegates will be listed here -->' +
+          '</div>' +
+          '</div>' +
+          '<input type="hidden" name="field_delegate_group" id="delegate-group-data" />';
+      } else if (fieldConfig.field_type === 'group_lookup') {
+        var inputId = 'field_' + fieldName + '_search';
+        var resultsId = 'field_' + fieldName + '_results';
+        var loadingId = 'field_' + fieldName + '_loading';
+
+        const label = document.createElement('label');
+        label.className = 'label';
+        label.innerHTML = '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' + requiredLabel;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = inputId;
+        input.name = 'search';
+        input.className = 'input input-bordered w-full';
+        input.placeholder = 'Search...';
+        input.autocomplete = 'off';
+        input.setAttribute('hx-get', '{% url "group_search" %}');
+        input.setAttribute('hx-trigger', 'input changed delay:300ms');
+        input.setAttribute('hx-target', '#' + resultsId);
+        input.setAttribute('hx-indicator', '#' + loadingId);
+
+        const loading = document.createElement('div');
+        loading.id = loadingId;
+        loading.className = 'htmx-indicator absolute right-3 top-3';
+        loading.innerHTML = '<span class="loading loading-spinner loading-sm"></span>';
+
+        const results = document.createElement('div');
+        results.id = resultsId;
+        results.className = 'absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto';
+        results.setAttribute('hx-swap', 'innerHTML');
+
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'field_' + fieldName;
+        hiddenInput.id = 'field_' + fieldName + '_value';
+
+        const display = document.createElement('div');
+        display.id = 'field_' + fieldName + '_display';
+        display.className = 'mt-2 hidden';
+        display.innerHTML = '<span class="text-sm text-base-content/70">Selected: </span>' +
+          '<span id="field_' + fieldName + '_selected_name" class="font-medium"></span>' +
+          '<button type="button" onclick="clearGroupSelection(\'' + fieldName + '\')" ' + 'class="ml-2 btn btn-ghost btn-xs"><span class="text-lg">×</span></button>';
+
+        const container = document.createElement('div');
+        container.className = 'form-control relative';
+        container.appendChild(input);
+        container.appendChild(loading);
+        container.appendChild(results);
+        container.appendChild(hiddenInput);
+        container.appendChild(display);
+
+        fieldDiv.appendChild(label);
+        fieldDiv.appendChild(container);
+
+        // Initialize HTMX on the dynamically created elements
+        if (typeof htmx !== 'undefined') {
+          htmx.process(container);
+        }
+
+        return fieldDiv;
       } else if (fieldConfig.type === 'string') {
         if (fieldConfig.enum) {
           // Dropdown/select
-          fieldHtml = `
-          <label class="label">
-            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-            ${requiredLabel}
-          </label>
-          <select name="field_${fieldName}" class="select select-bordered w-full" ${isRequired}>
-            <option value="">Select an option...</option>
-            ${fieldConfig.enum.map(option => `<option value="${option}">${option}</option>`).join('')}
-          </select>
-        `;
+          fieldHtml = '<label class="label">' +
+            '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+            requiredLabel +
+            '</label>' +
+            '<select name="field_' + fieldName + '" class="select select-bordered w-full" ' + isRequired + '>' +
+            '<option value="">Select an option...</option>' +
+            fieldConfig.enum.map(option => '<option value="' + option + '">' + option + '</option>').join('') +
+            '</select>';
         } else if (fieldConfig.title && fieldConfig.title.toLowerCase().includes('email')) {
           // Email field
-          fieldHtml = `
-          <label class="label">
-            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-            ${requiredLabel}
-          </label>
-          <input type="email" name="field_${fieldName}" class="input input-bordered w-full"
-                   placeholder="Enter email address..." ${isRequired} />
-        `;
+          fieldHtml = '<label class="label">' +
+          '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+          requiredLabel +
+          '</label>' +
+          '<input type="email" name="field_' + fieldName + '" class="input input-bordered w-full" placeholder="Enter email address..." ' + isRequired + ' />';
         } else if (fieldConfig.title && (fieldConfig.title.toLowerCase().includes('url') || fieldConfig.title
             .toLowerCase().includes('link'))) {
           // URL field
-          fieldHtml = `
-          <label class="label">
-            <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-            ${requiredLabel}
-          </label>
-          <input type="url" name="field_${fieldName}" class="input input-bordered w-full"
-                   placeholder="Enter URL..." ${isRequired} />
-        `;
+          fieldHtml = '<label class="label">' +
+          '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+          requiredLabel +
+          '</label>' +
+          '<input type="url" name="field_' + fieldName + '" class="input input-bordered w-full" placeholder="Enter URL..." ' + isRequired + ' />';
         } else {
           // Check if it's a long text field
           const isLongText = fieldConfig.title && (
@@ -319,71 +371,51 @@
           );
 
           if (isLongText) {
-            fieldHtml = `
-            <label class="label">
-              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-              ${requiredLabel}
-            </label>
-            <textarea name="field_${fieldName}" class="textarea textarea-bordered w-full" rows="4"
-                      placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired}></textarea>
-          `;
+            fieldHtml = '<label class="label">' +
+              '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+              requiredLabel +
+              '</label>' +
+              '<textarea name="field_' + fieldName + '" ' + 'class="textarea textarea-bordered w-full" rows="4" ' + 'placeholder="Enter text..." ' + isRequired + '></textarea>';
           } else {
-            fieldHtml = `
-            <label class="label">
-              <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-              ${requiredLabel}
-            </label>
-            <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
-                   placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
-          `;
+            fieldHtml = '<label class="label">' +
+            '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+            requiredLabel +
+            '</label>' +
+            '<input type="text" name="field_' + fieldName + '" ' + 'class="input input-bordered w-full" placeholder="Enter text..." ' + isRequired + ' />';
           }
         }
       } else if (fieldConfig.type === 'number') {
-        fieldHtml = `
-        <label class="label">
-          <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-          ${requiredLabel}
-        </label>
-        <input type="number" name="field_${fieldName}" class="input input-bordered w-full"
-               placeholder="Enter number..." ${isRequired} />
-      `;
+        fieldHtml = '<label class="label">' +
+          '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+          requiredLabel +
+          '</label>' +
+          '<input type="number" name="field_' + fieldName + '" class="input input-bordered w-full" placeholder="Enter number..." ' + isRequired + ' />';
       } else if (fieldConfig.type === 'boolean') {
-        fieldHtml = `
-        <label class="label cursor-pointer">
-          <span class="label-text font-medium">${fieldConfig.title}</span>
-          <input type="checkbox" name="field_${fieldName}" class="checkbox checkbox-primary" />
-        </label>
-      `;
+        fieldHtml = '<label class="label cursor-pointer">' +
+          '<span class="label-text font-medium">' + fieldConfig.title + '</span>' +
+          '<input type="checkbox" name="field_' + fieldName + '" class="checkbox checkbox-primary" />' +
+          '</label>';
       } else if (fieldConfig.type === 'array') {
         // Generic array handling - don't render as text input
-        console.warn(`Array field '${fieldName}' not handled with special UI`);
-        fieldHtml = `
-        <label class="label">
-          <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-          ${requiredLabel}
-        </label>
-        <div class="alert alert-warning">
-          <span>Array field type not yet supported for editing</span>
-        </div>
-        <input type="hidden" name="field_${fieldName}" value="[]" />
-      `;
+        console.warn('Array field \'' + fieldName + '\' not handled with special UI');
+        fieldHtml = '<label class="label">' +
+        '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+        requiredLabel +
+        '</label>' +
+        '<div class="alert alert-warning">' +
+        '<span>Array field type not yet supported for editing</span>' +
+        '</div>' +
+        '<input type="hidden" name="field_' + fieldName + '" value="" />';
       } else {
-        fieldHtml = `
-        <label class="label">
-          <span class="label-text font-medium">${fieldConfig.title}${requiredText}</span>
-          ${requiredLabel}
-        </label>
-        <input type="text" name="field_${fieldName}" class="input input-bordered w-full"
-               placeholder="Enter ${fieldConfig.title.toLowerCase()}..." ${isRequired} />
-      `;
+        fieldHtml = '<label class="label">' +
+        '<span class="label-text font-medium">' + fieldConfig.title + requiredText + '</span>' +
+        requiredLabel +
+        '</label>' +
+        '<input type="text" name="field_' + fieldName + '" ' + 'class="input input-bordered w-full" placeholder="Enter text..." ' + isRequired + ' />';
       }
 
       if (fieldConfig.description && fieldName !== 'delegate_group') {
-        fieldHtml += `
-        <label class="label">
-          <span class="label-text-alt text-base-content/70">${fieldConfig.description}</span>
-        </label>
-      `;
+        fieldHtml += '<label class="label"><span class="label-text-alt text-base-content/70">' + fieldConfig.description + '</span></label>';
       }
 
       fieldDiv.innerHTML = fieldHtml;
@@ -391,8 +423,11 @@
     }
 
     function updateDynamicFields() {
-      const typeId = workflowTypeSelect.value;
+      const hiddenTypeInput = document.querySelector('input[name="workflow_type"]');
+      const typeId = workflowTypeSelect.value || (hiddenTypeInput ? hiddenTypeInput.value : '');
       console.log('updateDynamicFields called, typeId:', typeId);
+      console.log('Select value:', workflowTypeSelect.value);
+      console.log('Hidden input value:', hiddenTypeInput ? hiddenTypeInput.value : 'null');
 
       dynamicFieldsContainer.innerHTML = '';
 
@@ -406,7 +441,7 @@
 
       if (Object.keys(properties).length === 0) {
         console.log('No properties found, hiding dynamic fields section');
-        dynamicFieldsSection.style.display = 'none';
+        dynamicFieldsSection.classList.add('hidden');
         return;
       }
       console.log('Found', Object.keys(properties).length, 'properties, showing dynamic fields');
@@ -424,7 +459,7 @@
       });
 
       dynamicFieldsContainer.appendChild(gridContainer);
-      dynamicFieldsSection.style.display = 'block';
+      dynamicFieldsSection.classList.remove('hidden');
     }
 
     // Form submission handler to collect dynamic field data
@@ -503,7 +538,7 @@
         }
 
         const filteredUsers = availableUsers.filter(user => {
-          const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
+          const fullName = user.first_name + ' ' + user.last_name;
           const username = (user.username || '').toLowerCase();
           return fullName.includes(searchTerm) || username.includes(searchTerm);
         });
@@ -514,12 +549,15 @@
           return;
         }
 
-        userDropdown.innerHTML = filteredUsers.map(user => `
-          <div class="p-3 hover:bg-base-200 cursor-pointer user-option" data-user-id="${user.pk}" data-user-name="${user.first_name} ${user.last_name}">
-            <div class="font-medium">${user.first_name} ${user.last_name}</div>
-            ${user.username ? `<div class="text-sm text-base-content/70">@${user.username}</div>` : ''}
-          </div>
-        `).join('');
+        userDropdown.innerHTML = filteredUsers.map(user => {
+          const fullName = user.first_name + ' ' + user.last_name;
+          const classes = 'px-4 py-3 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-b-0 transition-colors';
+          return '<div class="' + classes + '" ' + 'onclick="selectUser(' + user.id + ',\'' + user.username + '\',\'' + fullName + '\')">' +
+            '<div class="flex items-center justify-between"><div>' +
+            '<div class="font-medium">' + fullName + '</div>' +
+            (user.username ? '<div class="text-sm text-base-content/70">@' + user.username + '</div>' : '') +
+            '</div></div></div>';
+        }).join('');
 
         userDropdown.classList.remove('hidden');
 
@@ -593,24 +631,24 @@
         return;
       }
 
-      container.innerHTML = selectedDelegates.map(delegate => `
-        <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
-          <div class="flex items-center gap-3">
-            <div class="avatar placeholder">
-              <div class="bg-neutral text-neutral-content rounded-full w-8">
-                <span class="text-xs">${delegate.user_name.charAt(0).toUpperCase()}</span>
-              </div>
-            </div>
-            <div>
-              <div class="font-medium">${delegate.user_name}</div>
-              <div class="text-sm text-base-content/70">${delegate.delegation_role}</div>
-            </div>
-          </div>
-          <button type="button" onclick="removeDelegate(${delegate.user_id})" class="btn btn-ghost btn-sm">
-            {% lucide "x" class="w-4 h-4" %}
-          </button>
-        </div>
-      `).join('');
+      container.innerHTML = selectedDelegates.map(delegate =>
+        '<div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">' +
+        '<div class="flex items-center gap-3">' +
+        '<div class="avatar placeholder">' +
+        '<div class="bg-neutral text-neutral-content rounded-full w-8">' +
+        '<span class="text-xs">' + delegate.user_name.charAt(0).toUpperCase() + '</span>' +
+        '</div>' +
+        '</div>' +
+        '<div>' +
+        '<div class="font-medium">' + delegate.user_name + '</div>' +
+        '<div class="text-sm text-base-content/70">' + delegate.delegation_role + '</div>' +
+        '</div>' +
+        '</div>' +
+        '<button type="button" onclick="removeDelegate(' + delegate.user_id + ')" class="btn btn-ghost btn-sm">' +
+        '<span class="text-lg">×</span>' +
+        '</button>' +
+        '</div>'
+      ).join('');
     }
 
     function updateDelegateGroupData() {
@@ -669,9 +707,81 @@
     } else {
       console.log('No typeValue found, skipping dynamic fields initialization');
     }
+
+    // Group selection functions
+    window.selectGroup = function(groupId, groupName) {
+      console.log('selectGroup called:', groupId, groupName);
+
+      // Find the search input that has visible results
+      const allSearchInputs = document.querySelectorAll('[id$="_search"]');
+      let targetFieldName = null;
+
+      for (let input of allSearchInputs) {
+        const fieldName = input.id.replace('_search', '').replace('field_', '');
+        const resultsDiv = document.getElementById('field_' + fieldName + '_results');
+
+        if (resultsDiv && resultsDiv.innerHTML.trim() && resultsDiv.offsetParent !== null) {
+          targetFieldName = fieldName;
+          break;
+        }
+      }
+
+      if (targetFieldName) {
+        const searchInput = document.getElementById('field_' + targetFieldName + '_search');
+        const valueInput = document.getElementById('field_' + targetFieldName + '_value');
+        const displayDiv = document.getElementById('field_' + targetFieldName + '_display');
+        const selectedNameSpan = document.getElementById('field_' + targetFieldName + '_selected_name');
+        const resultsDiv = document.getElementById('field_' + targetFieldName + '_results');
+
+        if (valueInput && displayDiv && selectedNameSpan && searchInput) {
+          valueInput.value = groupId;
+          selectedNameSpan.textContent = groupName;
+          displayDiv.classList.remove('hidden');
+          searchInput.value = groupName;
+          resultsDiv.style.display = 'none';
+          console.log('Group selected successfully');
+        }
+      } else {
+        console.error('Could not find target field for group selection');
+      }
+    };
+
+    window.clearGroupSelection = function(fieldName) {
+      const valueInput = document.getElementById('field_' + fieldName + '_value');
+      const searchInput = document.getElementById('field_' + fieldName + '_search');
+      const displayDiv = document.getElementById('field_' + fieldName + '_display');
+      const selectedNameSpan = document.getElementById('field_' + fieldName + '_selected_name');
+
+      if (valueInput && searchInput && displayDiv && selectedNameSpan) {
+        valueInput.value = '';
+        searchInput.value = '';
+        displayDiv.classList.add('hidden');
+        selectedNameSpan.textContent = '';
+      }
+    };
+
+    // Hide dropdown when clicking outside and handle showing results
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.form-control')) {
+        document.querySelectorAll('[id$="_results"]').forEach(results => {
+          results.style.display = 'none';
+        });
+      }
+    });
+
+    // Show results when search input gets focus
+    document.addEventListener('focusin', function(e) {
+      if (e.target.id && e.target.id.includes('_search')) {
+        const fieldName = e.target.id.replace('_search', '');
+        const resultsDiv = document.getElementById('field_' + fieldName + '_results');
+        if (resultsDiv && resultsDiv.innerHTML.trim()) {
+          resultsDiv.style.display = 'block';
+        }
+      }
+    });
   })();
 </script>
 {% endpartialdef %}
 {% block content %}
-{% partial content %}
-{% endblock %}
+  {% partial content %}
+{% endblock content %}

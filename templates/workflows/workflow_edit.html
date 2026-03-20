@@ -1,122 +1,110 @@
-{% extends 'base.html' %}
-
-{% block title %}Edit Workflow {% endblock %}
-
+{% extends "base.html" %}
+{% block title %}
+  Edit Workflow
+{% endblock title %}
 {% partialdef content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    <!-- Header -->
-    <div class="flex items-start justify-between gap-4">
-        <div>
-            <h1 class="text-3xl font-bold">Edit Workflow</h1>
-            <p class="text-base-content/70 mt-1">Modify workflow details and settings</p>
-        </div>
-        <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-ghost">
-            {% lucide "arrow-left" class="w-4 h-4 mr-2" %} Back to Workflow
-        </a>
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold">Edit Workflow</h1>
+      <p class="text-base-content/70 mt-1">Modify workflow details and settings</p>
     </div>
-
-    <!-- Form -->
-    <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-            <form method="post" class="space-y-8">
-                {% csrf_token %}
-
-                <!-- Basic Information Section -->
-                <div class="space-y-6">
-                    <h2 class="text-lg font-semibold text-base-content/80 border-b border-base-200 pb-2">Basic Information</h2>
-
-                    <!-- Title -->
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-semibold">Title</span>
-                            <span class="label-text-alt text-error">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            name="title"
-                            class="input input-bordered h-12 w-full"
-                            placeholder="Enter a short, descriptive title"
-                            value="{{ workflow.title }}"
-                            required
-                            maxlength="500" />
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                        <!-- Workflow Type (Read-only) -->
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-semibold">Workflow Type</span>
-                            </label>
-                            <input type="hidden" name="workflow_type" value="{{ workflow.workflow_type.id }}">
-                            <input
-                                type="text"
-                                class="input input-bordered h-12 w-full bg-base-200"
-                                value="{{ workflow.workflow_type.name }}"
-                                disabled />
-                            <div class="text-xs text-base-content/60 mt-1">Workflow type cannot be changed after creation</div>
-                        </div>
-
-                        <!-- Parent Workflow -->
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-semibold">Parent Workflow</span>
-                            </label>
-                            <input
-                                type="text"
-                                class="input input-bordered h-12 w-full bg-base-200"
-                                value="{% if workflow.parent_workflow %}{{ workflow.parent_workflow.title }}{% else %}None (Top-level workflow){% endif %}"
-                                disabled />
-                            <div class="text-xs text-base-content/60 mt-1">Parent workflow relationship is set at creation</div>
-                        </div>
-                    </div>
-
-                    <!-- Description -->
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-semibold">Description</span>
-                        </label>
-                        <textarea
-                            name="description"
-                            class="textarea textarea-bordered min-h-32 resize-none w-full"
-                            placeholder="Optional details about this workflow...">{{ workflow.description|default:'' }}</textarea>
-                    </div>
-                </div>
-
-                <!-- Additional Options Section -->
-                <div class="space-y-6">
-                    <h2 class="text-lg font-semibold text-base-content/80 border-b border-base-200 pb-2">Additional Options</h2>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Priority -->
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-semibold">Priority</span>
-                            </label>
-                            <select name="priority" class="select select-bordered h-12 w-full">
-                                <option value="urgent" {% if workflow.priority == 'urgent' %}selected{% endif %}>Urgent</option>
-                                <option value="high" {% if workflow.priority == 'high' %}selected{% endif %}>High</option>
-                                <option value="medium" {% if workflow.priority == 'medium' %}selected{% endif %}>Medium</option>
-                                <option value="low" {% if workflow.priority == 'low' %}selected{% endif %}>Low</option>
-                            </select>
-                        </div>
-
-                        <!-- Deadline -->
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text font-semibold">Deadline</span>
-                                <span class="label-text-alt text-base-content/60">(optional)</span>
-                            </label>
-                            <input
-                                type="datetime-local"
-                                name="deadline"
-                                class="input input-bordered h-12 w-full"
-                                {% if workflow.deadline %}value="{{ workflow.deadline|date:'Y-m-d\TH:i' }}" {% endif %} />
-                        </div>
-                    </div>
-
-                    <!-- Event Association -->
-                    {% comment %} <div class="form-control">
+    <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-ghost">
+      {% lucide "arrow-left" class="w-4 h-4 mr-2" %} Back to Workflow
+    </a>
+  </div>
+  <!-- Form -->
+  <div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+      <form method="post" class="space-y-8">
+        {% csrf_token %}
+        <!-- Basic Information Section -->
+        <div class="space-y-6">
+          <h2 class="text-lg font-semibold text-base-content/80 border-b border-base-200 pb-2">Basic Information</h2>
+          <!-- Title -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Title</span>
+              <span class="label-text-alt text-error">*</span>
+            </label>
+            <input type="text"
+                   name="title"
+                   class="input input-bordered h-12 w-full"
+                   placeholder="Enter a short, descriptive title"
+                   value="{{ workflow.title }}"
+                   required
+                   maxlength="500" />
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Workflow Type (Read-only) -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Workflow Type</span>
+              </label>
+              <input type="hidden"
+                     name="workflow_type"
+                     value="{{ workflow.workflow_type.id }}">
+              <input type="text"
+                     class="input input-bordered h-12 w-full bg-base-200"
+                     value="{{ workflow.workflow_type.name }}"
+                     disabled />
+              <div class="text-xs text-base-content/60 mt-1">Workflow type cannot be changed after creation</div>
+            </div>
+            <!-- Parent Workflow -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Parent Workflow</span>
+              </label>
+              <input type="text"
+                     class="input input-bordered h-12 w-full bg-base-200"
+                     value="{% if workflow.parent_workflow %}{{ workflow.parent_workflow.title }}{% else %}None (Top-level workflow){% endif %}"
+                     disabled />
+              <div class="text-xs text-base-content/60 mt-1">Parent workflow relationship is set at creation</div>
+            </div>
+          </div>
+          <!-- Description -->
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Description</span>
+            </label>
+            <textarea name="description"
+                      class="textarea textarea-bordered min-h-32 resize-none w-full"
+                      placeholder="Optional details about this workflow...">{{ workflow.description|default:'' }}</textarea>
+          </div>
+        </div>
+        <!-- Additional Options Section -->
+        <div class="space-y-6">
+          <h2 class="text-lg font-semibold text-base-content/80 border-b border-base-200 pb-2">Additional Options</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Priority -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Priority</span>
+              </label>
+              <select name="priority" class="select select-bordered h-12 w-full">
+                <option value="urgent"
+                        {% if workflow.priority == 'urgent' %}selected{% endif %}>Urgent</option>
+                <option value="high" {% if workflow.priority == 'high' %}selected{% endif %}>High</option>
+                <option value="medium"
+                        {% if workflow.priority == 'medium' %}selected{% endif %}>Medium</option>
+                <option value="low" {% if workflow.priority == 'low' %}selected{% endif %}>Low</option>
+              </select>
+            </div>
+            <!-- Deadline -->
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Deadline</span>
+                <span class="label-text-alt text-base-content/60">(optional)</span>
+              </label>
+              <input type="datetime-local"
+                     name="deadline"
+                     class="input input-bordered h-12 w-full"
+                     {% if workflow.deadline %}value="{{ workflow.deadline|date:'Y-m-d\TH:i' }}"{% endif %} />
+            </div>
+          </div>
+          <!-- Event Association -->
+          {% comment %} <div class="form-control">
                         <label class="label">
                             <span class="label-text font-semibold">Associated Event</span>
                             <span class="label-text-alt text-base-content/60">(optional)</span>
@@ -130,48 +118,40 @@
                             {% endfor %}
                         </select>
                         <div class="text-xs text-base-content/60 mt-1">Link this workflow to a specific event</div>
-                    </div> {% endcomment %}
-                </div>
-
-                <!-- Custom Fields Section -->
-                <div id="dynamic-fields-section" class="space-y-4" style="display:none;">
-                    <h2 class="text-lg font-semibold text-base-content/80 border-b border-base-200 pb-2 flex items-center gap-2">
-                        {% lucide "settings" class="w-5 h-5" %}
-                        Additional Information
-                    </h2>
-                    <div id="dynamic-fields-container" class="space-y-4"></div>
-                </div>
-
-                {{ workflow_type_schemas|json_script:"workflow-type-schemas" }}
-                {{ existing_data|json_script:"existing-workflow-data" }}
-                {{ available_users|json_script:"available-users" }}
-                {{ delegation_roles|json_script:"delegation-roles" }}
-
-                <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
-                    <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-ghost">Cancel</a>
-                    <button type="submit" class="btn btn-primary">
-                        {% lucide "save" class="w-5 h-5 mr-2" %} Save Changes
-                    </button>
-                </div>
-            </form>
+          </div> {% endcomment %}
         </div>
-    </div>
-
-    <!-- Workflow Info -->
-    <div class="alert">
-        {% lucide "info" class="w-5 h-5" %}
-        <div>
-            <div class="font-semibold">Current Workflow Status</div>
-            <div class="text-sm text-base-content/70">
-                This workflow is currently in <span class="font-semibold">{{ workflow.current_state.name }}</span> state.
-                {% if workflow.deadline %}
-                Deadline: {{ workflow.deadline|date:"M d, Y H:i" }}.
-                {% endif %}
-            </div>
+        <!-- Custom Fields Section -->
+        <div id="dynamic-fields-section" class="space-y-4 hidden">
+          <h2 class="text-lg font-semibold text-base-content/80 border-b border-base-200 pb-2 flex items-center gap-2">
+            {% lucide "settings" class="w-5 h-5" %}
+            Additional Information
+          </h2>
+          <div id="dynamic-fields-container" class="space-y-4"></div>
         </div>
+        {{ workflow_type_schemas|json_script:"workflow-type-schemas" }}
+        {{ existing_data|json_script:"existing-workflow-data" }}
+        {{ group_names|json_script:"group-names" }}
+        {{ available_users|json_script:"available-users" }}
+        {{ delegation_roles|json_script:"delegation-roles" }}
+        <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+          <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">{% lucide "save" class="w-5 h-5 mr-2" %} Save Changes</button>
+        </div>
+      </form>
     </div>
+  </div>
+  <!-- Workflow Info -->
+  <div class="alert">
+    {% lucide "info" class="w-5 h-5" %}
+    <div>
+      <div class="font-semibold">Current Workflow Status</div>
+      <div class="text-sm text-base-content/70">
+        This workflow is currently in <span class="font-semibold">{{ workflow.current_state.name }}</span> state.
+        {% if workflow.deadline %}Deadline: {{ workflow.deadline|date:"M d, Y H:i" }}.{% endif %}
+      </div>
+    </div>
+  </div>
 </div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.querySelector('form');
@@ -180,9 +160,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const allSchemas = JSON.parse(document.getElementById('workflow-type-schemas').textContent || '{}');
   const existingData = JSON.parse(document.getElementById('existing-workflow-data').textContent || '{}');
+  const groupNames = JSON.parse(document.getElementById('group-names').textContent || '{}');
 
   console.log('All Schemas:', allSchemas);
   console.log('Existing Data:', existingData);
+  console.log('Group Names:', groupNames);
 
   const workflowTypeInput = document.querySelector('input[name="workflow_type"]');
   const typeId = workflowTypeInput ? workflowTypeInput.value : '';
@@ -206,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('Number of properties:', Object.keys(properties).length);
 
     if (Object.keys(properties).length === 0) {
-      dynamicFieldsSection.style.display = 'none';
+      dynamicFieldsSection.classList.add('hidden');
       console.log('No properties found, hiding section');
       return;
     }
@@ -254,13 +236,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <div id="delegate-group-container" class="space-y-3">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div class="form-control relative">
-                <input
-                  type="text"
-                  id="delegate-user-search"
-                  class="input input-bordered w-full"
-                  placeholder="Search for a user..."
-                  autocomplete="off"
-                />
+                <input type="text" id="delegate-user-search" class="input input-bordered w-full" placeholder="Search for a user..." autocomplete="off" />
                 <div id="delegate-user-dropdown" class="hidden absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"></div>
               </div>
               <div class="form-control">
@@ -278,6 +254,69 @@ document.addEventListener('DOMContentLoaded', function () {
           </div>
           <input type="hidden" name="field_delegate_group" id="delegate-group-data" />
         `;
+      } else if (fieldConfig.field_type === 'group_lookup') {
+        var inputId = 'field_' + fieldName + '_search';
+        var resultsId = 'field_' + fieldName + '_results';
+        var loadingId = 'field_' + fieldName + '_loading';
+
+        // Get the group name from groupNames object, fallback to empty string
+        var groupName = groupNames[fieldName] || '';
+
+        const label = document.createElement('label');
+        label.className = 'label';
+        label.innerHTML = '<span class="label-text font-medium">' + (fieldConfig.title || fieldName) + requiredText + '</span>' + optionalLabel;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = inputId;
+        input.name = 'search';
+        input.className = 'input input-bordered w-full';
+        input.placeholder = 'Search...';
+        input.autocomplete = 'off';
+        input.value = groupName;
+        input.setAttribute('hx-get', '{% url "group_search" %}');
+        input.setAttribute('hx-trigger', 'input changed delay:300ms');
+        input.setAttribute('hx-target', '#' + resultsId);
+        input.setAttribute('hx-indicator', '#' + loadingId);
+
+        const loading = document.createElement('div');
+        loading.id = loadingId;
+        loading.className = 'htmx-indicator absolute right-3 top-3';
+        loading.innerHTML = '<span class="loading loading-spinner loading-sm"></span>';
+
+        const results = document.createElement('div');
+        results.id = resultsId;
+        results.className = 'absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto';
+        results.setAttribute('hx-swap', 'innerHTML');
+
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'field_' + fieldName;
+        hiddenInput.id = 'field_' + fieldName + '_value';
+        hiddenInput.value = existingValue || '';
+
+        const display = document.createElement('div');
+        display.id = 'field_' + fieldName + '_display';
+        display.className = 'mt-2 ' + (existingValue ? '' : 'hidden');
+        display.innerHTML = '<span class="text-sm text-base-content/70">Selected: </span>' +
+          '<span id="field_' + fieldName + '_selected_name" class="font-medium">' + groupName + '</span>' +
+          '<button type="button" onclick="clearGroupSelection(\'' + fieldName + '\')" ' + 'class="ml-2 btn btn-ghost btn-xs"><span class="text-lg">×</span></button>';
+
+        const container = document.createElement('div');
+        container.className = 'form-control relative';
+        container.appendChild(input);
+        container.appendChild(loading);
+        container.appendChild(results);
+        container.appendChild(hiddenInput);
+        container.appendChild(display);
+
+        fieldDiv.appendChild(label);
+        fieldDiv.appendChild(container);
+
+        // Initialize HTMX on the dynamically created elements
+        if (typeof htmx !== 'undefined') {
+          htmx.process(container);
+        }
       } else if (type === 'boolean') {
         fieldHtml = `
           <label class="label cursor-pointer">
@@ -342,12 +381,15 @@ document.addEventListener('DOMContentLoaded', function () {
         fieldHtml += `<label class="label"><span class="label-text-alt text-base-content/70">${fieldConfig.description}</span></label>`;
       }
 
-      fieldDiv.innerHTML = fieldHtml;
+      // Only set innerHTML if not using DOM creation (group_lookup uses DOM creation)
+      if (fieldConfig.field_type !== 'group_lookup') {
+        fieldDiv.innerHTML = fieldHtml;
+      }
       gridContainer.appendChild(fieldDiv);
     });
 
     dynamicFieldsContainer.appendChild(gridContainer);
-    dynamicFieldsSection.style.display = 'block';
+    dynamicFieldsSection.classList.remove('hidden');
   }
 
   // Render fields on page load with the current workflow type
@@ -584,10 +626,81 @@ document.addEventListener('DOMContentLoaded', function () {
       observer.disconnect();
     }
   }, 100);
+
+  // Group selection functions
+  window.selectGroup = function(groupId, groupName) {
+    console.log('selectGroup called:', groupId, groupName);
+
+    // Find the search input that has visible results
+    const allSearchInputs = document.querySelectorAll('[id$="_search"]');
+    let targetFieldName = null;
+
+    for (let input of allSearchInputs) {
+      const fieldName = input.id.replace('_search', '').replace('field_', '');
+      const resultsDiv = document.getElementById('field_' + fieldName + '_results');
+
+      if (resultsDiv && resultsDiv.innerHTML.trim() && resultsDiv.offsetParent !== null) {
+        targetFieldName = fieldName;
+        break;
+      }
+    }
+
+    if (targetFieldName) {
+      const searchInput = document.getElementById('field_' + targetFieldName + '_search');
+      const valueInput = document.getElementById('field_' + targetFieldName + '_value');
+      const displayDiv = document.getElementById('field_' + targetFieldName + '_display');
+      const selectedNameSpan = document.getElementById('field_' + targetFieldName + '_selected_name');
+      const resultsDiv = document.getElementById('field_' + targetFieldName + '_results');
+
+      if (valueInput && displayDiv && selectedNameSpan && searchInput) {
+        valueInput.value = groupId;
+        selectedNameSpan.textContent = groupName;
+        displayDiv.classList.remove('hidden');
+        searchInput.value = groupName;
+        resultsDiv.style.display = 'none';
+        console.log('Group selected successfully');
+      }
+    } else {
+      console.error('Could not find target field for group selection');
+    }
+  };
+
+  window.clearGroupSelection = function(fieldName) {
+    const valueInput = document.getElementById(`field_${fieldName}_value`);
+    const searchInput = document.getElementById(`field_${fieldName}_search`);
+    const displayDiv = document.getElementById(`field_${fieldName}_display`);
+    const selectedNameSpan = document.getElementById(`field_${fieldName}_selected_name`);
+
+    if (valueInput && searchInput && displayDiv && selectedNameSpan) {
+      valueInput.value = '';
+      searchInput.value = '';
+      displayDiv.classList.add('hidden');
+      selectedNameSpan.textContent = '';
+    }
+  };
+
+  // Hide dropdown when clicking outside and handle showing results
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.form-control')) {
+      document.querySelectorAll('[id$="_results"]').forEach(results => {
+        results.style.display = 'none';
+      });
+    }
+  });
+
+  // Show results when search input gets focus
+  document.addEventListener('focusin', function(e) {
+    if (e.target.id && e.target.id.includes('_search')) {
+      const fieldName = e.target.id.replace('_search', '');
+      const resultsDiv = document.getElementById(`field_${fieldName}_results`);
+      if (resultsDiv && resultsDiv.innerHTML.trim()) {
+        resultsDiv.style.display = 'block';
+      }
+    }
+  });
 });
 </script>
 {% endpartialdef %}
-
 {% block content %}
-{% partial content %}
-{% endblock %}
+  {% partial content %}
+{% endblock content %}

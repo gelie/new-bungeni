@@ -573,16 +573,14 @@ class WorkflowTypeChildConfig(models.Model):
 class StatePermission(models.Model):
     """
     Direct per-state role permissions. Replaces the Facet/StateFacet indirection.
-    One row per (state, role) pair controls what that role can do in that state.
+    One row per state with multiple roles controls what those roles can do in that state.
     Transition permission is handled by both this model and Transition.allowed_roles.
     """
 
     state = models.ForeignKey(
         State, on_delete=models.CASCADE, related_name="permissions"
     )
-    role = models.ForeignKey(
-        Role, on_delete=models.CASCADE, related_name="state_permissions"
-    )
+    roles = models.ManyToManyField(Role, related_name="state_permissions")
     can_view = models.BooleanField(default=False)
     can_edit = models.BooleanField(default=False)
     can_delete = models.BooleanField(default=False)
@@ -592,8 +590,7 @@ class StatePermission(models.Model):
     )
 
     class Meta:
-        ordering = ["state", "role"]
-        unique_together = [["state", "role"]]
+        ordering = ["state"]
 
     def __str__(self):
         perms = ", ".join(
@@ -606,7 +603,7 @@ class StatePermission(models.Model):
             ]
             if v
         )
-        return f"{self.state} | {self.role} | [{perms or 'none'}]"
+        return f"{self.state} | {', '.join(role.name for role in self.roles.all())} | [{perms or 'none'}]"
 
 
 class Workflow(models.Model):
@@ -877,11 +874,6 @@ class Workflow(models.Model):
     def get_available_transitions(self, user):
         """Get transitions available to a user from current state"""
 
-        # Block all transitions if workflow has active referrals
-        # Owner can still recall all referrals but cannot make other transitions
-        if self.is_referred:
-            return Transition.objects.none()
-
         user_roles = []
 
         # Check RBAC WorkflowGroupAccess first
@@ -917,6 +909,15 @@ class Workflow(models.Model):
                 ).values_list("role", flat=True)
             )
             user_roles = user_roles + referred_user_roles
+
+        # If workflow has active referrals, block owner from making transitions
+        # but allow referred group members to proceed
+        if self.is_referred:
+            # Check if user is the workflow owner
+            if user == self.owner:
+                # Owner can only recall referrals, not make other transitions
+                return Transition.objects.none()
+            # If not owner, proceed with normal permission checks (referred group members can transition)
 
         return Transition.objects.filter(
             workflow_type=self.workflow_type,
@@ -1764,8 +1765,6 @@ class Notification(models.Model):
     VERB_DELEGATION_APPROVED = "delegation_approved"
     VERB_DELEGATION_REVOKED = "delegation_revoked"
     VERB_DELEGATION_EXPIRED = "delegation_expired"
-    VERB_DEADLINE_WARNING = "deadline_warning"
-    VERB_AUTO_RECALL = "auto_recall"
 
     VERB_CHOICES = [
         (VERB_TRANSITION, "Transition"),
@@ -1778,8 +1777,6 @@ class Notification(models.Model):
         (VERB_DELEGATION_APPROVED, "Delegation Approved"),
         (VERB_DELEGATION_REVOKED, "Delegation Revoked"),
         (VERB_DELEGATION_EXPIRED, "Delegation Expired"),
-        (VERB_DEADLINE_WARNING, "Deadline Warning"),
-        (VERB_AUTO_RECALL, "Auto Recall"),
     ]
 
     user = models.ForeignKey(

@@ -896,9 +896,7 @@ def workflow_detail(request, pk):
 
     # Diagram tab: states with permissions, transitions with roles
     wt = workflow.workflow_type
-    diagram_states = wt.states.prefetch_related("permissions__role").order_by(
-        "order", "name"
-    )
+    diagram_states = wt.states.order_by("order", "name")
     diagram_transitions = (
         wt.transitions.select_related("from_state", "to_state")
         .prefetch_related("allowed_roles")
@@ -971,6 +969,24 @@ def workflow_detail(request, pk):
                         "title": field_config.get("title", field_name),
                         "value": delegate_details,
                         "type": "delegate_group",
+                    }
+                # Special handling for group_lookup field
+                elif field_config.get("field_type") == "group_lookup":
+                    group_name = None
+                    if field_value:
+                        try:
+                            from workflows.models import Group
+
+                            group = Group.objects.get(pk=int(field_value))
+                            group_name = group.name
+                        except (Group.DoesNotExist, ValueError):
+                            group_name = f"Group ID: {field_value}"
+
+                    custom_fields[field_name] = {
+                        "title": field_config.get("title", field_name),
+                        "value": group_name,
+                        "type": "group_lookup",
+                        "description": field_config.get("description", ""),
                     }
                 else:
                     custom_fields[field_name] = {
@@ -1321,11 +1337,35 @@ def workflow_edit(request, pk):
             ).values("name")
         )
 
+        # Resolve group IDs to names for group_lookup fields
+        existing_data = workflow.data or {}
+        group_names = {}
+        if workflow_type.json_schema and workflow_type.json_schema.get("properties"):
+            for field_name, field_config in workflow_type.json_schema[
+                "properties"
+            ].items():
+                if (
+                    field_config.get("field_type") == "group_lookup"
+                    and field_name in existing_data
+                ):
+                    group_id = existing_data[field_name]
+                    if group_id:
+                        try:
+                            from workflows.models import Group
+
+                            group = Group.objects.get(pk=int(group_id))
+                            print(type(group))
+                            group_names[field_name] = group.name
+                        except Group.DoesNotExist:
+                            # Fallback to showing the ID if group doesn't exist
+                            group_names[field_name] = f"Group ID: {group_id}"
+
         context = {
             "workflow": workflow,
             "workflow_types": WorkflowType.objects.all(),
             "workflow_type_schemas": workflow_type_schemas,
-            "existing_data": workflow.data or {},
+            "existing_data": existing_data,
+            "group_names": group_names,
             "available_events": available_events,
             "available_users": available_users,
             "delegation_roles": delegation_roles,
@@ -4849,3 +4889,18 @@ def user_search(request):
     users = users.order_by("first_name", "last_name")[:20]  # Limit to 20 results
 
     return render(request, "user_search_results.html", {"users": users})
+
+
+@login_required
+def group_search(request):
+    """Search groups and return HTML results for HTMX."""
+    search_query = request.GET.get("search", "")
+
+    groups = Group.objects.all()
+
+    if search_query:
+        groups = groups.filter(Q(name__icontains=search_query))
+
+    groups = groups.order_by("name")[:20]  # Limit to 20 results
+
+    return render(request, "group_search_results.html", {"groups": groups})

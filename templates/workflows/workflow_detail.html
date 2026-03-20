@@ -366,6 +366,27 @@
                                                         </div>
                                                     </div>
                                                 {% endif %}
+                                            {% elif field_data.type == "group_lookup" %}
+                                                <div class="form-control">
+                                                    <label class="label">
+                                                        <span class="label-text font-semibold text-base-content/80">{{ field_data.title }}</span>
+                                                    </label>
+                                                    <div class="bg-base-200 rounded-lg p-3">
+                                                        {% if field_data.value %}
+                                                            <div class="flex items-center gap-2">
+                                                                {% lucide "users" class="w-4 h-4 text-base-content/70" %}
+                                                                <span class="text-base-content">{{ field_data.value }}</span>
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="text-base-content/50">—</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    {% if field_data.description %}
+                                                        <label class="label">
+                                                            <span class="label-text-alt text-base-content/70">{{ field_data.description }}</span>
+                                                        </label>
+                                                    {% endif %}
+                                                </div>
                                             {% else %}
                                                 <div class="form-control">
                                                     <label class="label">
@@ -1232,7 +1253,6 @@
             </div>
         </div>
     </div>
-</div>
 </div>
 <style>
     /* Custom tab styling */

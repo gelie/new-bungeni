@@ -147,8 +147,8 @@ class GroupMembershipAdmin(admin.ModelAdmin):
 class StatePermissionInline(admin.TabularInline):
     model = StatePermission
     extra = 1
-    autocomplete_fields = ["role"]
-    fields = ["role", "can_view", "can_edit", "can_delete", "can_transition"]
+    filter_horizontal = ["roles"]
+    fields = ["roles", "can_view", "can_edit", "can_delete", "can_transition"]
 
 
 class WorkflowTypeChildConfigInline(admin.TabularInline):
@@ -243,7 +243,7 @@ class TransitionAdmin(admin.ModelAdmin):
 class StatePermissionAdmin(admin.ModelAdmin):
     list_display = [
         "state",
-        "role",
+        "get_roles",
         "can_view",
         "can_edit",
         "can_delete",
@@ -256,8 +256,14 @@ class StatePermissionAdmin(admin.ModelAdmin):
         "can_delete",
         "can_transition",
     ]
-    search_fields = ["state__name", "role__name"]
-    autocomplete_fields = ["state", "role"]
+    search_fields = ["state__name", "roles__name"]
+    autocomplete_fields = ["state"]
+    filter_horizontal = ["roles"]
+
+    def get_roles(self, obj):
+        return ", ".join([role.name for role in obj.roles.all()])
+
+    get_roles.short_description = "Roles"
 
 
 class WorkflowGroupAccessInline(admin.TabularInline):
