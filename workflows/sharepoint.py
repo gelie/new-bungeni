@@ -240,8 +240,10 @@ async def upload_file(
     # For small files (<4MB), use simple upload
     if len(file_content) < 4 * 1024 * 1024:
         # Handle root folder case
-        folder_path = "/root" if folder_id == "root" else folder_id
-        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_path}:/{filename}:/content"
+        if folder_id == "root":
+            url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{filename}:/content"
+        else:
+            url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}:/{filename}:/content"
         headers["Content-Type"] = "application/octet-stream"
 
         async with httpx.AsyncClient() as client:
@@ -256,8 +258,10 @@ async def upload_file(
     else:
         # For large files, create upload session
         # Handle root folder case
-        folder_path = "/root" if folder_id == "root" else folder_id
-        upload_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items{folder_path}:/{filename}:/createUploadSession"
+        if folder_id == "root":
+            upload_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root:/{filename}:/createUploadSession"
+        else:
+            upload_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{folder_id}:/{filename}:/createUploadSession"
 
         async with httpx.AsyncClient() as client:
             try:
@@ -310,7 +314,11 @@ async def create_folder(
     if not access_token:
         raise Exception("No access_token found in token data")
 
-    url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{parent_folder_id}/children"
+    # Handle root folder case
+    if parent_folder_id == "root":
+        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/root/children"
+    else:
+        url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{parent_folder_id}/children"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",

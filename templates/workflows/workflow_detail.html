@@ -1729,7 +1729,7 @@
         const siteSelect = document.getElementById('sharepoint-site-select');
         siteSelect.innerHTML = '<option value="">Loading sites...</option>';
 
-        fetch('/api/sites/{{ request.user.username }}')
+        fetch('/api/sites/{{ user.username }}')
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -1832,6 +1832,9 @@
                     });
                     folderSelect.disabled = false;
                 }
+
+                // Automatically load files for root folder
+                loadSharepointFiles();
             })
             .catch(error => {
                 console.error('Error loading folders:', error);
@@ -2397,17 +2400,22 @@
 
     // Load sites for comment upload
     function loadCommentSites() {
-        fetch('/api/sharepoint/sites/')
+        fetch('/api/sites/{{user.username}}')
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('comment-site-select');
                 select.innerHTML = '<option value="">Select a site...</option>';
-                const sites = data.sites || []; // Access the sites array from the response
+                const sites = data.items || []; // Access the sites array from the response
                 sites.forEach(site => {
-                    select.innerHTML += `<option value="${site.id}">${site.name}</option>`;
+                    select.innerHTML += `<option value="${site.site_id}">${site.name}</option>`;
                 });
                 select.disabled = false;
                 select.onchange = loadCommentDrives;
+
+            })
+            .catch(error => {
+                console.error('Error loading sites:', error);
+                showError('Failed to load SharePoint sites: ' + error.message);
             });
     }
 
@@ -2497,6 +2505,10 @@
                 sites.forEach(site => {
                     select.innerHTML += `<option value="${site.site_id}">${site.name}</option>`;
                 });
+            })
+            .catch(error => {
+                console.error('Error loading sites:', error);
+                showError('Failed to load SharePoint sites: ' + error.message);
             });
     }
 
@@ -2530,6 +2542,9 @@
                     select.innerHTML += `<option value="${folder.id}">${folder.name}</option>`;
                 });
                 select.disabled = false;
+
+                // Automatically load files for root folder
+                loadCommentSharepointFiles();
             });
     }
 

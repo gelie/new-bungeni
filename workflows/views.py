@@ -9,6 +9,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -3360,6 +3361,15 @@ def attachment_link_sharepoint(request):
             }
         )
 
+    except IntegrityError as e:
+        error_msg = str(e).lower()
+        if "unique constraint" in error_msg and "item_id" in error_msg:
+            return JsonResponse(
+                {"error": "This file is already attached to this workflow"}, status=400
+            )
+        return JsonResponse(
+            {"error": "Database error: Unable to save attachment"}, status=500
+        )
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -3443,6 +3453,15 @@ def attachment_upload(request):
             }
         )
 
+    except IntegrityError as e:
+        error_msg = str(e).lower()
+        if "unique constraint" in error_msg and "item_id" in error_msg:
+            return JsonResponse(
+                {"error": "This file is already exists in this location"}, status=400
+            )
+        return JsonResponse(
+            {"error": "Database error: Unable to save attachment"}, status=500
+        )
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 

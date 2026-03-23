@@ -1765,8 +1765,6 @@ class Notification(models.Model):
     VERB_DELEGATION_APPROVED = "delegation_approved"
     VERB_DELEGATION_REVOKED = "delegation_revoked"
     VERB_DELEGATION_EXPIRED = "delegation_expired"
-    VERB_DEADLINE_WARNING = "deadline_warning"
-    VERB_AUTO_RECALL = "auto_recall"
 
     VERB_CHOICES = [
         (VERB_TRANSITION, "Transition"),
@@ -1779,8 +1777,6 @@ class Notification(models.Model):
         (VERB_DELEGATION_APPROVED, "Delegation Approved"),
         (VERB_DELEGATION_REVOKED, "Delegation Revoked"),
         (VERB_DELEGATION_EXPIRED, "Delegation Expired"),
-        (VERB_DEADLINE_WARNING, "Deadline Warning"),
-        (VERB_AUTO_RECALL, "Auto Recall"),
     ]
 
     user = models.ForeignKey(

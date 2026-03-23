@@ -3,6 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from mptt.admin import MPTTModelAdmin
 
 from .models import (
+    Attachment,
     AuditLog,
     Building,
     Comment,
@@ -733,3 +734,34 @@ class UserDelegationAdmin(admin.ModelAdmin):
             .select_related("delegator", "delegatee", "approved_by", "revoked_by")
             .prefetch_related("workflows", "groups")
         )
+
+
+@admin.register(Attachment)
+class AttachmentAdmin(admin.ModelAdmin):
+    list_display = [
+        "name",
+        "type",
+        "related_workflow",
+        "uploaded_by",
+        "mimetype",
+        "size",
+        "created_at",
+    ]
+    list_filter = ["type", "mimetype", "created_at"]
+    search_fields = ["name", "related_workflow__title", "uploaded_by__username"]
+    readonly_fields = [
+        "drive_id",
+        "item_id",
+        "download_url",
+        "sharepoint_web_url",
+        "created_at",
+        "updated_at",
+    ]
+    autocomplete_fields = [
+        "related_workflow",
+        "uploaded_by",
+        "sharepoint_site",
+        "sharepoint_drive",
+        # "sharepoint_folder",
+    ]
+    date_hierarchy = "created_at"
