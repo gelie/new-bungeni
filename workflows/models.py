@@ -1884,6 +1884,9 @@ class SiteMember(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.site.name}"
 
+    class Meta:
+        unique_together = [["site", "user"]]
+
 
 class Drive(models.Model):
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
