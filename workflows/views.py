@@ -897,7 +897,9 @@ def workflow_detail(request, pk):
 
     # Diagram tab: states with permissions, transitions with roles
     wt = workflow.workflow_type
-    diagram_states = wt.states.order_by("order", "name")
+    diagram_states = wt.states.prefetch_related("permissions__roles").order_by(
+        "order", "name"
+    )
     diagram_transitions = (
         wt.transitions.select_related("from_state", "to_state")
         .prefetch_related("allowed_roles")

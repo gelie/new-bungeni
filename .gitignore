@@ -38,3 +38,5 @@ static/css/main.css.20260227
 
 db-14Mar.sqlite3
 db-16Mar.sqlite3
+workflows/management/commands/update_lucide_icons.py
+lucide-latest.zip

@@ -999,7 +999,7 @@ class Workflow(models.Model):
                 # 2. For CRUD permissions, check State permissions (not Role defaults)
                 if permission_type in ["view", "edit", "delete", "transition"]:
                     state_perm = self.current_state.permissions.filter(
-                        role=role
+                        roles=role
                     ).first()
                     if state_perm:
                         if permission_type == "view" and state_perm.can_view:
@@ -1060,7 +1060,7 @@ class Workflow(models.Model):
 
         # Check state permissions only (no role fallback)
         user_roles = self._user_roles_for_workflow(user)
-        state_perms = self.current_state.permissions.filter(role__in=user_roles)
+        state_perms = self.current_state.permissions.filter(roles__in=user_roles)
         return state_perms.filter(can_view=True).exists()
 
     def can_user_edit(self, user):
@@ -1087,7 +1087,7 @@ class Workflow(models.Model):
 
         # Check state permissions only (no role fallback)
         user_roles = self._user_roles_for_workflow(user)
-        state_perms = self.current_state.permissions.filter(role__in=user_roles)
+        state_perms = self.current_state.permissions.filter(roles__in=user_roles)
         return state_perms.filter(can_edit=True).exists()
 
     def can_user_delete(self, user):
@@ -1106,7 +1106,7 @@ class Workflow(models.Model):
 
         # Check state permissions only (no role fallback)
         user_roles = self._user_roles_for_workflow(user)
-        state_perms = self.current_state.permissions.filter(role__in=user_roles)
+        state_perms = self.current_state.permissions.filter(roles__in=user_roles)
         return state_perms.filter(can_delete=True).exists()
 
     def get_accessible_groups(self):

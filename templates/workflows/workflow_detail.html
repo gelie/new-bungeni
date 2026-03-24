@@ -676,58 +676,59 @@
                             {% endfor %}
                         </div>
                         <!-- Add Comment Form -->
-                        <div class="border-t pt-6">
+                        <div class="border-t pt-6 pb-8">
                             <form method="post"
                                   action="{% url 'workflow_detail' workflow.pk %}"
-                                  class="space-y-4">
+                                  class="space-y-4 pb-4">
                                 {% csrf_token %}
-                                <div class="flex gap-3">
-                                    <div class="avatar avatar-placeholder">
-                                        <div class="bg-primary text-primary-content rounded-full h-10 w-10">
-                                            <span class="text-sm">{{ request.user.first_name.0|default:request.user.username.0|upper }}</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex-1">
-                                        <textarea name="comment"
-                                                  placeholder="Add a note..."
-                                                  class="textarea textarea-bordered w-full"
-                                                  rows="3"
-                                                  required></textarea>
-                                        <!-- Comment Attachments Section -->
-                                        <div id="comment-attachments" class="mt-3 hidden">
-                                            <div class="flex items-center justify-between mb-2">
-                                                <span class="text-sm font-medium">Attachments</span>
-                                                <button type="button"
-                                                        onclick="clearCommentAttachments()"
-                                                        class="btn btn-ghost btn-xs text-error">
-                                                    {% lucide "x" class="w-3 h-3" %}
-                                                    Clear All
-                                                </button>
+                                <div class="flex flex-col md:flex-row gap-3">
+                                    <div class="flex gap-3 flex-1">
+                                        <div class="avatar avatar-placeholder">
+                                            <div class="bg-primary text-primary-content rounded-full h-10 w-10">
+                                                <span class="text-sm">{{ request.user.first_name.0|default:request.user.username.0|upper }}</span>
                                             </div>
-                                            <div id="comment-attachments-list" class="space-y-2"></div>
                                         </div>
-                                        <!-- Attachment Buttons -->
-                                        <div class="flex gap-2 mt-3">
-                                            <button type="button"
-                                                    onclick="showCommentSharepointModal()"
-                                                    class="btn btn-outline">
-                                                {% lucide "paperclip" class="w-3 h-3 mr-1" %}
-                                                Attach from SharePoint
-                                            </button>
-                                            <button type="button"
-                                                    onclick="showCommentUploadModal()"
-                                                    class="btn btn-outline">
-                                                {% lucide "upload" class="w-3 h-3 mr-1" %}
-                                                Upload File
-                                            </button>
+                                        <div class="flex-1">
+                                            <textarea name="comment"
+                                                      placeholder="Add a note..."
+                                                      class="textarea textarea-bordered w-full lg:rows-6"
+                                                      rows="3"
+                                                      cols="80"
+                                                      required></textarea>
+                                            <!-- Comment Attachments Section -->
+                                            <div id="comment-attachments" class="mt-3 hidden">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="text-sm font-medium">Attachments</span>
+                                                    <button type="button"
+                                                            onclick="clearCommentAttachments()"
+                                                            class="btn btn-ghost btn-xs text-error">
+                                                        {% lucide "x" class="w-3 h-3" %}
+                                                        Clear All
+                                                    </button>
+                                                </div>
+                                                <div id="comment-attachments-list" class="space-y-2"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="flex justify-end">
-                                    <button type="submit" class="btn btn-primary">
-                                        {% lucide "send" class="w-4 h-4 mr-2" %}
-                                        Send
-                                    </button>
+                                    <!-- Attachment Buttons -->
+                                    <div class="flex flex-col md:flex-row gap-3">
+                                        <button type="button"
+                                                onclick="showCommentSharepointModal()"
+                                                class="btn btn-outline">
+                                            {% lucide "paperclip" class="w-3 h-3 mr-1" %}
+                                            Attach from SharePoint
+                                        </button>
+                                        <button type="button"
+                                                onclick="showCommentUploadModal()"
+                                                class="btn btn-outline">
+                                            {% lucide "upload" class="w-3 h-3 mr-1" %}
+                                            Upload File
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            {% lucide "send" class="w-4 h-4 mr-2" %}
+                                            Send
+                                        </button>
+                                    </div>
                                 </div>
                                 <!-- Hidden input for comment attachment IDs -->
                                 <input type="hidden"
@@ -754,8 +755,12 @@
                                         <img src="{{ diagram_url }}"
                                              alt="{{ workflow.workflow_type.name }} workflow diagram"
                                              class="max-w-full rounded-lg shadow"
-                                             width="800"
-                                             height="600" />
+                                             {% comment %}
+                                             width="400"
+                                             {% endcomment %}
+                                             {% comment %}
+                                             height="400"
+                                             {% endcomment %} />
                                     </div>
                                 {% else %}
                                     <div class="alert alert-warning">
@@ -809,7 +814,9 @@
                                                                     {% endif %}
                                                                 </td>
                                                             {% endif %}
-                                                            <td class="text-sm">{{ perm.role.name }}</td>
+                                                            <td class="text-sm">
+                                                                {% for role in perm.roles.all %}<span class="badge badge-sm badge-outline mr-1">{{ role.name }}</span>{% endfor %}
+                                                            </td>
                                                             <td class="text-center">
                                                                 {% if perm.can_view %}
                                                                     {% lucide "check" class="w-4 h-4 text-success mx-auto" %}

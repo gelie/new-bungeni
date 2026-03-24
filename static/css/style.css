@@ -17,9 +17,10 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    transform: scale(1.2);
-    transform-origin: top left;
-    width: 83.33%;
+    zoom: 120%;
+    /* transform: scale(1.2); */
+    /* transform-origin: top left; */
+    /* width: 83.33%; */
     /* 100% / 1.2 to compensate for scale */
 }
 

@@ -27,6 +27,7 @@ dependencies = [
     "python-ldap>=3.4.5",
     "python-multipart>=0.0.22",
     "reportlab>=4.4.10",
+    "requests>=2.32.5",
     "weasyprint>=68.1",
 ]
 
