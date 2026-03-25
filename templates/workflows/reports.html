@@ -121,7 +121,7 @@
                                    value="overview"
                                    class="radio radio-primary"
                                    data-tooltip="Collective statistics and workflow details"
-                                   {% if report_type == 'overview' %}checked{% endif %} />
+                                   {% if report_type == 'overview' or not report_type %}checked{% endif %} />
                             <span class="label-text">Overview Report</span>
                         </label>
                     </div>
@@ -210,7 +210,7 @@
                 {% endif %}
                 <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-base-300">
                     <button type="submit" class="btn btn-primary">
-                        {% lucide "filter" class="w-4 h-4" %}
+                        {% lucide "list-filter" class="w-4 h-4" %}
                         Apply Filters
                     </button>
                     {% if filter_params.period or filter_params.workflow_type_id or filter_params.overdue_only or filter_params.parent_workflow_id %}

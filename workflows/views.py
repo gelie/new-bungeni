@@ -2066,7 +2066,7 @@ def reports(request):
     )
 
     # Get report type (activity or overview)
-    report_type = request.GET.get("report_type", "activity")
+    report_type = request.GET.get("report_type", "overview")
 
     # Get workflows user can view
     if user.is_superuser:
@@ -2635,7 +2635,7 @@ def reports_recent_activity_pdf(request):
         )
 
     # Get report type (activity or overview)
-    report_type = request.GET.get("report_type", "activity")
+    report_type = request.GET.get("report_type", "overview")
 
     # Check if this is a filtered report
     has_filters = any(
@@ -2724,8 +2724,10 @@ def reports_recent_activity_pdf(request):
     # Render HTML template
     html_string = render_to_string("workflows/pdf/report_export.html", context)
 
-    # Generate PDF
-    html = HTML(string=html_string)
+    # Generate PDF with base_url to resolve static files
+
+    base_url = request.build_absolute_uri("/")[:-1]  # Remove trailing slash
+    html = HTML(string=html_string, base_url=base_url)
     pdf = html.write_pdf()
 
     # Create response

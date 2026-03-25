@@ -111,7 +111,7 @@
                 </div>
                 <!-- Quick Actions -->
                 <div class="flex gap-2 flex-wrap">
-                    {% if can_edit and allowed_child_configs %}
+                    {% if allowed_child_configs %}
                         <label for="bulk-create-modal" class="btn btn-sm bg-gray-600 text-white">
                             {% lucide "plus" class="w-4 h-4 mr-1" %} Related Process
                         </label>
@@ -3046,7 +3046,7 @@
         }
     })();
 </script>
-{% if can_edit and allowed_child_configs %}
+{% if allowed_child_configs %}
     <!-- Bulk Sub-workflow Creation Modal -->
     <input type="checkbox" id="bulk-create-modal" class="modal-toggle" />
     <div class="modal" role="dialog">
