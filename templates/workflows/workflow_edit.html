@@ -49,7 +49,7 @@
                      class="input input-bordered h-12 w-full bg-base-200"
                      value="{{ workflow.workflow_type.name }}"
                      disabled />
-              <div class="text-xs text-base-content/60 mt-1">Workflow type cannot be changed after creation</div>
+              <div class="text-sm text-base-content/60 mt-1">Workflow type cannot be changed after creation</div>
             </div>
             <!-- Parent Workflow -->
             <div class="form-control">
@@ -60,7 +60,7 @@
                      class="input input-bordered h-12 w-full bg-base-200"
                      value="{% if workflow.parent_workflow %}{{ workflow.parent_workflow.title }}{% else %}None (Top-level workflow){% endif %}"
                      disabled />
-              <div class="text-xs text-base-content/60 mt-1">Parent workflow relationship is set at creation</div>
+              <div class="text-sm text-base-content/60 mt-1">Parent workflow relationship is set at creation</div>
             </div>
           </div>
           <!-- Description -->
@@ -117,7 +117,7 @@
                             </option>
                             {% endfor %}
                         </select>
-                        <div class="text-xs text-base-content/60 mt-1">Link this workflow to a specific event</div>
+                        <div class="text-sm text-base-content/60 mt-1">Link this workflow to a specific event</div>
           </div> {% endcomment %}
         </div>
         <!-- Custom Fields Section -->
@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="flex items-center gap-3">
           <div class="avatar placeholder">
             <div class="bg-neutral text-neutral-content rounded-full w-8 flex items-center justify-center">
-              <span class="text-xs">${delegate.user_name.charAt(0).toUpperCase()}</span>
+              <span class="text-sm">${delegate.user_name.charAt(0).toUpperCase()}</span>
             </div>
           </div>
           <div>

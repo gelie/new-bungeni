@@ -80,7 +80,7 @@
                   {% for role in transition.notify_roles.all %}
                   <span class="badge badge-info badge-sm">{{ role.name }}</span>
                   {% empty %}
-                  <span class="text-xs text-base-content/40">—</span>
+                  <span class="text-sm text-base-content/40">—</span>
                   {% endfor %}
                 </div>
               </td>
@@ -166,7 +166,7 @@
 
         <div class="divider my-2"></div>
 
-        <p class="text-xs text-base-content/70">
+        <p class="text-sm text-base-content/70">
           <strong>Note:</strong> Make sure you have configured states before creating transitions. Each transition must
           connect two existing states.
         </p>

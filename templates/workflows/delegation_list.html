@@ -108,13 +108,13 @@
                   <div class="avatar placeholder">
                     <div class="bg-neutral-focus text-neutral-content rounded-full w-8 h-8">
                       <span
-                        class="text-xs">{{ delegation.delegator.first_name.0 }}{{ delegation.delegator.last_name.0 }}</span>
+                        class="text-sm">{{ delegation.delegator.first_name.0 }}{{ delegation.delegator.last_name.0 }}</span>
                     </div>
                   </div>
                   <div>
                     <div class="font-medium">
                       {{ delegation.delegator.get_full_name|default:delegation.delegator.username }}</div>
-                    <div class="text-xs opacity-50">{{ delegation.delegator.email }}</div>
+                    <div class="text-sm opacity-50">{{ delegation.delegator.email }}</div>
                   </div>
                 </div>
               </td>
@@ -123,13 +123,13 @@
                   <div class="avatar placeholder">
                     <div class="bg-primary-focus text-primary-content rounded-full w-8 h-8">
                       <span
-                        class="text-xs">{{ delegation.delegatee.first_name.0 }}{{ delegation.delegatee.last_name.0 }}</span>
+                        class="text-sm">{{ delegation.delegatee.first_name.0 }}{{ delegation.delegatee.last_name.0 }}</span>
                     </div>
                   </div>
                   <div>
                     <div class="font-medium">
                       {{ delegation.delegatee.get_full_name|default:delegation.delegatee.username }}</div>
-                    <div class="text-xs opacity-50">{{ delegation.delegatee.email }}</div>
+                    <div class="text-sm opacity-50">{{ delegation.delegatee.email }}</div>
                   </div>
                 </div>
               </td>
@@ -160,9 +160,9 @@
                 <div class="text-sm">
                   <div>{{ delegation.start_date|date:"M d, Y H:i" }}</div>
                   {% if delegation.end_date %}
-                  <div class="text-xs opacity-50">to {{ delegation.end_date|date:"M d, Y H:i" }}</div>
+                  <div class="text-sm opacity-50">to {{ delegation.end_date|date:"M d, Y H:i" }}</div>
                   {% else %}
-                  <div class="text-xs opacity-50">Indefinite</div>
+                  <div class="text-sm opacity-50">Indefinite</div>
                   {% endif %}
                 </div>
               </td>

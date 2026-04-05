@@ -8,7 +8,7 @@
      title="Dashboard">
     <div class="flex flex-col items-center">
       {% lucide "chart-pie" class="w-6 h-6" %}
-      <span class="text-xs">Dashboard</span>
+      <span class="text-sm">Dashboard</span>
     </div>
   </a>
   <a hx-get="{% url 'workflow_list' %}"
@@ -19,7 +19,7 @@
      title="Workflows">
     <div class="flex flex-col items-center">
       {% lucide "git-branch" class="w-6 h-6" %}
-      <span class="text-xs">Workflows</span>
+      <span class="text-sm">Workflows</span>
     </div>
   </a>
   {% if user.is_superuser or user.can_manage_permissions %}
@@ -31,7 +31,7 @@
        title="Delegations">
       <div class="flex flex-col items-center">
         {% lucide "user-plus" class="w-6 h-6" %}
-        <span class="text-xs">Delegations</span>
+        <span class="text-sm">Delegations</span>
       </div>
     </a>
   {% endif %}
@@ -43,7 +43,7 @@
      title="Events">
     <div class="flex flex-col items-center">
       {% lucide "calendar" class="w-6 h-6" %}
-      <span class="text-xs">Events</span>
+      <span class="text-sm">Events</span>
     </div>
   </a>
   <a hx-get="{% url 'group_list' %}"
@@ -54,7 +54,7 @@
      title="Groups">
     <div class="flex flex-col items-center">
       {% lucide "users" class="w-6 h-6" %}
-      <span class="text-xs">Groups</span>
+      <span class="text-sm">Groups</span>
     </div>
   </a>
   <a hx-get="{% url 'reports' %}"
@@ -65,7 +65,7 @@
      title="Reports">
     <div class="flex flex-col items-center">
       {% lucide "file-text" class="w-6 h-6" %}
-      <span class="text-xs">Reports</span>
+      <span class="text-sm">Reports</span>
     </div>
   </a>
   {% if user.is_staff %}
@@ -79,7 +79,7 @@
        title="Administration">
       <div class="flex flex-col items-center">
         {% lucide "settings" class="w-6 h-6" %}
-        <span class="text-xs">Admin</span>
+        <span class="text-sm">Admin</span>
       </div>
     </a>
   {% endif %}
@@ -92,6 +92,9 @@
 </div> {% endcomment %}
 <!-- Collapsible Side Panels -->
 <div id="sidebar-panels" class="sidebar-panel-container mt-20">
+  <button class="btn btn-circle mt-2 mr-2"
+          style="float:right"
+          _="on click call toggleSidebarPanels()">X</button>
   <!-- Dashboard Panel -->
   <div id="panel-dashboard" class="sidebar-panel" data-panel="dashboard">
     <div class="p-4">

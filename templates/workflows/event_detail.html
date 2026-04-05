@@ -161,7 +161,7 @@
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-neutral text-neutral-content rounded-full w-8">
-                                                <span class="text-xs">{{ attendance.user.first_name.0|default:attendance.user.username.0|upper }}</span>
+                                                <span class="text-sm">{{ attendance.user.first_name.0|default:attendance.user.username.0|upper }}</span>
                                             </div>
                                         </div>
                                         {{ attendance.user.get_full_name|default:attendance.user.username }}

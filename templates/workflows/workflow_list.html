@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Workflows{% endblock %}
 {% partialdef content %}
-<div id="content" class="max-w-7xl mx-auto space-y-6">
+<div id="content" class="max-w-screen-2xl mx-auto space-y-6">
     <!-- Page Header -->
     <div class="flex justify-between items-center">
         <div>
@@ -118,8 +118,8 @@
                     <thead>
                         <tr>
                             <th class="w-1/4">Title</th>
-                            <th class="w-32">Type</th>
-                            <th class="w-48">State</th>
+                            <th class="w-72">Type</th>
+                            <th class="w-64">State</th>
                             <th class="w-20">Priority</th>
                             <th class="w-1/6">Owner</th>
                             <th class="w-24">Deadline</th>
@@ -137,16 +137,16 @@
                                     <div class="flex items-start gap-2">
                                         {% if workflow.parent_workflow %}
                                             <div class="flex items-center text-base-content/40 mt-1">
-                                                <span class="text-xs">└─</span>
+                                                <span class="text-sm">└─</span>
                                             </div>
                                         {% elif workflow.has_sub_workflows %}
                                             <div class="flex items-center text-base-content/40 mt-1">
-                                                <span class="text-xs">{% lucide 'folder' class='w-4 h-4 text-accent fill-current' %}</span>
+                                                <span class="text-sm">{% lucide 'folder' class='w-4 h-4 text-accent fill-current' %}</span>
                                             </div>
                                         {% endif %}
                                         <div class="flex-1">
                                             <div class="font-semibold">{{ workflow.title|truncatewords:10 }}</div>
-                                            <div class="text-xs text-base-content/60">
+                                            <div class="text-sm text-base-content/60">
                                                 Created {{ workflow.created_at|timesince }} ago
                                                 {% if workflow.parent_workflow %}
                                                     <span class="text-base-content/50">• Child of
@@ -157,12 +157,10 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="max-w-42">
-                                        <span class="badge badge-outline text-xs px-2 py-1 inline-block w-full truncate"
-                                              title="{{ workflow.workflow_type.name }}">
-                                            {{ workflow.workflow_type.name|title }}
-                                        </span>
-                                    </div>
+                                    <span class="badge badge-outline text-sm px-2 py-1"
+                                          title="{{ workflow.workflow_type.name }}">
+                                        {{ workflow.workflow_type.name|title }}
+                                    </span>
                                 </td>
                                 <td>
                                     {% if workflow.user_transitions %}
@@ -170,7 +168,7 @@
                                                 class="badge cursor-pointer select-none flex items-center gap-1 workflow-state-badge state-popover-trigger px-3 py-2"
                                                 data-state-color="{{ workflow.current_state.color }}"
                                                 onclick="event.stopPropagation(); openStatePopover(this)">
-                                            <span class="truncate max-w-[140px]">{{ workflow.current_state.name }}</span>
+                                            <span class="min-w-0">{{ workflow.current_state.name }}</span>
                                             {% lucide "chevron-down" class="w-3 h-3 shrink-0 opacity-80" %}
                                             {% for t in workflow.user_transitions %}
                                                 <span class="hidden"
@@ -181,7 +179,7 @@
                                     {% else %}
                                         <span class="badge workflow-state-badge px-3 py-2"
                                               data-state-color="{{ workflow.current_state.color }}">
-                                            <span class="truncate max-w-[140px] inline-block">{{ workflow.current_state.name }}</span>
+                                            <span>{{ workflow.current_state.name }}</span>
                                         </span>
                                     {% endif %}
                                 </td>
@@ -200,7 +198,7 @@
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-primary text-primary-content rounded-full w-8">
-                                                <span class="text-xs">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
+                                                <span class="text-sm">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
                                             </div>
                                         </div>
                                         <span class="text-sm">{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
@@ -241,7 +239,7 @@
      class="hidden fixed z-[9999] bg-base-100 border border-base-300 rounded-box shadow-xl w-52 py-1"
      style="top:0;
             left:0">
-    <p class="text-xs text-base-content/50 px-3 py-1 font-medium">Transition to…</p>
+    <p class="text-sm text-base-content/50 px-3 py-1 font-medium">Transition to…</p>
     <div id="state-popover-items"></div>
 </div>
 <script>

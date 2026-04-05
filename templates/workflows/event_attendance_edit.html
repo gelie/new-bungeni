@@ -50,7 +50,7 @@
                                     <div class="flex gap-4 flex-1">
                                         <div class="form-control flex-1">
                                             <label class="label">
-                                                <span class="label-text text-xs">Status</span>
+                                                <span class="label-text text-sm">Status</span>
                                             </label>
                                             <select name="attendance_{{ attendance.pk }}" class="select select-bordered select-sm">
                                                 {% for choice in attendance.ATTENDANCE_CHOICES %}
@@ -62,7 +62,7 @@
                                         </div>
                                         <div class="form-control flex-1">
                                             <label class="label">
-                                                <span class="label-text text-xs">Notes</span>
+                                                <span class="label-text text-sm">Notes</span>
                                             </label>
                                             <textarea name="notes_{{ attendance.pk }}" class="textarea textarea-bordered textarea-sm" rows="1" placeholder="Optional notes...">{{ attendance.notes }}</textarea>
                                         </div>

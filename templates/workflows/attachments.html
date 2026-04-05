@@ -46,7 +46,7 @@
                                     {% if attachment.uploaded_by %}by {{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}{% endif %}
                                 </p>
                                 {% if attachment.sharepoint_folder_path %}
-                                <p class="text-xs text-gray-500">📁 {{ attachment.sharepoint_folder_path }}</p>
+                                <p class="text-sm text-gray-500">📁 {{ attachment.sharepoint_folder_path }}</p>
                                 {% endif %}
                             </div>
                         </div>
@@ -107,7 +107,7 @@
                 <select id="folder-select" name="folder_id" class="w-full border rounded-lg px-3 py-2" disabled>
                     <option value="">Root Folder</option>
                 </select>
-                <p class="text-xs text-gray-500 mt-1">Leave empty to upload to the root directory</p>
+                <p class="text-sm text-gray-500 mt-1">Leave empty to upload to the root directory</p>
             </div>
 
             <!-- File Upload -->

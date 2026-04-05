@@ -191,7 +191,7 @@
                 <!-- Active filter badges -->
                 {% if filter_params.period or filter_params.workflow_type_id or filter_params.overdue_only or filter_params.parent_workflow_id %}
                     <div class="flex flex-wrap gap-2 items-center">
-                        <span class="text-xs text-base-content/60 font-medium">Active filters:</span>
+                        <span class="text-sm text-base-content/60 font-medium">Active filters:</span>
                         {% if filter_params.period %}
                             <span class="badge badge-primary badge-outline capitalize">{{ filter_params.period }}</span>
                         {% endif %}
@@ -478,7 +478,7 @@
                         <tbody>
                             {% for wf in workflows %}
                                 <tr class="{% if wf.pk == filter_params.parent_workflow.pk %}font-semibold bg-base-200{% endif %}">
-                                    <td class="text-base-content/50 text-xs">{{ forloop.counter }}</td>
+                                    <td class="text-base-content/50 text-sm">{{ forloop.counter }}</td>
                                     <td>
                                         <a href="{% url 'workflow_detail' wf.pk %}" class="link link-hover">
                                             {% if wf.pk == filter_params.parent_workflow.pk %}
@@ -516,7 +516,7 @@
                                         {% if wf.is_overdue and not wf.current_state.is_terminal %}
                                             <span class="badge badge-error badge-sm">Yes</span>
                                         {% else %}
-                                            <span class="text-base-content/40 text-xs">No</span>
+                                            <span class="text-base-content/40 text-sm">No</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -685,7 +685,7 @@
                                         <div class="flex items-center gap-2">
                                             <div class="avatar avatar-placeholder">
                                                 <div class="bg-neutral text-neutral-content rounded-full w-8">
-                                                    <span class="text-xs">{{ log.user.first_name.0|default:log.user.username.0|upper }}</span>
+                                                    <span class="text-sm">{{ log.user.first_name.0|default:log.user.username.0|upper }}</span>
                                                 </div>
                                             </div>
                                             <span class="text-sm">{{ log.user.get_full_name|default:log.user.username }}</span>

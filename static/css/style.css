@@ -11,13 +11,15 @@
     --parliament-black: #0a0a0a;
     --parliament-white: #fefefe;
     --parliament-gray: #8a8a8a;
+    --card-fs: 1rem;
 }
 
 body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    zoom: 120%;
+    font-size: 16px;
+/*     zoom: 120%; */
     /* transform: scale(1.2); */
     /* transform-origin: top left; */
     /* width: 83.33%; */
@@ -63,7 +65,8 @@ body {
 }
 
 .sidebar-panel-container.open {
-    width: 160px;
+    width: 180px;
+    background-color: var(--parliament-white);
 }
 
 #main-content {
@@ -176,13 +179,18 @@ aside {
     color: var(--parliament-white) !important;
 }
 
+/* Table text size (DaisyUI tables default smaller than base) */
+.table {
+    font-size: 1rem;
+}
+
 /* Custom Badge Styles */
 .badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
+    font-size: 1rem;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
@@ -193,16 +201,25 @@ aside {
     vertical-align: middle;
 }
 
+.badge.whitespace-normal {
+    white-space: normal;
+    flex-wrap: wrap;
+    height: auto;
+    line-height: 1.2;
+    justify-content: flex-start;
+    text-align: left;
+}
+
 .badge-sm {
     padding: 0.125rem 0.375rem;
-    font-size: 0.7rem;
+    font-size: 0.875rem;
     min-height: 1.25rem;
     min-width: 1.25rem;
 }
 
 .badge-lg {
     padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: 1.125rem;
     min-height: 1.75rem;
     min-width: 1.75rem;
 }
@@ -279,4 +296,14 @@ div.alert.alert-warning {
     color: var(--parliament-white) !important;
     border-radius: 5px !important;
     margin-bottom: 0.5px !important;
+}
+
+.card-body,
+.input,
+.select,
+.badge,
+.table,
+.stat-title,
+.stat-desc {
+    font-size: 1rem !important;
 }

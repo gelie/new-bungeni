@@ -313,7 +313,7 @@
 
         <div class="divider my-2"></div>
 
-        <p class="text-xs text-base-content/70">After creation, you can configure states, transitions, and additional
+        <p class="text-sm text-base-content/70">After creation, you can configure states, transitions, and additional
           workflow settings. The optional fields will be available when users create new workflows of this type.</p>
       </div>
     </div>
@@ -572,7 +572,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="form-control">
               <label class="label">
-                <span class="label-text text-xs">Field Name *</span>
+                <span class="label-text text-sm">Field Name *</span>
               </label>
               <input type="text"
                      name="field_name_${fieldId}"
@@ -585,7 +585,7 @@
 
             <div class="form-control">
               <label class="label">
-                <span class="label-text text-xs">Display Label *</span>
+                <span class="label-text text-sm">Display Label *</span>
               </label>
               <input type="text"
                      name="field_label_${fieldId}"
@@ -598,7 +598,7 @@
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div class="form-control">
               <label class="label">
-                <span class="label-text text-xs">Field Type</span>
+                <span class="label-text text-sm">Field Type</span>
               </label>
               <select name="field_type_${fieldId}"
                       class="select select-bordered select-sm"
@@ -611,21 +611,21 @@
 
             <div class="form-control">
               <label class="label">
-                <span class="label-text text-xs">Required</span>
+                <span class="label-text text-sm">Required</span>
               </label>
               <div class="flex items-center gap-2 mt-2">
                 <input type="checkbox"
                        name="field_required_${fieldId}"
                        class="checkbox checkbox-sm"
                        ${data.required ? 'checked' : ''} />
-                <span class="text-xs">Must be filled</span>
+                <span class="text-sm">Must be filled</span>
               </div>
             </div>
 
             <div class="form-control field-options-container"
                  ${['select', 'radio'].includes(data.type) ? '' : 'style="display:none;"'}>
               <label class="label">
-                <span class="label-text text-xs">Options (comma-separated)</span>
+                <span class="label-text text-sm">Options (comma-separated)</span>
               </label>
               <input type="text"
                      name="field_options_${fieldId}"
@@ -637,7 +637,7 @@
 
           <div class="form-control">
             <label class="label">
-              <span class="label-text text-xs">Help Text</span>
+              <span class="label-text text-sm">Help Text</span>
             </label>
             <input type="text"
                    name="field_help_${fieldId}"

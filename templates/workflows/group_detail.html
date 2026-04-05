@@ -61,7 +61,7 @@
                                     <div class="flex items-center gap-2">
                                         <div class="avatar avatar-placeholder">
                                             <div class="bg-primary text-primary-content rounded-full w-8">
-                                                <span class="text-xs">{{ membership.user.first_name.0|default:membership.user.username.0|upper }}</span>
+                                                <span class="text-sm">{{ membership.user.first_name.0|default:membership.user.username.0|upper }}</span>
                                             </div>
                                         </div>
                                         {{ membership.user.get_full_name|default:membership.user.username }}

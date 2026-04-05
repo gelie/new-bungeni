@@ -62,7 +62,7 @@
                   {% for role in cfg.referred_transition_roles.all %}
                   <span class="badge badge-primary badge-sm">{{ role.name }}</span>
                   {% empty %}
-                  <span class="text-xs text-base-content/40">None (all roles)</span>
+                  <span class="text-sm text-base-content/40">None (all roles)</span>
                   {% endfor %}
                 </div>
               </td>
@@ -71,7 +71,7 @@
                   {% for role in cfg.referred_edit_roles.all %}
                   <span class="badge badge-secondary badge-sm">{{ role.name }}</span>
                   {% empty %}
-                  <span class="text-xs text-base-content/40">None</span>
+                  <span class="text-sm text-base-content/40">None</span>
                   {% endfor %}
                 </div>
               </td>
