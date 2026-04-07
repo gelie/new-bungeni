@@ -164,7 +164,9 @@ def dashboard(request):
     new_workflows = workflows.filter(current_state__is_initial=True).count()
 
     # Active workflows (not terminal)
-    active = workflows.filter(current_state__is_terminal=False).count()
+    active = workflows.filter(
+        current_state__is_terminal=False, current_state__is_initial=False
+    ).count()
 
     # Completed workflows (terminal states)
     completed = workflows.filter(current_state__is_terminal=True).count()
@@ -225,8 +227,8 @@ def dashboard(request):
 
     workflows_by_state_grouped = [
         {"name": "New", "count": state_new_count, "color": "#3b82f6"},
-        {"name": "Completed", "count": state_completed_count, "color": "#10b981"},
         {"name": "In Progress", "count": state_in_progress_count, "color": "#f59e0b"},
+        {"name": "Completed", "count": state_completed_count, "color": "#10b981"},
     ]
 
     # Workflows by type - with cumulative angles for pie chart

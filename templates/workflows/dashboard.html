@@ -208,6 +208,58 @@
             </div>
         </div>
     </div>
+    <!-- Workflow Statistics -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Workflows by State -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    {% lucide "chart-bar" class="w-5 h-5" %}
+                    Workflows by State
+                </h2>
+                <div class="space-y-2 mt-4">
+                    {% for item in workflows_by_state %}
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>{{ item.name }}</span>
+                                <span class="font-semibold">{{ item.count }}</span>
+                            </div>
+                            <progress class="progress progress-primary"
+                                      value="{{ item.count }}"
+                                      max="{{ total_workflows }}"></progress>
+                            {% comment %} style="--progress-color: {{ item.color }}" {% endcomment %}
+                        </div>
+                    {% empty %}
+                        <p class="text-center text-base-content/50 py-4">No data available</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <!-- Workflows by Type -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">
+                    {% lucide "chart-pie" class="w-5 h-5" %}
+                    Workflows by Type
+                </h2>
+                <div class="space-y-2 mt-4">
+                    {% for item in workflows_by_type %}
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>{{ item.workflow_type__name }}</span>
+                                <span class="font-semibold">{{ item.count }}</span>
+                            </div>
+                            <progress class="progress progress-primary"
+                                      value="{{ item.count }}"
+                                      max="{{ total_workflows }}"></progress>
+                        </div>
+                    {% empty %}
+                        <p class="text-center text-base-content/50 py-4">No data available</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Recent Workflows -->
         <div class="card bg-base-100 shadow-xl">
@@ -289,58 +341,6 @@
                             {% lucide "calendar-x" class="w-12 h-12 mx-auto mb-2" %}
                             <p>No upcoming events</p>
                         </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- Workflow Statistics -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Workflows by State -->
-        <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-                <h2 class="card-title">
-                    {% lucide "chart-bar" class="w-5 h-5" %}
-                    Workflows by State
-                </h2>
-                <div class="space-y-2 mt-4">
-                    {% for item in workflows_by_state %}
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>{{ item.current_state__name }}</span>
-                                <span class="font-semibold">{{ item.count }}</span>
-                            </div>
-                            <progress class="progress"
-                                      value="{{ item.count }}"
-                                      max="{{ total_workflows }}"
-                                      style="--progress-color: {{ item.current_state__color }}"></progress>
-                        </div>
-                    {% empty %}
-                        <p class="text-center text-base-content/50 py-4">No data available</p>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        <!-- Workflows by Type -->
-        <div class="card bg-base-100 shadow-xl">
-            <div class="card-body">
-                <h2 class="card-title">
-                    {% lucide "chart-pie" class="w-5 h-5" %}
-                    Workflows by Type
-                </h2>
-                <div class="space-y-2 mt-4">
-                    {% for item in workflows_by_type %}
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>{{ item.workflow_type__name }}</span>
-                                <span class="font-semibold">{{ item.count }}</span>
-                            </div>
-                            <progress class="progress progress-primary"
-                                      value="{{ item.count }}"
-                                      max="{{ total_workflows }}"></progress>
-                        </div>
-                    {% empty %}
-                        <p class="text-center text-base-content/50 py-4">No data available</p>
                     {% endfor %}
                 </div>
             </div>
