@@ -264,15 +264,18 @@ class OracleSyncBase(BaseCommand):
         self.logger.info("🔌 Database connections cleaned up")
 
     def strip_group_code_prefix(self, name: str) -> str:
-        """Strip numeric code prefix and extract last part after colon.
+        """Strip numeric code prefix and extract hierarchical parts after colon.
 
-        The prefixed names show relations to ancestor groups, so we only keep
-        the last part after the colon in title case format.
+        For administrative groups (ICT, TAO, etc.), we preserve the parent context
+        to avoid name collisions between different departments.
+        For parliamentary groups, we use the legacy behavior for compatibility.
 
         Examples:
             "80002-Members: NA: National Assembly" -> "National Assembly"
             "12345-CBS: PP: PARLIAMENTARY PUBLIC PARTICIPATION SECTION" -> "Parliamentary Public Participation Section"
             "60350-ISS: CATERING SERVICES SECTION" -> "Catering Services Section"
+            "ICT: CIO: Man and Gen" -> "ICT: CIO: Man and Gen"  # Preserve hierarchy
+            "TAO: Man and Gen" -> "TAO: Man and Gen"  # Preserve hierarchy
             "MEMBERS SECTION" -> "Members Section"
         """
         if not name:
@@ -284,13 +287,75 @@ class OracleSyncBase(BaseCommand):
         # Normalize whitespace
         name = " ".join(name.split())
 
-        # Extract last part after colon (if colon exists)
-        if ":" in name:
-            name = name.split(":")[-1].strip()
+        # Split by colon to analyze hierarchy
+        parts = [part.strip() for part in name.split(":")]
 
+        # Check if this is an administrative group that needs hierarchy preservation
+        # Administrative groups typically start with department codes like ICT, TAO, HR, etc.
+        admin_prefixes = [
+            "ICT",
+            "TAO",
+            "HR",
+            "FIN",
+            "SEC",
+            "COM",
+            "LEG",
+            "PRO",
+            "SMG",
+            "CBS",
+            "CFO",
+            "FMO",
+            "HC",
+            "IRP",
+            "KIS",
+            "LSO",
+            "MSS",
+            "NA",
+            "NCOP",
+            "PCSD",
+            "RM",
+            "RMI",
+            "SCM",
+            "CAE",
+            "Catering",
+            "Household",
+            "ISS",
+            "OSTP",
+            "Protection Services",
+        ]
+
+        if len(parts) > 1 and parts[0].upper() in admin_prefixes:
+            # Administrative group - preserve hierarchy to avoid collisions
+            normalized_parts = []
+            for part in parts:
+                normalized_parts.append(self._normalize_group_part(part))
+            return ": ".join(normalized_parts)
+        else:
+            # Parliamentary group or single part - use legacy behavior
+            if len(parts) > 1:
+                # Extract last part after colon (legacy behavior)
+                name = parts[-1]
+            else:
+                name = parts[0]
+            return self._normalize_group_part(name)
+
+    def _normalize_group_part(self, part: str) -> str:
+        """Normalize a single group part to title case, preserving acronyms."""
         # Convert to title case, but preserve common acronyms
-        acronyms = ["NA", "NCOP", "ICT", "HR", "IT", "CEO", "CFO", "CIO", "MP", "MPs"]
-        words = name.split()
+        acronyms = [
+            "NA",
+            "NCOP",
+            "ICT",
+            "HR",
+            "IT",
+            "CEO",
+            "CFO",
+            "CIO",
+            "MP",
+            "MPs",
+            "TAO",
+        ]
+        words = part.split()
         result_words = []
 
         for word in words:

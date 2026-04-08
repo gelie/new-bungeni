@@ -14,7 +14,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from parl.models import Group, GroupMembership, Role, User
+from workflows.models import Group, GroupMembership, Role, User
 
 # Set up logging
 logger = logging.getLogger("committee_scraper")
@@ -124,6 +124,10 @@ class Command(BaseCommand):
             ),
             ("Committee Secretary", "Secretary of a parliamentary committee"),
             ("Committee Researcher", "Researcher for a parliamentary committee"),
+            (
+                "Committee Content Advisor",
+                "Content advisor to a parliamentary committee",
+            ),
             ("Committee Advisor", "Advisor to a parliamentary committee"),
         ]
 
@@ -391,7 +395,7 @@ class Command(BaseCommand):
                                             )
                                             if match:
                                                 committee_url = f"https://www.parliament.gov.za/committee-details/{match.group(1)}"
-                        except:
+                        except Exception:
                             committee_name = name_cell.text.strip()
 
                         parent_group = house_cell.text.strip()
@@ -622,22 +626,48 @@ class Command(BaseCommand):
 
         # Process committee members
         for member_data in committee_members:
-            # Handle members with or without URLs
+            member_name = member_data["name"]
             member_url = member_data.get("url") or ""
-            user = self.find_existing_user_only(member_data["name"], member_url)
-            if user:
-                role = member_data.get("role", "Committee Member")
-                section = member_data.get("section", "general")
+            member_email = member_data.get("email")  # Get email if available
+            role = member_data.get("role", "Committee Member")
+            section = member_data.get("section", "general")
 
+            if self.verbose and section == "contact-details":
+                self.stdout.write(
+                    f"  Processing non-linked member: {member_name} as {role} (email: {member_email})"
+                )
+
+            # Try to find existing user first
+            user = self.find_existing_user_only(member_name, member_url, member_email)
+
+            if not user and not member_url:
+                # This is a non-linked member, create placeholder user
+                if self.verbose:
+                    self.stdout.write(f"  Creating placeholder user for: {member_name}")
+                user = self.create_placeholder_user(member_name, role)
+                if user:
+                    if "placeholder_users_created" not in self.stats:
+                        self.stats["placeholder_users_created"] = 0
+                    self.stats["placeholder_users_created"] += 1
+                else:
+                    logger.warning(
+                        f"Failed to create placeholder user for: {member_name}"
+                    )
+
+            if user:
                 if self.verbose:
                     self.stdout.write(
-                        f"  Adding {member_data['name']} as {role} (from {section} section)"
+                        f"  Adding {member_name} as {role} (from {section} section)"
                     )
 
                 self.create_membership(user, committee_group, role)
             else:
-                # Skip membership creation if user not found
+                # Skip membership creation if user not found and couldn't create placeholder
                 self.stats["memberships_skipped"] += 1
+                if self.verbose and not member_url:
+                    self.stdout.write(
+                        f"  Skipped {member_name} - could not create placeholder user"
+                    )
 
     def find_or_create_committee_group(self, committee_name, parent_group_name):
         """Find or create committee group with parent"""
@@ -771,6 +801,10 @@ class Command(BaseCommand):
         name1_clean = re.sub(r"[^\w\s]", "", name1.lower())
         name2_clean = re.sub(r"[^\w\s]", "", name2.lower())
 
+        # First check for exact match after normalization
+        if name1_clean == name2_clean:
+            return True
+
         # Remove common words
         common_words = {"committee", "on", "and", "the", "of", "for", "in"}
         name1_words = set(name1_clean.split()) - common_words
@@ -780,10 +814,16 @@ class Command(BaseCommand):
         if len(name1_words) == 0 or len(name2_words) == 0:
             return False
 
+        # Calculate overlap
         overlap = len(name1_words & name2_words)
-        similarity = overlap / max(len(name1_words), len(name2_words))
 
-        return similarity > 0.6  # 60% similarity threshold
+        # For a match, require:
+        # 1. High similarity (80% or more), OR
+        # 2. One set is a complete subset of the other (all words match)
+        similarity = overlap / max(len(name1_words), len(name2_words))
+        is_subset = (name1_words <= name2_words) or (name2_words <= name1_words)
+
+        return similarity >= 0.8 or is_subset
 
     def create_missing_committee(self, committee_name):
         """Create a missing committee group based on scraped data"""
@@ -1095,40 +1135,110 @@ class Command(BaseCommand):
         return members
 
     def extract_non_linked_members(self, soup):
-        """Extract members without person-details links (like secretaries in <b> tags)"""
+        """Extract members without person-details links (like secretaries, content advisors, researchers from Contact details section)"""
         members = []
         seen_names = set()
 
-        # Find all <b> tags that might contain member names
-        bold_tags = soup.find_all("b")
+        # Look for Contact details section specifically
+        # Use a lambda function to search for headings containing "contact" and "details"
+        def is_contact_details_heading(tag):
+            if tag.name in ["h4", "h5", "h6"]:
+                text = tag.get_text(strip=True).lower()
+                return "contact" in text and "details" in text
+            return False
 
-        for bold_tag in bold_tags:
-            name_text = bold_tag.get_text(strip=True)
+        contact_heading = soup.find(is_contact_details_heading)
+        contact_section = None
 
-            # Skip if too short or already seen
-            if len(name_text) < 5 or name_text in seen_names:
-                continue
+        if contact_heading:
+            logger.info("Found Contact details heading")
+            # Find the list items in the Contact details section
+            # There might be a <p> tag between the heading and the list
+            # We need to find the next <ul> but make sure it's before the next heading
+            next_heading = contact_heading.find_next_sibling(["h4", "h5", "h6"])
+            contact_section = None
 
-            # Check if this looks like a person name (has at least 2 words, starts with capital)
-            if not re.match(r"^[A-Z][a-z]+\s+[A-Z]", name_text):
-                continue
+            # Find all ul tags after the contact heading
+            for ul in contact_heading.find_all_next("ul"):
+                # Check if this ul comes before the next heading
+                if next_heading and ul.sourceline and next_heading.sourceline:
+                    if ul.sourceline < next_heading.sourceline:
+                        contact_section = ul
+                        break
+                elif not next_heading:
+                    # No next heading, so this is the contact section
+                    contact_section = ul
+                    break
 
-            # Get the parent context to determine role
-            parent = bold_tag.parent
-            if parent:
-                parent_text = parent.get_text(strip=True).lower()
+            # Fallback: just get the next ul if we couldn't determine by position
+            if not contact_section:
+                contact_section = contact_heading.find_next("ul")
 
-                # Check for secretary role
-                if re.search(r"\bcommittee\s+secretary\b", parent_text):
+            if contact_section:
+                list_items = contact_section.find_all("li")
+                logger.info(f"Found {len(list_items)} contact details items")
+            else:
+                logger.info("Contact details heading found but no list section")
+        else:
+            if self.verbose:
+                self.stdout.write("  No Contact details section found")
+
+        # Process the list items if we found them
+        if contact_section:
+            for li in list_items:
+                # Extract name from <b> tag
+                bold_tag = li.find("b")
+                if not bold_tag:
+                    continue
+
+                name_text = bold_tag.get_text(strip=True)
+
+                logger.info(f"Processing contact item: '{name_text}'")
+
+                # Skip if too short or already seen
+                if len(name_text) < 5 or name_text in seen_names:
+                    logger.info(f"Skipping '{name_text}': too short or already seen")
+                    continue
+
+                # Check if this looks like a person name (has at least 2 words, starts with capital)
+                # Strip leading/trailing whitespace first
+                name_text = name_text.strip()
+                if not re.match(r"^[A-Z][a-z]+\s+[A-Z]", name_text):
+                    logger.info(f"Skipping '{name_text}': doesn't match name pattern")
+                    continue
+
+                # Get the full text of the list item to determine role
+                # Use separator=' ' to add spaces between elements (including <br> tags)
+                li_text = li.get_text(separator=" ", strip=True).lower()
+
+                # Extract email address if available
+                email = None
+                mailto_link = li.find("a", href=re.compile(r"^mailto:"))
+                if mailto_link:
+                    email = mailto_link.get("href", "").replace("mailto:", "").strip()
+
+                # Check for various role types
+                role = None
+                if re.search(r"\bcommittee\s+secretary\b", li_text):
                     role = "Committee Secretary"
-                elif re.search(r"\bsecretary\b", parent_text):
+                elif re.search(r"\bsecretary\b", li_text):
                     role = "Committee Secretary"
-                elif re.search(r"\bdeputy\s+chairperson\b", parent_text):
+                elif re.search(r"\bdeputy\s+chairperson\b", li_text):
                     role = "Committee Deputy Chairperson"
-                elif re.search(r"\bchairperson\b", parent_text):
+                elif re.search(r"\bchairperson\b", li_text):
                     role = "Committee Chairperson"
-                else:
+                elif re.search(r"\bcontent\s+advisor\b", li_text):
+                    role = "Committee Content Advisor"
+                elif re.search(r"\badvisor\b", li_text):
+                    role = "Committee Advisor"
+                elif re.search(r"\bresearcher\b", li_text):
+                    role = "Committee Researcher"
+
+                if not role:
                     # Skip if no clear role indicator
+                    logger.info(
+                        f"Skipping '{name_text}': no role indicator found in '{li_text[:100]}'"
+                    )
                     continue
 
                 seen_names.add(name_text)
@@ -1136,18 +1246,234 @@ class Command(BaseCommand):
                     {
                         "name": name_text,
                         "url": None,  # No URL for non-linked members
+                        "email": email,  # Include email if found
                         "role": role,
-                        "section": "non-linked",
+                        "section": "contact-details",
                     }
                 )
+                if self.verbose:
+                    self.stdout.write(
+                        f"    Added: {name_text} as {role} (email: {email})"
+                    )
 
         return members
 
-    def find_existing_user_only(self, full_name, profile_url):
+        #     seen_urls = set()
+        #     for link in member_links:
+        #         member_url = link.get("href")
+        #         if member_url not in seen_urls:
+        #             seen_urls.add(member_url)
+        #             member = self.extract_member_from_link(
+        #                 link, "Committee Member", "general"
+        #             )
+        #             if member:
+        #                 members.append(member)
+
+        return members
+
+    def scrape_username_from_profile(self, profile_url):
+        """Scrape username from member's profile page by extracting email address"""
+        if not profile_url:
+            return None, None
+
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+            with httpx.Client(timeout=30.0) as client:
+                response = client.get(profile_url, headers=headers)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, "html.parser")
+
+                # Look for email addresses in various formats
+                username = None
+
+                # Method 1: Look for mailto links
+                mailto_links = soup.find_all("a", href=re.compile(r"^mailto:"))
+                personal_emails = []
+                generic_emails = []
+
+                for link in mailto_links:
+                    email_raw = link.get("href", "").replace("mailto:", "").strip()
+
+                    # Handle multiple emails in mailto (separated by /, ;, or space)
+                    possible_emails = []
+
+                    # Split by common separators
+                    for separator in [" / ", "/", ";", " ", ","]:
+                        if separator in email_raw:
+                            possible_emails.extend(
+                                [
+                                    email.strip()
+                                    for email in email_raw.split(separator)
+                                    if email.strip()
+                                ]
+                            )
+                            break
+                    else:
+                        # No separator found, use the whole string
+                        possible_emails.append(email_raw)
+
+                    # Try each email found
+                    for email in possible_emails:
+                        username = self.extract_username_from_email(email)
+                        if username:
+                            # Check if it's a personal email or generic
+                            if (
+                                email.lower().startswith("info@")
+                                or email.lower().startswith("contact@")
+                                or email.lower().startswith("admin@")
+                            ):
+                                generic_emails.append((email, username))
+                            else:
+                                personal_emails.append((email, username))
+
+                # Prioritize personal emails over generic ones
+                all_emails = personal_emails + generic_emails
+
+                for email, username in all_emails:
+                    logger.info(
+                        f"Found username {username} from mailto link for {profile_url}"
+                    )
+                    return username, email
+
+                # Method 2: Look for email text patterns
+                email_patterns = [
+                    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+                    r"Email:\s*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})",
+                    r"E-mail:\s*([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,})",
+                ]
+
+                page_text = soup.get_text()
+                for pattern in email_patterns:
+                    matches = re.findall(pattern, page_text, re.IGNORECASE)
+                    for match in matches:
+                        email = (
+                            match
+                            if isinstance(match, str)
+                            else match[0]
+                            if len(match) > 0
+                            else ""
+                        )
+                        extracted_username = self.extract_username_from_email(email)
+                        if extracted_username:
+                            logger.info(
+                                f"Found username {extracted_username} from email pattern for {profile_url}"
+                            )
+                            return extracted_username, email
+
+                # Method 3: Look for specific parliament email format elements
+                # Parliament emails often follow specific patterns
+                email_elements = soup.find_all(
+                    string=re.compile(r"@parliament\.gov\.za", re.IGNORECASE)
+                )
+                for element in email_elements:
+                    email_match = re.search(
+                        r"([A-Za-z0-9._%+-]+@parliament\.gov\.za)",
+                        element,
+                        re.IGNORECASE,
+                    )
+                    if email_match:
+                        email = email_match.group(1)
+                        username = self.extract_username_from_email(email)
+                        if username:
+                            logger.info(
+                                f"Found username {username} from parliament email for {profile_url}"
+                            )
+                            return username, email
+
+                logger.warning(f"No email found for profile: {profile_url}")
+                return None, None
+
+        except httpx.HTTPError as e:
+            logger.error(f"Error fetching profile {profile_url}: {e}")
+            return None, None
+        except Exception as e:
+            logger.error(f"Error parsing profile {profile_url}: {e}")
+            return None, None
+
+    def extract_username_from_email(self, email):
+        """Extract username from email address"""
+        if not email:
+            return None
+
+        # Clean email and extract username part
+        email = email.strip().lower()
+
+        # Basic email validation
+        email_pattern = r"^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+        if not re.match(email_pattern, email):
+            return None
+
+        # Extract username part before @
+        username = email.split("@")[0]
+
+        # Remove common separators and normalize
+        username = username.replace(".", "").replace("_", "").replace("-", "")
+
+        # Ensure it's a reasonable username length
+        if len(username) < 3 or len(username) > 20:
+            return None
+
+        return username
+
+    def find_existing_user_only(self, full_name, profile_url, email=None):
         """Find existing user only - do not create new users"""
         name_parts = self.parse_full_name(full_name)
 
         if not self.dry_run:
+            # Strategy 0: Check provided email first (for non-linked members)
+            if email:
+                user = User.objects.filter(email__iexact=email).first()
+                if user:
+                    self.stats["users_found"] += 1
+                    if self.verbose:
+                        self.stdout.write(
+                            f"Found existing user by provided email: {user.username} for {full_name}"
+                        )
+                    logger.info(
+                        f"Found user {user.username} via email {email} for {full_name}"
+                    )
+                    return user
+
+            # Strategy 1: Try to get username and email from profile page first
+            profile_username = None
+            profile_email = None
+            if profile_url:
+                profile_username, profile_email = self.scrape_username_from_profile(
+                    profile_url
+                )
+
+                if profile_email:
+                    # Strategy 1a: Try to find user by exact email match
+                    user = User.objects.filter(email__iexact=profile_email).first()
+                    if user:
+                        self.stats["users_found"] += 1
+                        if self.verbose:
+                            self.stdout.write(
+                                f"Found existing user by email: {user.username} for {full_name}"
+                            )
+                        logger.info(
+                            f"Found user {user.username} via email {profile_email} for {full_name}"
+                        )
+                        return user
+
+                if profile_username:
+                    # Strategy 0b: Try to find user by scraped username
+                    user = User.objects.filter(
+                        username__iexact=profile_username
+                    ).first()
+                    if user:
+                        self.stats["users_found"] += 1
+                        if self.verbose:
+                            self.stdout.write(
+                                f"Found existing user by profile username: {user.username} for {full_name}"
+                            )
+                        logger.info(
+                            f"Found user {user.username} via profile username for {full_name}"
+                        )
+                        return user
+
             # Generate search key: lowercase(firstname[0] + lastname)
             search_key = self.generate_user_search_key(
                 name_parts["first_name"], name_parts["last_name"]
@@ -1164,6 +1490,20 @@ class Command(BaseCommand):
                     )
                 return user
             else:
+                # For non-linked members (no profile_url), try more aggressive name matching
+                if not profile_url:
+                    user = self.find_existing_user_aggressive(name_parts, full_name)
+                    if user:
+                        self.stats["users_found"] += 1
+                        if self.verbose:
+                            self.stdout.write(
+                                f"Found existing user by aggressive search: {user.username} for {full_name}"
+                            )
+                        logger.info(
+                            f"Found user {user.username} via aggressive name search for {full_name}"
+                        )
+                        return user
+
                 # Log user not found
                 self.stats["users_not_found"] += 1
                 self.stats["missing_users"].append(
@@ -1172,10 +1512,12 @@ class Command(BaseCommand):
                         "profile_url": profile_url,
                         "parsed_name": name_parts,
                         "search_key": search_key,
+                        "profile_username": profile_username,
+                        "profile_email": profile_email,
                     }
                 )
                 logger.warning(
-                    f"User not found in system: {full_name} (search key: {search_key})"
+                    f"User not found in system: {full_name} (search key: {search_key}, profile username: {profile_username}, profile email: {profile_email})"
                 )
                 if self.verbose:
                     self.stdout.write(f"User not found: {full_name}")
@@ -1183,6 +1525,60 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f"[DRY RUN] Would search for user: {full_name}")
             return None
+
+    def find_existing_user_aggressive(self, name_parts, full_name):
+        """More aggressive user search for non-linked members"""
+        first_name = name_parts["first_name"]
+        last_name = name_parts["last_name"]
+
+        if not first_name or not last_name:
+            return None
+
+        # Strategy 1: Exact match (case insensitive)
+        user = User.objects.filter(
+            first_name__iexact=first_name, last_name__iexact=last_name
+        ).first()
+        if user:
+            return user
+
+        # Strategy 2: First name exact, last name contains
+        user = User.objects.filter(
+            first_name__iexact=first_name, last_name__icontains=last_name
+        ).first()
+        if user:
+            return user
+
+        # Strategy 3: Last name exact, first name contains
+        user = User.objects.filter(
+            first_name__icontains=first_name, last_name__iexact=last_name
+        ).first()
+        if user:
+            return user
+
+        # Strategy 4: Both names contain
+        user = User.objects.filter(
+            first_name__icontains=first_name, last_name__icontains=last_name
+        ).first()
+        if user:
+            return user
+
+        # Strategy 5: Try with just first word of last name (for hyphenated names)
+        last_name_first_word = last_name.split()[0] if " " in last_name else last_name
+        user = User.objects.filter(
+            first_name__iexact=first_name, last_name__iexact=last_name_first_word
+        ).first()
+        if user:
+            return user
+
+        # Strategy 6: Try with just last word of last name
+        last_name_last_word = last_name.split()[-1] if " " in last_name else last_name
+        user = User.objects.filter(
+            first_name__iexact=first_name, last_name__iexact=last_name_last_word
+        ).first()
+        if user:
+            return user
+
+        return None
 
     def generate_user_search_key(self, first_name, last_name):
         """Generate search key: lowercase(firstname[0] + last_word_of_lastname)"""
@@ -1266,6 +1662,63 @@ class Command(BaseCommand):
 
         return {"title": title, "first_name": first_name, "last_name": last_name}
 
+    def create_placeholder_user(self, full_name, role_name):
+        """Create a placeholder user for non-linked members"""
+        if self.dry_run:
+            return None
+
+        try:
+            name_parts = self.parse_full_name(full_name)
+            first_name = name_parts["first_name"]
+            last_name = name_parts["last_name"]
+
+            # Generate username based on name pattern
+            username = self.generate_placeholder_username(first_name, last_name)
+
+            # Create placeholder user
+            user = User.objects.create(
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+                email=f"{username}@placeholder.parliament.gov.za",
+                is_active=False,  # Mark as inactive placeholder
+                is_staff=False,
+                is_superuser=False,
+            )
+
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Created placeholder user: {username} for {full_name}"
+                )
+            )
+            logger.info(
+                f"Created placeholder user: {username} for {full_name} as {role_name}"
+            )
+
+            return user
+
+        except Exception as e:
+            logger.error(f"Error creating placeholder user for {full_name}: {e}")
+            return None
+
+    def generate_placeholder_username(self, first_name, last_name):
+        """Generate a unique placeholder username"""
+        if not first_name or not last_name:
+            # Fallback to generic username
+            return f"placeholder_{User.objects.count() + 1}"
+
+        # Generate base username using same pattern as existing users
+        base_username = self.generate_user_search_key(first_name, last_name)
+
+        # Ensure uniqueness
+        username = base_username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}_{counter}"
+            counter += 1
+
+        return username
+
     @transaction.atomic
     def create_membership(self, user, group, role_name):
         """Create group membership and user role"""
@@ -1328,6 +1781,9 @@ class Command(BaseCommand):
         )
         self.stdout.write(f"Users found in system: {self.stats['users_found']}")
         self.stdout.write(f"Users NOT found in system: {self.stats['users_not_found']}")
+        self.stdout.write(
+            f"Placeholder users created: {self.stats.get('placeholder_users_created', 0)}"
+        )
         self.stdout.write(f"Memberships created: {self.stats['memberships_created']}")
         self.stdout.write(f"Memberships updated: {self.stats['memberships_updated']}")
         self.stdout.write(
@@ -1380,6 +1836,7 @@ class Command(BaseCommand):
             f"Committees created: {self.stats.get('committees_created', 0)}, "
             f"Users found: {self.stats['users_found']}, "
             f"Users not found: {self.stats['users_not_found']}, "
+            f"Placeholder users created: {self.stats.get('placeholder_users_created', 0)}, "
             f"Memberships created: {self.stats['memberships_created']}, "
             f"Memberships skipped: {self.stats['memberships_skipped']}, "
             f"Errors: {self.stats['errors']}"

@@ -40,3 +40,4 @@ db-14Mar.sqlite3
 db-16Mar.sqlite3
 workflows/management/commands/update_lucide_icons.py
 lucide-latest.zip
+db_20260407.sqlite3

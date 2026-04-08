@@ -2,8 +2,8 @@
 Django management command to sync organizational groups from Oracle database.
 
 This command fetches organizational structure from Oracle and creates/updates
-Group records using a simple flat structure. Group names are made unique by
-including parent context to avoid duplicates.
+Group records with proper hierarchy using MPTT. Group names are sanitized by
+removing numeric code prefixes.
 
 Usage:
     python manage.py sync_groups_oracle
@@ -12,7 +12,7 @@ Usage:
 """
 
 from time import perf_counter
-from typing import Set, Tuple
+from typing import Dict, Set, Tuple
 
 from django.core.management.base import CommandError
 
@@ -21,7 +21,7 @@ from workflows.models import Group
 
 
 class Command(OracleSyncBase):
-    help = "Sync organizational groups from Oracle database (simple flat structure)"
+    help = "Sync organizational groups from Oracle database"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,10 +32,6 @@ class Command(OracleSyncBase):
                 "new_groups": 0,
                 "updated_groups": 0,
                 "duplicate_names": 0,
-                "errors": 0,
-                "warnings": 0,
-                "start_time": 0,
-                "end_time": 0,
             }
         )
         self._group_cache = {}
@@ -91,7 +87,7 @@ class Command(OracleSyncBase):
             self.print_summary()
 
     def sync_groups(self, dry_run: bool):
-        """Fetch and sync organizational groups from Oracle using simple flat structure."""
+        """Fetch and sync organizational groups from Oracle."""
         self.logger.info("🏛️  Fetching organizational groups from Oracle...")
 
         groups_data = self.fetch_oracle_groups()
@@ -101,7 +97,7 @@ class Command(OracleSyncBase):
 
         parliament_group = self.ensure_parliament_root(dry_run)
         self.create_main_groups(parliament_group, dry_run)
-        self.create_flat_groups(groups_data, parliament_group, dry_run)
+        self.create_organizational_groups(groups_data, parliament_group, dry_run)
 
         self.logger.info("✅ Group synchronization completed")
 
@@ -152,27 +148,20 @@ class Command(OracleSyncBase):
             parliament.id = -1
             return parliament
 
-        try:
-            parliament, created = Group.objects.get_or_create(
-                name="Parliament",
-                defaults={
-                    "short_name": "Parliament",
-                    "group_type": "parliament",
-                    "description": "Parliament of the Republic of South Africa",
-                    "is_active": True,
-                },
-            )
-            if created:
-                self.stats["new_groups"] += 1
-                self.logger.info("✨ Created Parliament root group")
+        parliament, created = Group.objects.get_or_create(
+            name="Parliament",
+            defaults={
+                "short_name": "Parliament",
+                "group_type": "parliament",
+                "description": "Parliament of the Republic of South Africa",
+                "is_active": True,
+            },
+        )
+        if created:
+            self.stats["new_groups"] += 1
+            self.logger.info("✨ Created Parliament root group")
 
-            return parliament
-        except Group.MultipleObjectsReturned:
-            # Handle duplicates gracefully
-            self.logger.warning("⚠️  Multiple Parliament groups found, using first")
-            parliament = Group.objects.filter(name="Parliament").first()
-            self.stats["warnings"] += 1
-            return parliament
+        return parliament
 
     def create_main_groups(self, parliament: Group, dry_run: bool):
         """Create the three main parliamentary groups."""
@@ -204,138 +193,129 @@ class Command(OracleSyncBase):
                 )
                 continue
 
-            try:
-                group, created = Group.objects.get_or_create(
-                    name=group_data["name"],
-                    defaults={
-                        **group_data,
-                        "parent": parliament if parliament.id != -1 else None,
-                        "is_active": True,
-                    },
-                )
-                if created:
-                    self.stats["new_groups"] += 1
-                    self.logger.info(f"✨ Created main group: {group_data['name']}")
-            except Group.MultipleObjectsReturned:
-                self.logger.warning(
-                    f"⚠️  Multiple main groups found for {group_data['name']}, using first existing"
-                )
-                Group.objects.filter(name=group_data["name"]).first()
-                self.stats["warnings"] += 1
+            group, created = Group.objects.get_or_create(
+                name=group_data["name"],
+                defaults={
+                    **group_data,
+                    "parent": parliament if parliament.id != -1 else None,
+                    "is_active": True,
+                },
+            )
+            if created:
+                self.stats["new_groups"] += 1
+                self.logger.info(f"✨ Created main group: {group_data['name']}")
 
-    def create_flat_groups(
+    def create_organizational_groups(
         self, groups_data: Set[Tuple[str, str]], parliament: Group, dry_run: bool
     ):
-        """Create groups using simple flat structure with unique names."""
+        """Create organizational groups with parent-child hierarchy."""
         self.logger.info(
-            f"🔄 Processing {len(groups_data)} organizational groups using flat structure..."
+            f"🔄 Processing {len(groups_data)} organizational group relationships..."
         )
 
-        unique_groups = set()
+        seen_names = {}
 
-        for child_org, parent_org in groups_data:
+        for child_org, parent_org in sorted(groups_data):
             child_name = self.strip_group_code_prefix(child_org)
-            parent_name = (
-                self.strip_group_code_prefix(parent_org) if parent_org else None
-            )
+            parent_name = self.strip_group_code_prefix(parent_org)
 
-            if child_name:
-                # Create unique group name by including parent context
-                unique_name = self.create_unique_group_name(child_name, parent_name)
-                unique_groups.add((unique_name, child_name, parent_name))
+            if not child_name and not parent_name:
+                continue
 
             if parent_name:
-                # Also create parent groups
-                parent_unique_name = self.create_unique_group_name(parent_name, None)
-                unique_groups.add((parent_unique_name, parent_name, None))
+                self._ensure_group(parent_name, None, "division", dry_run, seen_names)
 
-        self.logger.info(f"📊 Created {len(unique_groups)} unique group names")
+            if child_name:
+                parent_group_name = parent_name if parent_name else None
+                self._ensure_group(
+                    child_name, parent_group_name, "section", dry_run, seen_names
+                )
 
-        # Sort with None values handled properly
-        def sort_key(item):
-            unique_name, original_name, parent_name = item
-            return (unique_name or "", original_name or "", parent_name or "")
+        self.logger.info(
+            f"✅ Processed {len(groups_data)} organizational relationships"
+        )
 
-        for unique_name, original_name, parent_name in sorted(
-            unique_groups, key=sort_key
-        ):
-            self.create_single_group(
-                unique_name, original_name, parent_name, parliament, dry_run
-            )
-
-        self.logger.info(f"✅ Processed {len(unique_groups)} unique groups")
-
-    def create_unique_group_name(self, group_name: str, parent_name: str = None) -> str:
-        """Create a unique group name by including parent context if needed."""
-        if not parent_name:
-            return group_name
-
-        # Check if group name already exists without parent context
-        try:
-            if Group.objects.filter(name=group_name).exists():
-                return f"{parent_name} - {group_name}"
-        except Exception as e:
-            # If there's any database error, just use the qualified name
-            self.logger.debug(f"Database error checking group uniqueness: {e}")
-
-        return group_name
-
-    def create_single_group(
+    def _ensure_group(
         self,
-        unique_name: str,
-        original_name: str,
-        parent_name: str = None,
-        parliament: Group = None,
-        dry_run: bool = False,
+        name: str,
+        parent_name: str,
+        group_type: str,
+        dry_run: bool,
+        seen_names: Dict[str, str],
     ):
-        """Create a single group with proper error handling."""
-        cache_key = f"group::{unique_name}"
+        """Ensure a group exists, creating it if necessary."""
+        cache_key = f"{group_type}::{name}"
 
         if cache_key in self._group_cache:
             return self._group_cache[cache_key]
 
+        if name in seen_names:
+            if seen_names[name] != (parent_name or ""):
+                self.logger.warning(
+                    f"⚠️  Duplicate group name with different parent: '{name}' "
+                    f"(existing parent: '{seen_names[name]}', new parent: '{parent_name or 'None'}')"
+                )
+                self.stats["duplicate_names"] += 1
+            return self._group_cache.get(cache_key)
+
+        seen_names[name] = parent_name or ""
+
         if dry_run:
-            self.logger.info(f"🔍 [DRY RUN] Would create group: {unique_name}")
+            self.logger.info(
+                f"🔍 [DRY RUN] Would create {group_type}: {name}"
+                + (f" (parent: {parent_name})" if parent_name else "")
+            )
             group = Group(
-                name=unique_name,
-                short_name=original_name[:50],
-                group_type="section",
-                description=f"Original name: {original_name}"
-                + (f" (Parent: {parent_name})" if parent_name else ""),
+                name=name,
+                short_name=name[:50],
+                group_type=group_type,
                 is_active=True,
-                parent=parliament if parliament and parliament.id != -1 else None,
             )
             group.id = -1
             self._group_cache[cache_key] = group
-            return
+            return group
 
-        try:
-            # Try to find existing group
-            existing_group = Group.objects.filter(name=unique_name).first()
+        parent_group = None
+        if parent_name:
+            parent_cache_key = f"division::{parent_name}"
+            parent_group = self._group_cache.get(parent_cache_key)
+            if not parent_group:
+                try:
+                    parent_group = Group.objects.get(name=parent_name)
+                    self._group_cache[parent_cache_key] = parent_group
+                except Group.DoesNotExist:
+                    self.logger.warning(
+                        f"⚠️  Parent group not found: {parent_name} for child: {name}"
+                    )
 
-            if existing_group:
-                self._group_cache[cache_key] = existing_group
-                self.logger.debug(f"📋 Found existing group: {unique_name}")
-                return
+        defaults = {
+            "short_name": name[:50],
+            "description": "",
+            "group_type": group_type,
+            "is_active": True,
+        }
+        if parent_group:
+            defaults["parent"] = parent_group
 
-            # Create new group
-            group = Group.objects.create(
-                name=unique_name,
-                short_name=original_name[:50],
-                group_type="section",
-                description=f"Original name: {original_name}"
-                + (f" (Parent: {parent_name})" if parent_name else ""),
-                is_active=True,
-                parent=parliament if parliament and parliament.id != -1 else None,
-            )
+        group, created = Group.objects.get_or_create(name=name, defaults=defaults)
 
+        if created:
             self.stats["new_groups"] += 1
-            self.logger.info(f"✨ Created group: {unique_name}")
-            self._group_cache[cache_key] = group
+            self.logger.info(
+                f"✨ Created {group_type}: {name}"
+                + (f" (parent: {parent_name})" if parent_name else "")
+            )
+        elif parent_group and group.parent is None:
+            try:
+                group.parent = parent_group
+                group.save(update_fields=["parent"])
+                self.stats["updated_groups"] += 1
+                self.logger.info(f"🔄 Updated parent for {name} -> {parent_name}")
+            except Exception as e:
+                self.logger.warning(f"Could not update parent for {name}: {e}")
 
-        except Exception as e:
-            self.logger.error(f"Failed to create group {unique_name}: {str(e)}")
-            self.stats["errors"] += 1
+        self._group_cache[cache_key] = group
+        return group
 
     def print_summary(self):
         """Print summary of group sync operation."""
