@@ -41,3 +41,7 @@ db-16Mar.sqlite3
 workflows/management/commands/update_lucide_icons.py
 lucide-latest.zip
 db_20260407.sqlite3
+workflows/management/commands/scrape_parliament_committees_20260407.py
+workflows/management/commands/sync_groups_oracle_20260407.py
+workflows/management/commands/sync_roles_oracle_20260407.py
+workflows/management/commands/sync_users_oracle_20260407.py

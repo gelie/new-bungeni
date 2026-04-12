@@ -214,4 +214,23 @@ urlpatterns = [
     path("user-search/", views.user_search, name="user_search"),
     # Group search for dynamic lookup
     path("group-search/", views.group_search, name="group_search"),
+    # Delegate management for workflow creation
+    path(
+        "delegate-user-search/", views.delegate_user_search, name="delegate_user_search"
+    ),
+    path("delegate-add/", views.delegate_add, name="delegate_add"),
+    path(
+        "delegate-remove/<int:user_id>/", views.delegate_remove, name="delegate_remove"
+    ),
+    path(
+        "delegate-clear-session/",
+        views.delegate_clear_session,
+        name="delegate_clear_session",
+    ),
+    path(
+        "delegate-populate-session/",
+        views.delegate_populate_session,
+        name="delegate_populate_session",
+    ),
+    path("delegate-get-list/", views.delegate_get_list, name="delegate_get_list"),
 ]

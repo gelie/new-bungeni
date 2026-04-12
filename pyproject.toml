@@ -14,6 +14,7 @@ dependencies = [
     "django-chartjs>=2.3.0",
     "django-extensions>=4.1",
     "django-flatpickr>=1.0.1",
+    "django-htmx>=1.27.0",
     "django-mptt>=0.18.0",
     "django-ninja>=1.6.0",
     "djlint>=1.36.4",

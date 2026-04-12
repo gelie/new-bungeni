@@ -507,17 +507,6 @@ def workflow_create(request):
             .values("pk", "name")
         )
 
-        # Get available users for delegation selection
-        available_users = list(
-            User.objects.filter(
-                memberships__group__in=user_group_ids,
-                memberships__is_active=True,
-            )
-            .distinct()
-            .order_by("first_name", "last_name")
-            .values("pk", "first_name", "last_name", "username")
-        )
-
         # Get delegation roles (common roles that would be used in delegations)
         delegation_roles = list(
             Role.objects.filter(
@@ -544,7 +533,6 @@ def workflow_create(request):
             "preselected_type_name": preselected_type_name,
             "available_events": available_events,
             "user_groups": user_groups,
-            "available_users": available_users,
             "delegation_roles": delegation_roles,
         }
         if request.headers.get("HX-Request"):
@@ -579,6 +567,13 @@ def workflow_create(request):
                 workflow_data = {}
     except (json.JSONDecodeError, ValueError):
         workflow_data = {}
+
+    # Merge delegate data from session if present
+    delegates = request.session.get("workflow_delegates", [])
+    if delegates:
+        workflow_data["delegate_group"] = delegates
+        # Clear session after using
+        del request.session["workflow_delegates"]
 
     # Check if user has a role that can create this specific workflow type
     if (
@@ -1316,16 +1311,6 @@ def workflow_edit(request, pk):
             group__in=user_groups, status__in=["scheduled", "in_progress"]
         ).order_by("start_datetime")
 
-        # Get available users for delegation selection
-        available_users = list(
-            User.objects.filter(
-                memberships__group__in=user_groups,
-                memberships__is_active=True,
-            )
-            .distinct()
-            .values("pk", "first_name", "last_name", "username")
-        )
-
         # Get delegation roles (common roles that would be used in delegations)
         delegation_roles = list(
             Role.objects.filter(
@@ -1372,7 +1357,6 @@ def workflow_edit(request, pk):
             "existing_data": existing_data,
             "group_names": group_names,
             "available_events": available_events,
-            "available_users": available_users,
             "delegation_roles": delegation_roles,
         }
         return context
@@ -1404,6 +1388,13 @@ def workflow_edit(request, pk):
                 workflow_data = {}
     except (json.JSONDecodeError, ValueError):
         workflow_data = {}
+
+    # Merge delegate data from session if present
+    delegates = request.session.get("workflow_delegates", [])
+    if delegates:
+        workflow_data["delegate_group"] = delegates
+        # Clear session after using
+        del request.session["workflow_delegates"]
 
     # Capture old values before saving for notification diffing
     old_assigned_to = workflow.assigned_to
@@ -4929,3 +4920,121 @@ def group_search(request):
     groups = groups.order_by("name")[:20]  # Limit to 20 results
 
     return render(request, "group_search_results.html", {"groups": groups})
+
+
+@login_required
+def delegate_user_search(request):
+    """Search users for delegate selection and return HTML results for HTMX."""
+    search_query = request.GET.get("search", "")
+
+    # Show all active users - anyone can be a delegate
+    users = User.objects.filter(is_active=True)
+
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query)
+            | Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+        )
+
+    users = users.order_by("first_name", "last_name")[:20]
+
+    return render(
+        request,
+        "workflows/partials/delegate_user_search_results.html",
+        {"users": users, "search_query": search_query},
+    )
+
+
+@login_required
+@require_http_methods(["POST"])
+def delegate_add(request):
+    """Add a delegate to the session and return updated delegate list."""
+    user_id = request.POST.get("user_id")
+    role = request.POST.get("role")
+
+    if not user_id or not role:
+        return HttpResponse(
+            '<div class="alert alert-error">User and role are required</div>',
+            status=400,
+        )
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return HttpResponse(
+            '<div class="alert alert-error">User not found</div>', status=404
+        )
+
+    # Get or initialize delegates list from session
+    delegates = request.session.get("workflow_delegates", [])
+
+    # Check if user already added
+    if any(d["user_id"] == int(user_id) for d in delegates):
+        return HttpResponse(
+            '<div class="alert alert-warning">This user has already been added</div>',
+            status=400,
+        )
+
+    # Add new delegate
+    delegates.append(
+        {
+            "user_id": int(user_id),
+            "user_name": user.get_full_name() or user.username,
+            "delegation_role": role,
+            "is_mp": user.is_mp,
+        }
+    )
+
+    request.session["workflow_delegates"] = delegates
+    request.session.modified = True
+
+    return render(
+        request, "workflows/partials/delegate_list.html", {"delegates": delegates}
+    )
+
+
+@login_required
+@require_http_methods(["DELETE"])
+def delegate_remove(request, user_id):
+    """Remove a delegate from the session and return updated delegate list."""
+    delegates = request.session.get("workflow_delegates", [])
+    delegates = [d for d in delegates if d["user_id"] != user_id]
+
+    request.session["workflow_delegates"] = delegates
+    request.session.modified = True
+
+    return render(
+        request, "workflows/partials/delegate_list.html", {"delegates": delegates}
+    )
+
+
+@login_required
+def delegate_clear_session(request):
+    """Clear delegates from session (called when form is loaded)."""
+    if "workflow_delegates" in request.session:
+        del request.session["workflow_delegates"]
+    return HttpResponse(status=204)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delegate_populate_session(request):
+    """Populate session with existing delegates for edit form."""
+    try:
+        data = json.loads(request.body)
+        delegates = data.get("delegates", [])
+        request.session["workflow_delegates"] = delegates
+        request.session.modified = True
+        return JsonResponse({"success": True})
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"success": False, "error": "Invalid data"}, status=400)
+
+
+@login_required
+def delegate_get_list(request):
+    """Get current delegate list from session."""
+    delegates = request.session.get("workflow_delegates", [])
+    return render(
+        request, "workflows/partials/delegate_list.html", {"delegates": delegates}
+    )
