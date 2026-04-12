@@ -1,0 +1,27 @@
+{% if delegates %}
+  {% for delegate in delegates %}
+    <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+      <div class="flex items-center gap-3">
+        <div class="avatar placeholder">
+          <div class="bg-neutral text-neutral-content rounded-full w-8">
+            <span class="text-sm">{{ delegate.user_name.0|upper }}</span>
+          </div>
+        </div>
+        <div>
+          <div class="font-medium">{{ delegate.user_name }}</div>
+          <div class="text-sm text-base-content/70">{{ delegate.delegation_role }}</div>
+        </div>
+      </div>
+      <button type="button" 
+              class="btn btn-ghost btn-sm"
+              hx-delete="{% url 'delegate_remove' delegate.user_id %}"
+              hx-target="#delegate-list"
+              hx-swap="innerHTML"
+              hx-confirm="Remove {{ delegate.user_name }} from delegates?">
+        <span class="text-lg">×</span>
+      </button>
+    </div>
+  {% endfor %}
+{% else %}
+  <p class="text-sm text-base-content/50">No delegates selected</p>
+{% endif %}
