@@ -1655,8 +1655,8 @@ class Command(BaseCommand):
                 parts = parts[1:]
 
             if len(parts) >= 2:
-                first_name = parts[0]
-                last_name = " ".join(parts[1:])
+                last_name = parts[-1]
+                first_name = " ".join(parts[:-1])
             elif len(parts) == 1:
                 first_name = parts[0]
 
