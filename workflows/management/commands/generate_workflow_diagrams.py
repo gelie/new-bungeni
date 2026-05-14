@@ -156,7 +156,7 @@ class Command(BaseCommand):
             comment=f"Workflow: {workflow_type.name}",
             format="png",
         )
-        dot.attr(rankdir="TB")
+        dot.attr(rankdir="LR")
         dot.attr("node", shape="box", style="filled")
         dot.attr("edge", fontsize="12")
 

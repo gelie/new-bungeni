@@ -1921,10 +1921,11 @@ def event_detail(request, pk):
 
 
 @login_required
-@htmx_partial("workflows/group_list.html")
 def group_list(request):
     """List all groups"""
     user = request.user
+    search_query = request.GET.get("search", "").strip()
+
     user_groups = user.memberships.filter(is_active=True).values_list(
         "group", flat=True
     )
@@ -1936,20 +1937,41 @@ def group_list(request):
     else:
         groups = Group.objects.filter(id__in=user_groups).select_related("parent")
 
+    # Filter by search query if provided
+    if search_query:
+        groups = groups.filter(name__icontains=search_query)
+
     context = {
         "groups": groups,
+        "search_query": search_query,
     }
 
-    return context
+    # Handle HTMX partial rendering based on URL fragment
+    if request.headers.get("HX-Request"):
+        # HTMX request - return only the groups_container partial
+        return render(request, "workflows/group_list.html#groups_container", context)
+
+    # Regular request - return full page
+    return render(request, "workflows/group_list.html", context)
 
 
 @login_required
 def group_detail(request, pk):
     """Detailed view of a group"""
     group = get_object_or_404(Group, pk=pk)
+    member_search = request.GET.get("member_search", "").strip()
 
     # Get members
     memberships = group.members.filter(is_active=True).select_related("user", "role")
+
+    # Filter members by search query if provided
+    if member_search:
+        memberships = memberships.filter(
+            Q(user__first_name__icontains=member_search)
+            | Q(user__last_name__icontains=member_search)
+            | Q(user__username__icontains=member_search)
+            | Q(role__name__icontains=member_search)
+        )
 
     # Get workflows
     workflows = Workflow.objects.filter(workflow_type__group=group).select_related(
@@ -1970,7 +1992,12 @@ def group_detail(request, pk):
         "workflows": workflows,
         "events": events,
         "children": children,
+        "member_search": member_search,
     }
+
+    # Handle HTMX partial rendering for member search
+    if request.headers.get("HX-Request"):
+        return render(request, "workflows/group_detail.html#members_table", context)
 
     return render(request, "workflows/group_detail.html", context)
 

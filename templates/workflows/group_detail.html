@@ -1,5 +1,52 @@
 {% extends 'base.html' %}
 {% block title %}{{ group.name }}{% endblock %}
+{% partialdef members_table %}
+<div class="overflow-x-auto mt-4" id="members-table">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Since</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for membership in memberships %}
+                <tr>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <div class="avatar avatar-placeholder">
+                                <div class="bg-primary text-primary-content rounded-full w-8">
+                                    <span class="text-sm">{{ membership.user.first_name.0|default:membership.user.username.0|upper }}</span>
+                                </div>
+                            </div>
+                            {{ membership.user.get_full_name|default:membership.user.username }}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-outline">{{ membership.role.name }}</span>
+                    </td>
+                    <td>{{ membership.start_date|date:"M Y" }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="3" class="text-center text-base-content/50">No members found</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<div class="badge badge-lg badge-ghost"
+     id="member-count"
+     hx-swap-oob="outerHTML">
+    {{ memberships.count }}
+    {% if member_search %}
+        result{{ memberships.count|pluralize }}
+    {% else %}
+        member{{ memberships.count|pluralize }}
+    {% endif %}
+</div>
+{% endpartialdef %}
 {% partialdef content %}
 <div class="max-w-7xl mx-auto space-y-6">
     <div class="text-sm breadcrumbs">
@@ -41,45 +88,35 @@
     <!-- Members -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-            <h2 class="card-title">
-                {% lucide "users" class="w-5 h-5" %}
-                Members
-            </h2>
-            <div class="overflow-x-auto mt-4">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Role</th>
-                            <th>Since</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for membership in memberships %}
-                            <tr>
-                                <td>
-                                    <div class="flex items-center gap-2">
-                                        <div class="avatar avatar-placeholder">
-                                            <div class="bg-primary text-primary-content rounded-full w-8">
-                                                <span class="text-sm">{{ membership.user.first_name.0|default:membership.user.username.0|upper }}</span>
-                                            </div>
-                                        </div>
-                                        {{ membership.user.get_full_name|default:membership.user.username }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge badge-outline">{{ membership.role.name }}</span>
-                                </td>
-                                <td>{{ membership.start_date|date:"M Y" }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center text-base-content/50">No members</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="flex justify-between items-center">
+                <h2 class="card-title">
+                    {% lucide "users" class="w-5 h-5" %}
+                    Members
+                </h2>
+                <div class="badge badge-lg badge-ghost" id="member-count">
+                    {{ memberships.count }}
+                    {% if member_search %}
+                        result{{ memberships.count|pluralize }}
+                    {% else %}
+                        member{{ memberships.count|pluralize }}
+                    {% endif %}
+                </div>
             </div>
+            <div class="form-control w-full max-w-md mt-4">
+                <div class="input-group">
+                    <span class="bg-base-200">{% lucide "search" class="w-5 h-5" %}</span>
+                    <input type="text"
+                           name="member_search"
+                           placeholder="Search by name or role..."
+                           class="input input-bordered w-full"
+                           hx-get="{% url 'group_detail' group.pk %}#members_table"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-target="#members-table"
+                           hx-swap="outerHTML"
+                           value="{{ member_search }}">
+                </div>
+            </div>
+            {% partial members_table %}
         </div>
     </div>
     <!-- Child Groups -->
