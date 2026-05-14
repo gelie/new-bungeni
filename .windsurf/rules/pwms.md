@@ -1,6 +1,9 @@
 ---
 trigger: glob
-globs: [*.py]
+
+globs:
+  - "*.py"
+
 ---
 
 # Project code in pwms
