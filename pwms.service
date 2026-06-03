@@ -1,0 +1,13 @@
+[Unit]
+Description=Start PWMS service
+Requires=
+After=network.target
+
+[Service]
+WorkingDirectory=/home/admgelie/Projects/pwms
+ExecStart=/home/admgelie/Projects/pwms/.venv/bin/python3 /home/admgelie/Projects/pwms/main.py
+Restart=always
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
