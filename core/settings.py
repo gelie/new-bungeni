@@ -89,6 +89,8 @@ DEBUG = True
 # ALLOWED_HOSTS = ["localhost", "10.0.0.0/24", "172.16.0.0/24"]
 ALLOWED_HOSTS = ["workflows-dev.parliament.gov.za", "pwmsdev", "172.16.0.114", "127.0.0.1", "localhost"]
 
+CSRF_TRUSTED_ORIGINS = ["https://workflows-dev.parliament.gov.za"]
+
 
 # Application definition
 

@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import hmac
 import logging
+import uuid
 from typing import Optional
 
 from django.conf import settings
@@ -52,6 +53,7 @@ class User(AbstractUser):
         ("other", _("Other")),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     title = models.CharField(max_length=10, choices=TITLE_CHOICES, blank=True)
     middle_name = models.CharField(max_length=100, blank=True)
     employee_type = models.CharField(
@@ -272,6 +274,7 @@ class Group(MPTTModel):
         ("delegation", _("Delegation")),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=255)
     slug = AutoSlugField(populate_from="name", unique=True, editable=False)
     short_name = models.CharField(max_length=50, blank=True)
@@ -330,6 +333,7 @@ class Role(models.Model):
     - can_manage_permissions: Who can manage group access
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=100, unique=True)
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
@@ -381,6 +385,7 @@ class GroupMembership(models.Model):
     A user can have multiple roles in multiple groups.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False) 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="members")
     role = models.ForeignKey(Role, on_delete=models.PROTECT)
@@ -412,7 +417,7 @@ class WorkflowType(models.Model):
     """
     Types of workflows: Bill, Motion, Question, Report, Event, etc.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=100, unique=True)
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
     description = models.TextField(blank=True)
@@ -463,6 +468,7 @@ class State(models.Model):
     Workflow states: Draft, Submitted, Under Review, Approved, Rejected, etc.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow_type = models.ForeignKey(
         WorkflowType, on_delete=models.CASCADE, related_name="states"
     )
@@ -501,6 +507,7 @@ class Transition(models.Model):
     Defines allowed transitions between workflow states.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow_type = models.ForeignKey(
         WorkflowType, on_delete=models.CASCADE, related_name="transitions"
     )
@@ -540,7 +547,7 @@ class WorkflowTypeChildConfig(models.Model):
     Declares which child WorkflowTypes are allowed under a parent WorkflowType,
     and what the relationship is called. Replaces the hardcoded can_be_parent_of dict.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     parent_type = models.ForeignKey(
         WorkflowType,
         on_delete=models.CASCADE,
@@ -576,7 +583,7 @@ class StatePermission(models.Model):
     One row per state with multiple roles controls what those roles can do in that state.
     Transition permission is handled by both this model and Transition.allowed_roles.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     state = models.ForeignKey(
         State, on_delete=models.CASCADE, related_name="permissions"
     )
@@ -612,6 +619,7 @@ class Workflow(models.Model):
     Can represent Bills, Motions, Questions, Events, etc.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow_type = models.ForeignKey(WorkflowType, on_delete=models.PROTECT)
     title = models.CharField(max_length=500)
     description = models.TextField(blank=True)
@@ -1171,6 +1179,7 @@ class WorkflowTypeReferralConfig(models.Model):
     or edit the workflow while it is referred.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow_type = models.ForeignKey(
         WorkflowType,
         on_delete=models.CASCADE,
@@ -1217,6 +1226,7 @@ class WorkflowReferral(models.Model):
     The currently active referral (recalled_at=None) drives the permission system.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow = models.ForeignKey(
         Workflow,
         on_delete=models.CASCADE,
@@ -1307,6 +1317,7 @@ class WorkflowGroupAccess(models.Model):
     Use WorkflowRolePermission to override Role defaults for specific workflows.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow = models.ForeignKey(
         Workflow,
         on_delete=models.CASCADE,
@@ -1383,6 +1394,7 @@ class WorkflowRolePermission(models.Model):
     the group-level defaults for those specific roles.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     group_access = models.ForeignKey(
         WorkflowGroupAccess,
         on_delete=models.CASCADE,
@@ -1439,6 +1451,7 @@ class WorkflowTransitionLog(models.Model):
     Audit log for workflow state transitions.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow = models.ForeignKey(
         Workflow, on_delete=models.CASCADE, related_name="transition_logs"
     )
@@ -1475,6 +1488,7 @@ class AuditLog(models.Model):
         ("transition", "Transition"),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     # Generic foreign key to any model
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
@@ -1512,6 +1526,7 @@ class EventType(models.Model):
     Types of events: Plenary, Committee Meeting, Briefing, etc.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
 
@@ -1527,6 +1542,7 @@ class Building(models.Model):
     Buildings that contain venues.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=255, unique=True)
     address = models.TextField(blank=True)
     description = models.TextField(blank=True)
@@ -1543,6 +1559,7 @@ class Venue(models.Model):
     Venues where events take place.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=255)
     building = models.ForeignKey(
         Building, on_delete=models.CASCADE, null=True, blank=True, related_name="venues"
@@ -1572,6 +1589,7 @@ class Event(models.Model):
     Events as workflows - Plenary sessions, meetings, briefings, etc.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     # Link to workflow system
     workflow = models.OneToOneField(
         Workflow,
@@ -1687,6 +1705,7 @@ class EventAttendance(models.Model):
     Track attendance for events.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     event = models.ForeignKey(
         Event, on_delete=models.CASCADE, related_name="attendances"
     )
@@ -1727,7 +1746,7 @@ class EventComment(models.Model):
     """
     Comments on events.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="event_comments"
@@ -1754,7 +1773,8 @@ class Notification(models.Model):
     """
     Notifications for users about workflow changes, deadlines, etc.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    
     VERB_TRANSITION = "transition"
     VERB_ASSIGNED = "assigned"
     VERB_REFERRED = "referred"
@@ -1826,7 +1846,7 @@ class Comment(models.Model):
     """
     Comments on workflows.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow = models.ForeignKey(
         Workflow, on_delete=models.CASCADE, related_name="comments"
     )
@@ -1858,6 +1878,7 @@ class Comment(models.Model):
 
 
 class Site(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=200)
     url = models.URLField()
     site_id = models.CharField(max_length=200)
@@ -1880,6 +1901,7 @@ class Site(models.Model):
 
 
 class SiteMember(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date_added = models.DateTimeField(auto_now_add=True)
@@ -1893,6 +1915,7 @@ class SiteMember(models.Model):
 
 
 class Drive(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
     drive_id = models.CharField(max_length=200)
@@ -1905,7 +1928,7 @@ class SharePointToken(models.Model):
     """
     Stores SharePoint Graph API access tokens for application-level authentication.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     access_token = models.TextField(help_text="SharePoint access token")
     refresh_token = models.TextField(blank=True, help_text="SharePoint refresh token")
     expires_at = models.DateTimeField(help_text="Token expiration time")
@@ -1932,7 +1955,7 @@ class SharePointFolder(models.Model):
     """
     Represents a folder hierarchy in SharePoint for navigation.
     """
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     drive = models.ForeignKey(Drive, on_delete=models.CASCADE)
     folder_id = models.CharField(max_length=200, help_text="SharePoint folder ID")
@@ -1982,7 +2005,7 @@ class UserDelegation(models.Model):
         ("revoked", "Revoked"),
         ("pending", "Pending"),
     ]
-
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     # Delegation relationship
     delegator = models.ForeignKey(
         User,
@@ -2481,6 +2504,7 @@ Workflow Management System
 
 
 class Attachment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     attachment_type = {
         "response": "Response",
         "document": "Document",

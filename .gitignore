@@ -50,3 +50,7 @@ workflows/management/commands/sync_users_oracle_20260407.py
 
 staticfiles/
 .devin/
+
+*2026*
+
+.dev/
