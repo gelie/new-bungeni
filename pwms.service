@@ -5,9 +5,13 @@ After=network.target
 
 [Service]
 WorkingDirectory=/home/admgelie/Projects/pwms
-ExecStart=/home/admgelie/Projects/pwms/.venv/bin/python3 /home/admgelie/Projects/pwms/main.py
-Restart=always
+EnvironmentFile=/home/admgelie/Projects/pwms/.env
+ExecStart=/home/admgelie/Projects/pwms/start_pwms.sh
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
 Type=simple
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

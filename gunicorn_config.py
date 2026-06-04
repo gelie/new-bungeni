@@ -26,4 +26,4 @@ errorlog = "./logs/gunicorn/error.log"
 loglevel = "info"
 
 # Daemonize (run in background)
-daemon = True
+daemon = False
