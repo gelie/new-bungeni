@@ -1,87 +1,70 @@
 <!-- Icon Bar (Always Visible) -->
-<aside class="fixed left-0 top-20 w-20 bg-base-200 h-[calc(100vh-5rem)] lg:h-screen flex flex-col items-center py-4 gap-4 border-r border-base-300 z-40">
-  <a hx-get="{% url 'dashboard' %}"
-     hx-target="#content-area"
-     hx-push-url="true"
-     class="sidebar-icon-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
-     data-panel="dashboard"
-     title="Dashboard">
+<aside id="aside"
+  class="fixed left-0 top-20 w-20 bg-base-200 h-[calc(100vh-5rem)] lg:h-screen flex flex-col items-center py-4 gap-4 border-r border-base-300 z-40">
+  <a hx-get="{% url 'dashboard' %}" hx-target="#content-area" hx-push-url="true"
+    _="on click remove .active from <a/> add .active to me"
+    class="sidebar-icon-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+    data-panel="dashboard" title="Dashboard">
     <div class="flex flex-col items-center">
       {% lucide "chart-pie" class="w-6 h-6" %}
       <span class="text-sm">Dashboard</span>
     </div>
   </a>
-  <a hx-get="{% url 'workflow_list' %}"
-     hx-target="#content-area"
-     hx-push-url="true"
-     class="sidebar-icon-btn {% if 'workflow' in request.path %}active{% endif %}"
-     data-panel="workflows"
-     title="Workflows">
+  <a href="#" hx-get="{% url 'workflow_list' %}" hx-target="#content-area" hx-push-url="true"
+    class="sidebar-icon-btn {% if request.resolver_match.url_name == 'workflow_list' %}active{% endif %}"
+    data-panel="workflows" title="Workflows" _="on click remove .active from <a/> add .active to me">
     <div class="flex flex-col items-center">
       {% lucide "git-branch" class="w-6 h-6" %}
       <span class="text-sm">Workflows</span>
     </div>
   </a>
   {% if user.is_superuser or user.can_manage_permissions %}
-    <a hx-get="{% url 'delegation_list' %}"
-       hx-target="#content-area"
-       hx-push-url="true"
-       class="sidebar-icon-btn {% if 'delegation' in request.path %}active{% endif %}"
-       data-panel="delegations"
-       title="Delegations">
-      <div class="flex flex-col items-center">
-        {% lucide "user-plus" class="w-6 h-6" %}
-        <span class="text-sm">Delegations</span>
-      </div>
-    </a>
+  <a href="#" hx-get="{% url 'delegation_list' %}" hx-target="#content-area" hx-push-url="true"
+    class="sidebar-icon-btn {% if request.resolver_match.url_name == 'delegation_list' %}active{% endif %}"
+    data-panel="delegations" title="Delegations" _="on click remove .active from <a/> add .active to me">
+    <div class="flex flex-col items-center">
+      {% lucide "user-plus" class="w-6 h-6" %}
+      <span class="text-sm">Delegations</span>
+    </div>
+  </a>
   {% endif %}
-  <a hx-get="{% url 'event_list' %}"
-     hx-target="#content-area"
-     hx-push-url="true"
-     class="sidebar-icon-btn {% if 'event' in request.path %}active{% endif %}"
-     data-panel="events"
-     title="Events">
+  {% comment %} <a hx-get="{% url 'event_list' %}" hx-target="#content-area" hx-push-url="true"
+    _="on click remove .active from <a/> add .active to me"
+    class="sidebar-icon-btn {% if request.resolver_match.url_name == 'event_list' %}active{% endif %}"
+    data-panel="events" title="Events">
     <div class="flex flex-col items-center">
       {% lucide "calendar" class="w-6 h-6" %}
       <span class="text-sm">Events</span>
     </div>
-  </a>
-  <a hx-get="{% url 'group_list' %}"
-     hx-target="#content-area"
-     hx-push-url="true"
-     class="sidebar-icon-btn {% if 'group' in request.path %}active{% endif %}"
-     data-panel="groups"
-     title="Groups">
+  </a> {% endcomment %}
+  <a hx-get="{% url 'group_list' %}" hx-target="#content-area" hx-push-url="true"
+    _="on click remove .active from <a/> add .active to me"
+    class="sidebar-icon-btn {% if request.resolver_match.url_name == 'group_list' %}active{% endif %}"
+    data-panel="groups" title="Groups">
     <div class="flex flex-col items-center">
       {% lucide "users" class="w-6 h-6" %}
       <span class="text-sm">Groups</span>
     </div>
   </a>
-  <a hx-get="{% url 'reports' %}"
-     hx-target="#content-area"
-     hx-push-url="true"
-     class="sidebar-icon-btn {% if 'report' in request.path %}active{% endif %}"
-     data-panel="reports"
-     title="Reports">
+  <a hx-get="{% url 'reports' %}" hx-target="#content-area" hx-push-url="true"
+    _="on click remove .active from <a/> add .active to me"
+    class="sidebar-icon-btn {% if request.resolver_match.url_name == 'reports' %}active{% endif %}" data-panel="reports"
+    title="Reports">
     <div class="flex flex-col items-center">
       {% lucide "file-text" class="w-6 h-6" %}
       <span class="text-sm">Reports</span>
     </div>
   </a>
   {% if user.is_staff %}
-    {% comment %} <div class="divider my-2 w-10 mx-auto"></div> {% endcomment %}
-    <hr style="color: #e5e7eb;">
-    <a hx-get="{% url 'admin_users' %}"
-       hx-target="#content-area"
-       hx-push-url="true"
-       class="sidebar-icon-btn"
-       data-panel="admin"
-       title="Administration">
-      <div class="flex flex-col items-center">
-        {% lucide "settings" class="w-6 h-6" %}
-        <span class="text-sm">Admin</span>
-      </div>
-    </a>
+  {% comment %} <div class="divider my-2 w-10 mx-auto"></div> {% endcomment %}
+  <hr style="color: #e5e7eb;">
+  <a hx-get="{% url 'admin_users' %}" hx-target="#content-area" hx-push-url="true" class="sidebar-icon-btn"
+    data-panel="admin" title="Administration" _="on click remove .active from <a/> add .active to me">
+    <div class="flex flex-col items-center">
+      {% lucide "settings" class="w-6 h-6" %}
+      <span class="text-sm">Admin</span>
+    </div>
+  </a>
   {% endif %}
 </aside>
 <!-- Floating Popup -->
@@ -92,37 +75,29 @@
 </div> {% endcomment %}
 <!-- Collapsible Side Panels -->
 <div id="sidebar-panels" class="sidebar-panel-container mt-20">
-  <button class="btn btn-circle mt-2 mr-2"
-          style="float:right"
-          _="on click call toggleSidebarPanels()">X</button>
+  <button class="btn btn-circle mt-2 mr-2" style="float:right" _="on click call toggleSidebarPanels()">X</button>
   <!-- Dashboard Panel -->
   <div id="panel-dashboard" class="sidebar-panel" data-panel="dashboard">
     <div class="p-4">
       {% comment %} <h3 class="font-bold text-lg mb-4">Dashboard</h3> {% endcomment %}
       <ul class="menu menu-md p-0 space-y-4">
         <li>
-          <a hx-get="{% url 'dashboard' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'dashboard' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "house" class="w-4 h-4" %}
             <span>Overview</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'dashboard' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'dashboard' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "trending-up" class="w-4 h-4" %}
             <span>Analytics</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'dashboard' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'dashboard' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "activity" class="w-4 h-4" %}
             <span>Recent Activity</span>
           </a>
@@ -136,46 +111,36 @@
       {% comment %} <h3 class="font-bold text-lg mb-4">Workflows</h3> {% endcomment %}
       <ul class="menu menu-md p-0 space-y-4">
         <li>
-          <a hx-get="{% url 'workflow_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'workflow_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "circle-plus" class="w-4 h-4" %}
             <span>Create Workflow</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'workflow_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'workflow_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "clock" class="w-4 h-4" %}
             <span>Overdue Workflows</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'workflow_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'workflow_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "list" class="w-4 h-4" %}
             <span>All Workflows</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'workflow_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'workflow_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "user-check" class="w-4 h-4" %}
             <span>Assigned to Me</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'workflow_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'workflow_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "archive" class="w-4 h-4" %}
             <span>Archived</span>
           </a>
@@ -189,37 +154,29 @@
       {% comment %} <h3 class="font-bold text-lg mb-4">Events</h3> {% endcomment %}
       <ul class="menu menu-md p-0 space-y-4">
         <li>
-          <a hx-get="{% url 'event_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'event_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "circle-plus" class="w-4 h-4" %}
             <span>Create Event</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'event_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'event_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "calendar-days" class="w-4 h-4" %}
             <span>Upcoming Events</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'event_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'event_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "list" class="w-4 h-4" %}
             <span>All Events</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'event_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'event_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "calendar-check" class="w-4 h-4" %}
             <span>My Events</span>
           </a>
@@ -233,28 +190,22 @@
       {% comment %} <h3 class="font-bold text-lg mb-4">Groups</h3> {% endcomment %}
       <ul class="menu menu-md p-0 space-y-4">
         <li>
-          <a hx-get="{% url 'group_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'group_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "circle-plus" class="w-4 h-4" %}
             <span>Create Group</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'group_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'group_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "list" class="w-4 h-4" %}
             <span>All Groups</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'group_list' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'group_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
             {% lucide "users" class="w-4 h-4" %}
             <span>My Groups</span>
           </a>
@@ -268,28 +219,19 @@
       {% comment %} <h3 class="font-bold text-lg mb-4">Reports</h3> {% endcomment %}
       <ul class="menu menu-md p-0 space-y-4">
         <li>
-          <a hx-get="{% url 'reports' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'reports' %}" hx-target="#content-area" hx-push-url="true" class="flex items-center gap-2">
             {% lucide "file-chart-column" class="w-4 h-4" %}
             <span>Workflow Reports</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'reports' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'reports' %}" hx-target="#content-area" hx-push-url="true" class="flex items-center gap-2">
             {% lucide "chart-pie" class="w-4 h-4" %}
             <span>Performance</span>
           </a>
         </li>
         <li>
-          <a hx-get="{% url 'reports' %}"
-             hx-target="#content-area"
-             hx-push-url="true"
-             class="flex items-center gap-2">
+          <a hx-get="{% url 'reports' %}" hx-target="#content-area" hx-push-url="true" class="flex items-center gap-2">
             {% lucide "download" class="w-4 h-4" %}
             <span>Export Data</span>
           </a>
@@ -298,84 +240,70 @@
     </div>
   </div>
   {% if user.is_staff %}
-    <!-- Admin Panel -->
-    <div id="panel-admin" class="sidebar-panel" data-panel="admin">
-      <div class="p-4">
-        {% comment %} <h3 class="font-bold text-lg mb-4">Administration</h3> {% endcomment %}
-        <ul class="menu menu-md p-0 space-y-4">
-          <li>
-            <a hx-get="{% url 'admin_users' %}"
-               hx-target="#content-area"
-               hx-push-url="true"
-               class="flex items-center gap-2">
-              {% lucide "user" class="w-4 h-4" %}
-              <span>Users</span>
-            </a>
-          </li>
-          <li>
-            <a hx-get="{% url 'admin_groups' %}"
-               hx-target="#content-area"
-               hx-push-url="true"
-               class="flex items-center gap-2">
-              {% lucide "users" class="w-4 h-4" %}
-              <span>Groups</span>
-            </a>
-          </li>
-          <li>
-            <a hx-get="{% url 'admin_roles' %}"
-               hx-target="#content-area"
-               hx-push-url="true"
-               class="flex items-center gap-2">
-              {% lucide "shield" class="w-4 h-4" %}
-              <span>Roles</span>
-            </a>
-          </li>
-          <li>
-            <a hx-get="{% url 'admin_workflow_types' %}"
-               hx-target="#content-area"
-               hx-push-url="true"
-               class="flex items-center gap-2">
-              {% lucide "git-branch" class="w-4 h-4" %}
-              <span>Workflow Types</span>
-            </a>
-          </li>
-          <li>
-            <a hx-get="{% url 'admin_sharepoint_sites' %}"
-               hx-target="#content-area"
-               hx-push-url="true"
-               class="flex items-center gap-2">
-              {% lucide "globe" class="w-4 h-4" %}
-              <span>SharePoint Sites</span>
-            </a>
-          </li>
-          <li>
-            <a hx-get="{% url 'admin_sharepoint_members' %}"
-               hx-target="#content-area"
-               hx-push-url="true"
-               class="flex items-center gap-2">
-              {% lucide "user-check" class="w-4 h-4" %}
-              <span>Site Members</span>
-            </a>
-          </li>
-          <li>
-            <a hx-get="{% url 'delegation_list' %}"
-               hx-target="#content-area"
-               hx-push-url="true"
-               class="flex items-center gap-2">
-              {% lucide "user-plus" class="w-4 h-4" %}
-              <span>Delegations</span>
-            </a>
-          </li>
-          <li class="divider my-2"></li>
-          <li>
-            <a href="/admin/" class="flex items-center gap-2">
-              {% lucide "settings" class="w-4 h-4" %}
-              <span>Admin Panel</span>
-            </a>
-          </li>
-        </ul>
-      </div>
+  <!-- Admin Panel -->
+  <div id="panel-admin" class="sidebar-panel" data-panel="admin">
+    <div class="p-4">
+      {% comment %} <h3 class="font-bold text-lg mb-4">Administration</h3> {% endcomment %}
+      <ul class="menu menu-md p-0 space-y-4">
+        <li>
+          <a hx-get="{% url 'admin_users' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "user" class="w-4 h-4" %}
+            <span>Users</span>
+          </a>
+        </li>
+        <li>
+          <a hx-get="{% url 'admin_groups' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "users" class="w-4 h-4" %}
+            <span>Groups</span>
+          </a>
+        </li>
+        <li>
+          <a hx-get="{% url 'admin_roles' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "shield" class="w-4 h-4" %}
+            <span>Roles</span>
+          </a>
+        </li>
+        <li>
+          <a hx-get="{% url 'admin_workflow_types' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "git-branch" class="w-4 h-4" %}
+            <span>Workflow Types</span>
+          </a>
+        </li>
+        <li>
+          <a hx-get="{% url 'admin_sharepoint_sites' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "globe" class="w-4 h-4" %}
+            <span>SharePoint Sites</span>
+          </a>
+        </li>
+        <li>
+          <a hx-get="{% url 'admin_sharepoint_members' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "user-check" class="w-4 h-4" %}
+            <span>Site Members</span>
+          </a>
+        </li>
+        <li>
+          <a hx-get="{% url 'delegation_list' %}" hx-target="#content-area" hx-push-url="true"
+            class="flex items-center gap-2">
+            {% lucide "user-plus" class="w-4 h-4" %}
+            <span>Delegations</span>
+          </a>
+        </li>
+        <li class="divider my-2"></li>
+        <li>
+          <a href="/admin/" class="flex items-center gap-2">
+            {% lucide "settings" class="w-4 h-4" %}
+            <span>Admin Panel</span>
+          </a>
+        </li>
+      </ul>
     </div>
+  </div>
   {% endif %}
 </div>
 </div>

@@ -15,52 +15,52 @@ urlpatterns = [
     # Workflows
     path("workflows/", views.workflow_list, name="workflow_list"),
     path("workflows/new/", views.workflow_create, name="workflow_create"),
-    path("workflows/<int:pk>/", views.workflow_detail, name="workflow_detail"),
-    path("workflows/<int:pk>/edit/", views.workflow_edit, name="workflow_edit"),
-    path("workflows/<int:pk>/report/", views.workflow_report, name="workflow_report"),
+    path("workflows/<uuid:pk>/", views.workflow_detail, name="workflow_detail"),
+    path("workflows/<uuid:pk>/edit/", views.workflow_edit, name="workflow_edit"),
+    path("workflows/<uuid:pk>/report/", views.workflow_report, name="workflow_report"),
     path(
-        "workflows/<int:pk>/share/email/",
+        "workflows/<uuid:pk>/share/email/",
         views.workflow_share_email,
         name="workflow_share_email",
     ),
     path(
-        "workflows/<int:pk>/comments/<int:comment_pk>/delete/",
+        "workflows/<uuid:pk>/comments/<uuid:comment_pk>/delete/",
         views.comment_delete,
         name="comment_delete",
     ),
     path(
-        "workflows/<int:pk>/transition/<int:transition_id>/",
+        "workflows/<uuid:pk>/transition/<uuid:transition_id>/",
         views.workflow_transition,
         name="workflow_transition",
     ),
     # Workflow attachments
     path(
-        "workflows/<int:pk>/attachments/",
+        "workflows/<uuid:pk>/attachments/",
         views.workflow_attachments,
         name="workflow_attachments",
     ),
     # Events
     path("events/", views.event_list, name="event_list"),
     path("events/create/", views.event_create, name="event_create"),
-    path("events/<int:pk>/", views.event_detail, name="event_detail"),
-    path("events/<int:pk>/edit/", views.event_edit, name="event_edit"),
+    path("events/<uuid:pk>/", views.event_detail, name="event_detail"),
+    path("events/<uuid:pk>/edit/", views.event_edit, name="event_edit"),
     path(
-        "events/<int:pk>/attendance/",
+        "events/<uuid:pk>/attendance/",
         views.event_attendance_edit,
         name="event_attendance_edit",
     ),
-    path("events/<int:pk>/export/", views.event_export, name="event_export"),
+    path("events/<uuid:pk>/export/", views.event_export, name="event_export"),
     path(
-        "events/<int:pk>/export/pdf/", views.event_export_pdf, name="event_export_pdf"
+        "events/<uuid:pk>/export/pdf/", views.event_export_pdf, name="event_export_pdf"
     ),
     path(
-        "events/<int:pk>/status/<str:status>/",
+        "events/<uuid:pk>/status/<str:status>/",
         views.event_update_status,
         name="event_update_status",
     ),
     # Groups
     path("groups/", views.group_list, name="group_list"),
-    path("groups/<int:pk>/", views.group_detail, name="group_detail"),
+    path("groups/<uuid:pk>/", views.group_detail, name="group_detail"),
     # Notifications
     path("notifications/", views.notifications_json, name="notifications_json"),
     path(
@@ -85,17 +85,17 @@ urlpatterns = [
         name="reports_recent_activity_pdf",
     ),
     path(
-        "workflows/<int:parent_pk>/bulk-create/",
+        "workflows/<uuid:parent_pk>/bulk-create/",
         views.workflow_bulk_create,
         name="workflow_bulk_create",
     ),
     path(
-        "workflows/<int:pk>/refer/",
+        "workflows/<uuid:pk>/refer/",
         views.workflow_refer,
         name="workflow_refer",
     ),
     path(
-        "api/workflows/<int:pk>/referral-targets/",
+        "api/workflows/<uuid:pk>/referral-targets/",
         views.api_referral_targets,
         name="api_referral_targets",
     ),
@@ -106,7 +106,7 @@ urlpatterns = [
         name="api_sharepoint_members_create",
     ),
     path(
-        "api/sharepoint/members/<int:member_id>/",
+        "api/sharepoint/members/<uuid:member_id>/",
         views.api_sharepoint_members_delete,
         name="api_sharepoint_members_delete",
     ),
@@ -134,7 +134,7 @@ urlpatterns = [
     ),
     path("api/attachments/upload/", views.attachment_upload, name="attachment_upload"),
     path(
-        "api/attachments/<int:pk>/", views.attachment_detail, name="attachment_detail"
+        "api/attachments/<uuid:pk>/", views.attachment_detail, name="attachment_detail"
     ),
     path("manage/users/", views.user_admin, name="admin_users"),
     path("manage/memberships/", views.user_admin_groups, name="admin_memberships"),
@@ -150,27 +150,27 @@ urlpatterns = [
         name="admin_workflow_type_create",
     ),
     path(
-        "manage/workflow-types/<int:pk>/edit/",
+        "manage/workflow-types/<uuid:pk>/edit/",
         views.workflow_type_edit,
         name="admin_workflow_type_edit",
     ),
     path(
-        "manage/workflow-types/<int:pk>/states/",
+        "manage/workflow-types/<uuid:pk>/states/",
         views.workflow_type_states,
         name="admin_workflow_type_states",
     ),
     path(
-        "manage/workflow-types/<int:pk>/transitions/",
+        "manage/workflow-types/<uuid:pk>/transitions/",
         views.workflow_type_transitions,
         name="admin_workflow_type_transitions",
     ),
     path(
-        "manage/workflow-types/<int:pk>/referral-configs/",
+        "manage/workflow-types/<uuid:pk>/referral-configs/",
         views.workflow_type_referral_configs,
         name="admin_workflow_type_referral_configs",
     ),
     path(
-        "workflow-types/<int:pk>/diagram/",
+        "workflow-types/<uuid:pk>/diagram/",
         views.workflow_type_diagram,
         name="workflow_type_diagram",
     ),
@@ -191,22 +191,22 @@ urlpatterns = [
         "manage/delegations/create/", views.delegation_create, name="delegation_create"
     ),
     path(
-        "manage/delegations/<int:pk>/",
+        "manage/delegations/<uuid:pk>/",
         views.delegation_detail,
         name="delegation_detail",
     ),
     path(
-        "manage/delegations/<int:pk>/edit/",
+        "manage/delegations/<uuid:pk>/edit/",
         views.delegation_edit,
         name="delegation_edit",
     ),
     path(
-        "manage/delegations/<int:pk>/revoke/",
+        "manage/delegations/<uuid:pk>/revoke/",
         views.delegation_revoke,
         name="delegation_revoke",
     ),
     path(
-        "manage/delegations/<int:pk>/approve/",
+        "manage/delegations/<uuid:pk>/approve/",
         views.delegation_approve,
         name="delegation_approve",
     ),
@@ -220,7 +220,7 @@ urlpatterns = [
     ),
     path("delegate-add/", views.delegate_add, name="delegate_add"),
     path(
-        "delegate-remove/<int:user_id>/", views.delegate_remove, name="delegate_remove"
+        "delegate-remove/<uuid:user_id>/", views.delegate_remove, name="delegate_remove"
     ),
     path(
         "delegate-clear-session/",

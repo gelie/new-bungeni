@@ -1921,6 +1921,7 @@ def event_detail(request, pk):
 
 
 @login_required
+@htmx_partial("workflows/group_list.html")
 def group_list(request):
     """List all groups"""
     user = request.user
@@ -1947,12 +1948,13 @@ def group_list(request):
     }
 
     # Handle HTMX partial rendering based on URL fragment
-    if request.headers.get("HX-Request"):
-        # HTMX request - return only the groups_container partial
-        return render(request, "workflows/group_list.html#groups_container", context)
+    # if request.headers.get("HX-Request"):
+    #     # HTMX request - return only the groups_container partial
+    #     return render(request, "workflows/group_list.html#groups_container", context)
 
     # Regular request - return full page
-    return render(request, "workflows/group_list.html", context)
+    # return render(request, "workflows/group_list.html", context)
+    return context
 
 
 @login_required
@@ -3759,17 +3761,23 @@ def workflow_type_create(request):
 
     # Create a mapping of group IDs to available roles
     group_roles = {}
+    group_member_counts = {}
+
     for group in groups:
         # Get unique roles available in this group through memberships
         available_roles = group.members.values_list("role__id", "role__name").distinct()
         group_roles[str(group.id)] = [
-            {"id": role_id, "name": role_name} for role_id, role_name in available_roles
+            {"id": str(role_id), "name": role_name} for role_id, role_name in available_roles
         ]
+
+        group_member_counts[str(group.id)] = group.members.count()
+
 
     context = {
         "groups": groups,
         "roles": roles,
         "group_roles": json.dumps(group_roles),
+        "group_member_counts": json.dumps(group_member_counts),
     }
 
     return render(request, "workflows/admin/workflow_type_create.html", context)

@@ -54,3 +54,4 @@ staticfiles/
 *2026*
 
 .dev/
+daisyui/tailwindcss

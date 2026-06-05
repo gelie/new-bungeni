@@ -29,7 +29,7 @@
       <!-- Store group data as JSON in data attribute -->
       <div id="group-data" data-groups='{
         {% for group in groups %}
-        "{{ group.name|lower }}": {{ group.id }}{% if not forloop.last %},{% endif %}
+        "{{ group.name|lower }}": {{ group.id|stringformat:"s" }}{% if not forloop.last %},{% endif %}
         {% endfor %}
       }' style="display: none;"></div>
 
@@ -704,62 +704,62 @@
         const fields = [];
         const fieldElements = optionalFieldsContainer.querySelectorAll('[data-field-id]');
 
-      fieldElements.forEach(element => {
-        const fieldId = element.getAttribute('data-field-id');
-        const fieldData = {
-          name: element.querySelector(`[name="field_name_${fieldId}"]`).value,
-          label: element.querySelector(`[name="field_label_${fieldId}"]`).value,
-          type: element.querySelector(`[name="field_type_${fieldId}"]`).value,
-          required: element.querySelector(`[name="field_required_${fieldId}"]`).checked,
-          help_text: element.querySelector(`[name="field_help_${fieldId}"]`).value
-        };
+        fieldElements.forEach(element => {
+          const fieldId = element.getAttribute('data-field-id');
+          const fieldData = {
+            name: element.querySelector(`[name="field_name_${fieldId}"]`).value,
+            label: element.querySelector(`[name="field_label_${fieldId}"]`).value,
+            type: element.querySelector(`[name="field_type_${fieldId}"]`).value,
+            required: element.querySelector(`[name="field_required_${fieldId}"]`).checked,
+            help_text: element.querySelector(`[name="field_help_${fieldId}"]`).value
+          };
 
-        // Add options for select/radio types
-        if (['select', 'radio'].includes(fieldData.type)) {
-          const optionsValue = element.querySelector(`[name="field_options_${fieldId}"]`).value;
-          if (optionsValue.trim()) {
-            fieldData.options = optionsValue.split(',').map(opt => opt.trim());
+          // Add options for select/radio types
+          if (['select', 'radio'].includes(fieldData.type)) {
+            const optionsValue = element.querySelector(`[name="field_options_${fieldId}"]`).value;
+            if (optionsValue.trim()) {
+              fieldData.options = optionsValue.split(',').map(opt => opt.trim());
+            }
           }
-        }
 
-        // Only include field if it has required data
-        if (fieldData.name && fieldData.label) {
-          fields.push(fieldData);
-        }
-      });
+          // Only include field if it has required data
+          if (fieldData.name && fieldData.label) {
+            fields.push(fieldData);
+          }
+        });
 
-      // Build JSON schema
-      const jsonSchema = {
-        type: 'object',
-        properties: {},
-        required: []
-      };
-
-      fields.forEach(field => {
-        const fieldSchema = {
-          type: getFieldSchemaType(field.type),
-          title: field.label
+        // Build JSON schema
+        const jsonSchema = {
+          type: 'object',
+          properties: {},
+          required: []
         };
 
-        if (field.help_text) {
-          fieldSchema.description = field.help_text;
+        fields.forEach(field => {
+          const fieldSchema = {
+            type: getFieldSchemaType(field.type),
+            title: field.label
+          };
+
+          if (field.help_text) {
+            fieldSchema.description = field.help_text;
+          }
+
+          if (field.type === 'select' && field.options) {
+            fieldSchema.enum = field.options;
+          }
+
+          jsonSchema.properties[field.name] = fieldSchema;
+
+          if (field.required) {
+            jsonSchema.required.push(field.name);
+          }
+        });
+
+        const jsonSchemaInput = document.getElementById('json-schema-input');
+        if (jsonSchemaInput) {
+          jsonSchemaInput.value = JSON.stringify(jsonSchema, null, 2);
         }
-
-        if (field.type === 'select' && field.options) {
-          fieldSchema.enum = field.options;
-        }
-
-        jsonSchema.properties[field.name] = fieldSchema;
-
-        if (field.required) {
-          jsonSchema.required.push(field.name);
-        }
-      });
-
-      const jsonSchemaInput = document.getElementById('json-schema-input');
-      if (jsonSchemaInput) {
-        jsonSchemaInput.value = JSON.stringify(jsonSchema, null, 2);
-      }
       });
     }
 
