@@ -27,14 +27,28 @@
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body">
       <!-- Store group data as JSON in data attribute -->
-      <div id="group-data" data-groups='{
+      {% comment %} {{ groups | json_script:"groups-data" }} {% endcomment %}
+      {% comment %} {{ group_roles | json_script:"group-roles-data" }} {% endcomment %}
+      {% comment %} {{ roles | json_script:"roles-data" }} {% endcomment %}
+      {% comment %} <div id="group-data" data-groups='{{ groups|safe }}'></div> {% endcomment %}
+       <div id="group-data" data-groups='{
         {% for group in groups %}
+          "{{ group.name|lower }}": "{{ group.id }}"{% if not forloop.last %},{% endif %} {% endfor %} }'></div>
+        {% comment %} {% for group in groups %}
         "{{ group.name|lower }}": {{ group.id|stringformat:"s" }}{% if not forloop.last %},{% endif %}
         {% endfor %}
-      }' style="display: none;"></div>
+      }'></div> {% endcomment %}
 
       <!-- Store group-roles mapping as JSON in data attribute -->
-      <div id="group-roles-data" data-group-roles='{{ group_roles|safe }}' style="display: none;"></div>
+       {% comment %} <div id="group-roles-data" data-group-roles="{{ group_roles|safe }}"></div> {% endcomment %}
+      <div id="group-roles-data" data-group-roles='{{group_roles|safe}}'></div>
+       {% comment %} {% for (key, roles) in group_roles %}
+          {{key}}:
+        for role in roles:
+          [{"{{ role.id }}" : "{{ role.name|lower }}" }]
+          {% if not forloop.last %},{% endif %}
+        {% comment %} {% endfor %} 
+      {% endfor %}  {% endcomment %}
 
       <form method="post" class="space-y-6">
         {% csrf_token %}
@@ -92,7 +106,7 @@
               <span class="label-text font-medium">Owner Group *</span>
               <span class="label-text-alt text-base-content/70">Required</span>
             </label>
-            <input type="text" name="group_name" class="input input-bordered w-full"
+            <input type="text" id="group_name" name="group_name" class="input input-bordered w-full"
               placeholder="Search and select a group..." list="groups-list" required />
             <input type="hidden" name="group" id="selected-group" required />
             <datalist id="groups-list">
@@ -135,8 +149,9 @@
                   <div id="role-options-list">
                     {% for role in roles %}
                     <label class="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-base-200 role-option"
-                      data-role-name="{{ role.name|lower }}" data-role-id="{{ role.id }}" data-available-groups="">
-                      <input type="checkbox" value="{{ role.id }}" class="checkbox checkbox-primary checkbox-sm"
+                      data-role-name="{{ role.name|lower }}" data-role-id="{{ role.id|stringformat:'s' }}"
+                      data-available-groups="">
+                      <input type="checkbox" value="{{ role.id|stringformat:'s' }}" class="checkbox checkbox-primary checkbox-sm"
                         onclick="event.stopPropagation()" />
                       <span class="text-sm">{{ role.name }}</span>
                     </label>
@@ -323,12 +338,16 @@
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     // Group selection handling
-    const groupInput = document.querySelector('input[name="group_name"]');
+    //const groupInput = document.querySelector('input[name="group_name"]');
+    const groupInput = document.getElementById('group_name');
     const selectedGroupInput = document.getElementById('selected-group');
     const groupsList = document.getElementById('groups-list');
     const groupDataElement = document.getElementById('group-data');
     const groupRolesDataElement = document.getElementById('group-roles-data');
 
+//    const raw = groupDataElement && groupDataElement.getAttribute('data-groups');
+    {% comment %} const raw = groupDataElement.textContent; groupMap = JSON.parse(raw); {% endcomment %}
+    {% comment %} console.log('raw data-groups:', raw); {% endcomment %}
     // Parse group data from data attribute
     let groupMap = {};
     try {
@@ -344,6 +363,7 @@
     try {
       if (groupRolesDataElement) {
         groupRolesMap = JSON.parse(groupRolesDataElement.getAttribute('data-group-roles') || '{}');
+        console.log('Group roles map:', groupRolesMap);  
       }
     } catch (e) {
       console.error('Error parsing group roles data:', e);
@@ -379,6 +399,8 @@
     if (groupInput && selectedGroupInput) {
       groupInput.addEventListener('change', function () {
         const selectedValue = this.value.toLowerCase();
+        console.log('Selected value:', selectedValue);
+        console.log('Group map:', groupMap);  
         const selectedId = groupMap[selectedValue];
 
         if (selectedId) {

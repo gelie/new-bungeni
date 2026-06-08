@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 from datetime import timedelta
 
@@ -3762,22 +3763,28 @@ def workflow_type_create(request):
     # Create a mapping of group IDs to available roles
     group_roles = {}
     group_member_counts = {}
+    # groups_json = []
 
     for group in groups:
         # Get unique roles available in this group through memberships
+        group_id_str = str(group.id)
         available_roles = group.members.values_list("role__id", "role__name").distinct()
-        group_roles[str(group.id)] = [
-            {"id": str(role_id), "name": role_name} for role_id, role_name in available_roles
+        group_roles[group_id_str] = [
+            {"id": str(role_id), "name": role_name}
+            for role_id, role_name in available_roles
         ]
 
-        group_member_counts[str(group.id)] = group.members.count()
+        group_member_counts[group_id_str] = group.members.count()
 
+    groups_json = [{"id": str(g.id), "name": g.name} for g in groups]
 
+    
+    roles_json = [{"id": str(r.id), "name": r.name} for r in roles]
     context = {
-        "groups": groups,
-        "roles": roles,
+        "groups": groups_json,
+        "roles": roles_json,
         "group_roles": json.dumps(group_roles),
-        "group_member_counts": json.dumps(group_member_counts),
+        "group_member_counts": group_member_counts,
     }
 
     return render(request, "workflows/admin/workflow_type_create.html", context)
@@ -4953,8 +4960,12 @@ def group_search(request):
         groups = groups.filter(Q(name__icontains=search_query))
 
     groups = groups.order_by("name")[:20]  # Limit to 20 results
-
-    return render(request, "group_search_results.html", {"groups": groups})
+    return render(
+        request=request,
+        template_name=f"group_list.html#group_container",
+        context={"groups": groups},
+    )
+    # return render(request, "group_search_results.html", {"groups": groups})
 
 
 @login_required
