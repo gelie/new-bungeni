@@ -14,6 +14,11 @@
     --card-fs: 1rem;
 }
 
+.stat-title {
+    color: var(--color-base-content) !important;
+    font-weight: 600 !important;
+}
+
 body {
     min-height: 100vh;
     display: flex;
@@ -24,6 +29,10 @@ body {
     /* transform-origin: top left; */
     /* width: 83.33%; */
     /* 100% / 1.2 to compensate for scale */
+}
+
+#content-area {
+    min-height: 100vh;
 }
 
 /* Collapsible Sidebar Styles */
@@ -66,7 +75,12 @@ body {
 
 .sidebar-panel-container.open {
     width: 180px;
-    background-color: var(--parliament-white);
+    background-color: var(--color-base-100);
+    /* background-color: var(--parliament-white); */
+}
+
+main {
+    background-color: var(--color-base-300);
 }
 
 #main-content {
@@ -175,7 +189,7 @@ body {
 }
 
 aside {
-    background: var(--parliament-green) !important;
+    background-color: var(--parliament-green) !important;
     color: var(--parliament-white) !important;
 }
 

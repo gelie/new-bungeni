@@ -1,6 +1,6 @@
 <!-- Icon Bar (Always Visible) -->
 <aside id="aside"
-  class="fixed left-0 top-20 w-20 bg-base-200 h-[calc(100vh-5rem)] lg:h-screen flex flex-col items-center py-4 gap-4 border-r border-base-300 z-40">
+  class="fixed left-0 top-20 w-20 h-[calc(100vh-5rem)] lg:h-screen flex flex-col items-center py-4 gap-4 border-r border-base-300 z-40">
   <a hx-get="{% url 'dashboard' %}" hx-target="#content-area" hx-push-url="true"
     _="on click remove .active from <a/> add .active to me"
     class="sidebar-icon-btn {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"

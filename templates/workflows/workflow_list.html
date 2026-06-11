@@ -186,13 +186,10 @@
                                 <div class="flex items-center gap-2">
                                     <div class="avatar avatar-placeholder">
                                         <div class="bg-primary text-primary-content rounded-full w-8">
-                                            <span class="text-sm">{{
-                                                workflow.owner.first_name.0|default:workflow.owner.username.0|upper
-                                                }}</span>
+                                            <span class="text-sm">{{ workflow.owner.first_name.0|default:workflow.owner.username.0|upper }}</span>
                                         </div>
                                     </div>
-                                    <span class="text-sm">{{
-                                        workflow.owner.get_full_name|default:workflow.owner.username }}</span>
+                                    <span class="text-sm">{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
                                 </div>
                             </td>
                             <td>

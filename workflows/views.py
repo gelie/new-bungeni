@@ -1583,7 +1583,7 @@ def workflow_refer(request, pk):
         return JsonResponse(
             {
                 "success": True,
-                "referral_id": referral.pk,
+                "referral_id": str(referral.pk),
                 "referred_to": target_group.name,
                 "referred_at": referral.referred_at.strftime("%Y-%m-%d %H:%M"),
                 "label": "",  # No longer using config labels
@@ -3900,7 +3900,7 @@ def workflow_type_edit(request, pk):
         # Get unique roles available in this group through memberships
         available_roles = group.members.values_list("role__id", "role__name").distinct()
         group_roles[str(group.id)] = [
-            {"id": role_id, "name": role_name} for role_id, role_name in available_roles
+            {"id": str(role_id), "name": role_name} for role_id, role_name in available_roles
         ]
 
     # Prepare existing fields data for the form

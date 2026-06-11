@@ -54,7 +54,7 @@ class User(AbstractUser):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    title = models.CharField(max_length=10, choices=TITLE_CHOICES, blank=True)
+    title = models.CharField(max_length=30, choices=TITLE_CHOICES, blank=True)
     middle_name = models.CharField(max_length=100, blank=True)
     employee_type = models.CharField(
         max_length=10, choices=EMPLOYEE_TYPE_CHOICES, blank=True
@@ -753,8 +753,8 @@ class Workflow(models.Model):
         if not potential_parent:
             return False
 
-        # Check if potential parent is self
-        if potential_parent.id == self.id:
+        # Check if potential parent is self (compare objects, not IDs)
+        if self.pk and potential_parent.pk and self.pk == potential_parent.pk:
             return True
 
         # Check if potential parent is already a descendant (only for saved instances)
@@ -763,6 +763,19 @@ class Workflow(models.Model):
             return potential_parent in descendants
 
         return False
+        # if not potential_parent:
+        #     return False
+
+        # # Check if potential parent is self
+        # if potential_parent.id == self.id:
+        #     return True
+
+        # # Check if potential parent is already a descendant (only for saved instances)
+        # if self.pk:
+        #     descendants = self.get_all_descendants()
+        #     return potential_parent in descendants
+
+        # return False
 
     def save(self, *args, **kwargs):
         """Override save to run validation"""
