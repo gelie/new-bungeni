@@ -12,14 +12,15 @@ Renders a hidden input named "assigned_to" carrying the selected user pk.
   <div class="relative">
     <input type="text"
            id="assignee-search"
+           name="search"
            class="input input-bordered h-12 w-full"
            placeholder="Search users to assign..."
            autocomplete="off"
            value="{% if assigned_user %}{{ assigned_user.get_full_name|default:assigned_user.username }}{% endif %}"
            hx-get="{% url 'assignee_search' %}"
-           hx-vals='js:{"search": document.getElementById("assignee-search").value}'
            hx-trigger="keyup changed delay:300ms"
            hx-target="#assignee-search-results"
+           hx-swap="innerHTML show:top"
            hx-indicator="#assignee-search-indicator" />
     <div id="assignee-search-indicator" class="htmx-indicator absolute right-9 top-3">
       <span class="loading loading-spinner loading-sm"></span>
@@ -62,10 +63,10 @@ Renders a hidden input named "assigned_to" carrying the selected user pk.
     if (!window.__assigneeFieldBound) {
       window.__assigneeFieldBound = true;
 
-      document.addEventListener('htmx:afterRequest', function (event) {
-        if (event.target.id === 'assignee-search-results') {
-          const results = document.getElementById('assignee-search-results');
-          if (event.detail.successful && results.children.length > 0) {
+      document.body.addEventListener('htmx:afterSwap', function (event) {
+        if (event.detail.target.id === 'assignee-search-results') {
+          const results = event.detail.target;
+          if (results.innerHTML.trim() && results.children.length > 0) {
             results.classList.remove('hidden');
           } else {
             results.classList.add('hidden');
