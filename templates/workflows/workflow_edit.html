@@ -103,6 +103,10 @@
                      {% if workflow.deadline %}value="{{ workflow.deadline|date:'Y-m-d\TH:i' }}"{% endif %} />
             </div>
           </div>
+          {% if can_assign %}
+            <!-- Assignment -->
+            {% include "workflows/partials/assignee_field.html" with assigned_user=workflow.assigned_to %}
+          {% endif %}
           <!-- Event Association -->
           {% comment %} <div class="form-control">
                         <label class="label">
