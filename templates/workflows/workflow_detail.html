@@ -272,22 +272,59 @@
                                         <span>{{ workflow.owner.get_full_name|default:workflow.owner.username }}</span>
                                     </div>
                                 </div>
-                                {% if workflow.assigned_to %}
-                                    <div class="flex justify-between">
-                                        <span class="text-base-content/70">Assigned To</span>
-                                        <div class="flex items-center gap-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-base-content/70">Assigned To</span>
+                                    <div class="flex items-center gap-2">
+                                        {% if workflow.assigned_to %}
                                             <div class="avatar avatar-placeholder">
                                                 <div class="bg-secondary text-secondary-content rounded-full w-8">
                                                     <span class="text-sm">{{ workflow.assigned_to.first_name.0|default:workflow.assigned_to.username.0|upper }}</span>
                                                 </div>
                                             </div>
                                             <span>{{ workflow.assigned_to.get_full_name|default:workflow.assigned_to.username }}</span>
-                                        </div>
+                                        {% else %}
+                                            <span class="text-base-content/50 italic">Unassigned</span>
+                                        {% endif %}
+                                        {% if can_assign %}
+                                            <button type="button"
+                                                    class="btn btn-xs btn-ghost gap-1"
+                                                    onclick="document.getElementById('assign-modal').showModal()">
+                                                {% lucide "user-plus" class="w-4 h-4" %}
+                                                {% if workflow.assigned_to %}Reassign{% else %}Assign{% endif %}
+                                            </button>
+                                        {% endif %}
                                     </div>
-                                {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
+                    {% if can_assign %}
+                        <dialog id="assign-modal" class="modal">
+                            <div class="modal-box overflow-visible">
+                                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                                    {% lucide "user-plus" class="w-5 h-5" %}
+                                    Assign Workflow
+                                </h3>
+                                <form method="post"
+                                      action="{% url 'workflow_assign' workflow.pk %}"
+                                      class="space-y-4">
+                                    {% csrf_token %}
+                                    {% include "workflows/partials/assignee_field.html" with assigned_user=workflow.assigned_to %}
+                                    <div class="modal-action">
+                                        <button type="button"
+                                                class="btn btn-ghost"
+                                                onclick="document.getElementById('assign-modal').close()">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">
+                                            {% lucide "save" class="w-4 h-4 mr-1" %} Save
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <form method="dialog" class="modal-backdrop">
+                                <button>close</button>
+                            </form>
+                        </dialog>
+                    {% endif %}
                     {% if workflow.description %}
                         <div class="mt-6">
                             <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">

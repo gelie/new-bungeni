@@ -1,0 +1,86 @@
+{% comment %}
+Reusable "Assigned To" user picker.
+Context:
+  assigned_user (optional): currently assigned User instance, used to prefill.
+Renders a hidden input named "assigned_to" carrying the selected user pk.
+{% endcomment %}
+<div class="form-control" id="assignee-field">
+  <label class="label">
+    <span class="label-text font-semibold">Assigned To</span>
+    <span class="label-text-alt text-base-content/60">(optional)</span>
+  </label>
+  <div class="relative">
+    <input type="text"
+           id="assignee-search"
+           name="search"
+           class="input input-bordered h-12 w-full"
+           placeholder="Search users to assign..."
+           autocomplete="off"
+           value="{% if assigned_user %}{{ assigned_user.get_full_name|default:assigned_user.username }}{% endif %}"
+           hx-get="{% url 'assignee_search' %}"
+           hx-trigger="keyup changed delay:300ms"
+           hx-target="#assignee-search-results"
+           hx-swap="innerHTML show:top"
+           hx-indicator="#assignee-search-indicator" />
+    <div id="assignee-search-indicator" class="htmx-indicator absolute right-9 top-3">
+      <span class="loading loading-spinner loading-sm"></span>
+    </div>
+    <button type="button"
+            id="assignee-clear"
+            class="absolute right-3 top-3 text-base-content/50 hover:text-error {% if not assigned_user %}hidden{% endif %}"
+            onclick="clearAssignee()"
+            aria-label="Clear assignee">
+      {% lucide "x" class="w-5 h-5" %}
+    </button>
+    <input type="hidden"
+           name="assigned_to"
+           id="assignee-id"
+           value="{% if assigned_user %}{{ assigned_user.pk }}{% endif %}" />
+    <div id="assignee-search-results"
+         class="absolute top-full left-0 right-0 bg-base-100 border border-base-300 rounded-lg mt-1 max-h-60 overflow-y-auto z-10 shadow-lg hidden"></div>
+  </div>
+  <label class="label">
+    <span class="label-text-alt">Search and select a user to assign this workflow to</span>
+  </label>
+</div>
+<script>
+  (function () {
+    window.selectAssignee = function (userId, name) {
+      document.getElementById('assignee-id').value = userId;
+      document.getElementById('assignee-search').value = name;
+      const results = document.getElementById('assignee-search-results');
+      results.classList.add('hidden');
+      results.innerHTML = '';
+      document.getElementById('assignee-clear').classList.remove('hidden');
+    };
+
+    window.clearAssignee = function () {
+      document.getElementById('assignee-id').value = '';
+      document.getElementById('assignee-search').value = '';
+      document.getElementById('assignee-clear').classList.add('hidden');
+    };
+
+    if (!window.__assigneeFieldBound) {
+      window.__assigneeFieldBound = true;
+
+      document.body.addEventListener('htmx:afterSwap', function (event) {
+        if (event.detail.target.id === 'assignee-search-results') {
+          const results = event.detail.target;
+          if (results.innerHTML.trim() && results.children.length > 0) {
+            results.classList.remove('hidden');
+          } else {
+            results.classList.add('hidden');
+          }
+        }
+      });
+
+      document.addEventListener('click', function (event) {
+        const field = document.getElementById('assignee-field');
+        const results = document.getElementById('assignee-search-results');
+        if (field && results && !field.contains(event.target)) {
+          results.classList.add('hidden');
+        }
+      });
+    }
+  })();
+</script>

@@ -1,0 +1,24 @@
+{% if users %}
+  {% for user in users %}
+    <div class="px-4 py-3 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-b-0 transition-colors"
+         onclick="selectAssignee('{{ user.pk }}', '{{ user.get_full_name|default:user.username|escapejs }}')">
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-medium">{{ user.get_full_name|default:user.username }}</span>
+        {% if user.is_mp %}
+          <span class="badge badge-primary badge-sm">MP</span>
+        {% else %}
+          <span class="badge badge-ghost badge-sm">Staff</span>
+        {% endif %}
+      </div>
+      {% if user.username %}<div class="text-sm text-base-content/70">@{{ user.username }}</div>{% endif %}
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="px-4 py-3 text-center opacity-70">
+    {% if search_query %}
+      No users found matching "{{ search_query }}"
+    {% else %}
+      Start typing to search for users
+    {% endif %}
+  </div>
+{% endif %}

@@ -95,6 +95,11 @@ urlpatterns = [
         name="workflow_refer",
     ),
     path(
+        "workflows/<int:pk>/assign/",
+        views.workflow_assign,
+        name="workflow_assign",
+    ),
+    path(
         "api/workflows/<int:pk>/referral-targets/",
         views.api_referral_targets,
         name="api_referral_targets",
@@ -212,6 +217,8 @@ urlpatterns = [
     ),
     # User search for delegation
     path("user-search/", views.user_search, name="user_search"),
+    # User search for workflow assignment
+    path("assignee-search/", views.assignee_search, name="assignee_search"),
     # Group search for dynamic lookup
     path("group-search/", views.group_search, name="group_search"),
     # Delegate management for workflow creation

@@ -648,6 +648,12 @@ def workflow_create(request):
         except Event.DoesNotExist:
             pass
 
+    # Get assignee if provided
+    assigned_to = None
+    assigned_to_id = request.POST.get("assigned_to") or None
+    if assigned_to_id:
+        assigned_to = User.objects.filter(pk=assigned_to_id, is_active=True).first()
+
     # Get selected group
     group_id = request.POST.get("group")
     if not group_id:
@@ -675,6 +681,7 @@ def workflow_create(request):
         description=description,
         current_state=initial_state,
         owner=user,
+        assigned_to=assigned_to,
         priority=priority,
         parent_workflow=parent_workflow,
         relationship_type=relationship_type if parent_workflow else None,
@@ -691,6 +698,17 @@ def workflow_create(request):
         granted_by=user,
         notes=f"Primary group selected at creation by {user.get_full_name() or user.username}",
     )
+
+    # Notify the assigned user (if different from the creator)
+    if assigned_to and assigned_to != user:
+        actor = user.get_full_name() or user.username
+        _create_notification(
+            user=assigned_to,
+            verb=Notification.VERB_ASSIGNED,
+            title=f"Workflow assigned to you: '{workflow.title}'",
+            message=f"{actor} assigned '{workflow.title}' to you.",
+            workflow=workflow,
+        )
 
     messages.success(request, f"Workflow created: {workflow.title}")
     return redirect("workflow_detail", pk=workflow.pk)
@@ -1019,6 +1037,7 @@ def workflow_detail(request, pk):
         "custom_fields": custom_fields,
         "allowed_child_configs": allowed_child_configs,
         "referral_configs": [],  # Deprecated - keeping for template compatibility
+        "can_assign": workflow.can_user_assign(request.user),
     }
 
     return context
@@ -1358,6 +1377,7 @@ def workflow_edit(request, pk):
             "group_names": group_names,
             "available_events": available_events,
             "delegation_roles": delegation_roles,
+            "can_assign": workflow.can_user_assign(request.user),
         }
         return context
 
@@ -1407,12 +1427,17 @@ def workflow_edit(request, pk):
     assigned_to_id = request.POST.get("assigned_to") or None
     referred_to_id = request.POST.get("referred_to") or None
 
-    new_assigned_to = None
-    if assigned_to_id:
-        try:
-            new_assigned_to = User.objects.get(pk=assigned_to_id)
-        except User.DoesNotExist:
-            pass
+    # Only users with assign permission may change the assignment. For everyone
+    # else the existing assignment is preserved (the field is not rendered for
+    # them, so it would otherwise be cleared on every edit).
+    if workflow.can_user_assign(request.user):
+        new_assigned_to = None
+        if assigned_to_id:
+            new_assigned_to = User.objects.filter(
+                pk=assigned_to_id, is_active=True
+            ).first()
+    else:
+        new_assigned_to = old_assigned_to
 
     new_referred_to = None
     if referred_to_id:
@@ -1635,6 +1660,62 @@ def workflow_refer(request, pk):
         return JsonResponse({"success": True, "recalled": True})
 
     return JsonResponse({"error": "Invalid action."}, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def workflow_assign(request, pk):
+    """Assign, reassign, or unassign a workflow to a user.
+
+    POST body (form-encoded):
+      assigned_to = <User pk>   (empty/absent clears the assignment)
+    """
+    workflow = get_object_or_404(Workflow, pk=pk)
+
+    if not workflow.can_user_assign(request.user):
+        messages.error(
+            request, "You do not have permission to assign this workflow."
+        )
+        return redirect("workflow_detail", pk=pk)
+
+    old_assigned_to = workflow.assigned_to
+
+    assigned_to_id = request.POST.get("assigned_to") or None
+    new_assigned_to = None
+    if assigned_to_id:
+        new_assigned_to = User.objects.filter(
+            pk=assigned_to_id, is_active=True
+        ).first()
+        if new_assigned_to is None:
+            messages.error(request, "The selected user could not be found.")
+            return redirect("workflow_detail", pk=pk)
+
+    if new_assigned_to == old_assigned_to:
+        messages.info(request, "Assignment unchanged.")
+        return redirect("workflow_detail", pk=pk)
+
+    workflow.assigned_to = new_assigned_to
+    workflow.save()
+
+    actor = request.user.get_full_name() or request.user.username
+
+    if new_assigned_to:
+        _create_notification(
+            user=new_assigned_to,
+            verb=Notification.VERB_ASSIGNED,
+            title=f"Workflow assigned to you: '{workflow.title}'",
+            message=f"{actor} assigned '{workflow.title}' to you.",
+            workflow=workflow,
+        )
+        messages.success(
+            request,
+            f"Workflow assigned to "
+            f"{new_assigned_to.get_full_name() or new_assigned_to.username}.",
+        )
+    else:
+        messages.success(request, "Workflow assignment cleared.")
+
+    return redirect("workflow_detail", pk=pk)
 
 
 @login_required
@@ -4932,6 +5013,33 @@ def user_search(request):
     users = users.order_by("first_name", "last_name")[:20]  # Limit to 20 results
 
     return render(request, "user_search_results.html", {"users": users})
+
+
+@login_required
+def assignee_search(request):
+    """Search active users for workflow assignment and return HTML for HTMX.
+
+    Unlike delegation search, the current user is included so a user can
+    assign a workflow to themselves.
+    """
+    search_query = request.GET.get("search", "")
+
+    users = User.objects.filter(is_active=True)
+
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query)
+            | Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+        )
+
+    users = users.order_by("first_name", "last_name")[:20]
+
+    return render(
+        request,
+        "workflows/partials/assignee_search_results.html",
+        {"users": users, "search_query": search_query},
+    )
 
 
 @login_required
