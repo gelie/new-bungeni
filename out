@@ -1,0 +1,4 @@
+digraph {
+	node [shape=none]
+	logo [fixedsize=true height=1 image="/home/admgelie/Projects/pwms/parliament-logo.png" width=1]
+}

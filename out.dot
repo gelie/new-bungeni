@@ -1,0 +1,11 @@
+digraph {
+	graph [bb="0,0,72,72"];
+	node [label="\N",
+		shape=none
+	];
+	logo	[fixedsize=true,
+		height=1,
+		image="/home/admgelie/Projects/pwms/parliament-logo.png",
+		pos="36,36",
+		width=1];
+}

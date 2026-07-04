@@ -1018,7 +1018,7 @@
                                                class="btn btn-ghost btn-sm">
                                                 {% lucide "external-link" class="w-4 h-4" %}
                                             </a>
-                                            <button onclick="deleteAttachment({{ attachment.id }})"
+                                            <button onclick="deleteAttachment('{{ attachment.id }}')"
                                                     class="btn btn-ghost btn-sm text-error">
                                                 {% lucide "trash-2" class="w-4 h-4" %}
                                             </button>
@@ -2375,7 +2375,7 @@
             <div class="flex items-center gap-2 p-2 bg-base-300 rounded">
                 <span class="text-primary">${getFileIcon(att.mimetype)}</span>
                 <span class="flex-1 text-sm">${att.name}</span>
-                <button type="button" onclick="removeCommentAttachment(${att.id})" class="btn btn-ghost btn-xs text-error">
+                <button type="button" onclick="removeCommentAttachment('${att.id}')" class="btn btn-ghost btn-xs text-error">
                     ×
                 </button>
             </div>

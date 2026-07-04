@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import threading
+import uuid
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_delete, post_save, pre_save
@@ -30,6 +31,8 @@ def _serialize(value):
     if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
         return value.isoformat()
     if isinstance(value, decimal.Decimal):
+        return str(value)
+    if isinstance(value, uuid.UUID):
         return str(value)
     return value
 
@@ -71,7 +74,7 @@ def workflow_pre_save(sender, instance, **kwargs):
         old = sender.objects.get(pk=instance.pk)
         if not hasattr(_pre_save_snapshots, "workflow"):
             _pre_save_snapshots.workflow = {}
-        _pre_save_snapshots.workflow[instance.pk] = _snapshot(
+        _pre_save_snapshots.workflow[str(instance.pk)] = _snapshot(
             old, _WORKFLOW_TRACKED_FIELDS
         )
     except sender.DoesNotExist:
@@ -85,7 +88,7 @@ def workflow_post_save(sender, instance, created, **kwargs):
         return
 
     snapshots = getattr(_pre_save_snapshots, "workflow", {})
-    old = snapshots.pop(instance.pk, None)
+    old = snapshots.pop(str(instance.pk), None)
     changes = _diff(old, _snapshot(instance, _WORKFLOW_TRACKED_FIELDS)) if old else {}
     if changes:
         _log(instance, "update", user=instance.owner, changes=changes)
@@ -109,7 +112,7 @@ def comment_pre_save(sender, instance, **kwargs):
         old = sender.objects.get(pk=instance.pk)
         if not hasattr(_pre_save_snapshots, "comment"):
             _pre_save_snapshots.comment = {}
-        _pre_save_snapshots.comment[instance.pk] = _snapshot(
+        _pre_save_snapshots.comment[str(instance.pk)] = _snapshot(
             old, _COMMENT_TRACKED_FIELDS
         )
     except sender.DoesNotExist:
@@ -123,7 +126,7 @@ def comment_post_save(sender, instance, created, **kwargs):
         return
 
     snapshots = getattr(_pre_save_snapshots, "comment", {})
-    old = snapshots.pop(instance.pk, None)
+    old = snapshots.pop(str(instance.pk), None)
     changes = _diff(old, _snapshot(instance, _COMMENT_TRACKED_FIELDS)) if old else {}
     if changes:
         _log(instance, "update", user=instance.user, changes=changes)
@@ -147,7 +150,7 @@ def attachment_pre_save(sender, instance, **kwargs):
         old = sender.objects.get(pk=instance.pk)
         if not hasattr(_pre_save_snapshots, "attachment"):
             _pre_save_snapshots.attachment = {}
-        _pre_save_snapshots.attachment[instance.pk] = _snapshot(
+        _pre_save_snapshots.attachment[str(instance.pk)] = _snapshot(
             old, _ATTACHMENT_TRACKED_FIELDS
         )
     except sender.DoesNotExist:
@@ -161,7 +164,7 @@ def attachment_post_save(sender, instance, created, **kwargs):
         return
 
     snapshots = getattr(_pre_save_snapshots, "attachment", {})
-    old = snapshots.pop(instance.pk, None)
+    old = snapshots.pop(str(instance.pk), None)
     changes = _diff(old, _snapshot(instance, _ATTACHMENT_TRACKED_FIELDS)) if old else {}
     if changes:
         _log(instance, "update", changes=changes)

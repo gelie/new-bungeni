@@ -9,8 +9,6 @@ from workflows.models import State, Transition, WorkflowType
 
 
 class Command(BaseCommand):
-    help = "Generate visual diagrams of WorkflowTypes, including transitions and states"
-
     def add_arguments(self, parser):
         parser.add_argument(
             "--workflow-type",
@@ -111,6 +109,7 @@ class Command(BaseCommand):
                     show_roles=show_roles,
                     cluster_states=cluster_states,
                     include_descriptions=include_descriptions,
+                    output_format=output_format,
                 )
 
                 # Render diagram to file
@@ -127,7 +126,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f"  Failed to render diagram: {e}"))
                 skipped_count += 1
 
-        self.stdout.write("\n" + "=" * 60)
+        self.stdout.write("n" + "=" * 60)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Generated {generated_count} diagram(s) in {output_dir}/"
@@ -147,21 +146,22 @@ class Command(BaseCommand):
         show_roles: bool = False,
         cluster_states: bool = False,
         include_descriptions: bool = False,
+        output_format: str = "svg",
     ) -> "graphviz.Digraph":
         """Create a graphviz Digraph object for a workflow type"""
 
         states = list(workflow_type.states.all())
         transitions = list(workflow_type.transitions.all())
 
-        # Create the main graph
+        # Create the main graph with improved layout attributes
         dot = graphviz.Digraph(
             workflow_type.name.replace(" ", "_"),
             comment=f"Workflow: {workflow_type.name}",
-            format="png",
+            format=output_format,
         )
-        dot.attr(rankdir="TB")
-        dot.attr("node", shape="box", style="filled")
-        dot.attr("edge", fontsize="12", arrowhead="vee", arrowsize="1.5")
+        dot.attr(
+            rankdir="TB", splines="ortho", nodesep="0.6", ranksep="1.0", bgcolor="white"
+        )
         dot.attr(
             "node", fontname="Helvetica", fontsize="10", style="filled", margin="0.08"
         )
@@ -171,17 +171,14 @@ class Command(BaseCommand):
             fontsize="9",
             arrowhead="vee",
             arrowsize="1.0",
-            color="#333",
+            color="#333333",
         )
-        # dot.node("anchor_approved", shape="point", width="0", label="", style="invis")
-        # dot.edge("Tabled", "anchor_approved", arrowhead="none", style="invis")
-        # dot.edge("anchor_approved", "Report Approved", label="adopt")
 
         # Add title to the graph
         title = f"{workflow_type.name} Workflow"
         if include_descriptions and workflow_type.description:
-            title += f"\\n{workflow_type.description}"
-        dot.attr(label=title, labelloc="t", fontsize="16", fontname="bold")
+            title += f"n{workflow_type.description}"
+        dot.attr(label=title, labelloc="t", fontsize="16", fontname="Helvetica-Bold")
 
         # Categorize states
         initial_states = [s for s in states if s.is_initial]
@@ -190,22 +187,46 @@ class Command(BaseCommand):
 
         # Add states
         if cluster_states:
-            # Group states by type using subgraphs
+            # Group states by type using subgraphs (clusters) with nicer styling
             if initial_states:
                 with dot.subgraph(name="cluster_initial") as c:
-                    c.attr(label="Initial States", style="filled", color="lightgreen")
+                    c.attr(
+                        label="Initial States",
+                        labelloc="t",
+                        style="filled",
+                        color="#0b5f3b",
+                        fillcolor="#d6f5e0",
+                        margin="0.2",
+                        fontsize="12",
+                    )
                     for state in initial_states:
                         self._add_state_node(c, state, include_descriptions)
 
             if regular_states:
                 with dot.subgraph(name="cluster_regular") as c:
-                    c.attr(label="Regular States", style="filled", color="lightblue")
+                    c.attr(
+                        label="Regular States",
+                        labelloc="t",
+                        style="filled",
+                        color="#0b3b5f",
+                        fillcolor="#dbeefc",
+                        margin="0.2",
+                        fontsize="12",
+                    )
                     for state in regular_states:
                         self._add_state_node(c, state, include_descriptions)
 
             if terminal_states:
                 with dot.subgraph(name="cluster_terminal") as c:
-                    c.attr(label="Terminal States", style="filled", color="lightcoral")
+                    c.attr(
+                        label="Terminal States",
+                        labelloc="t",
+                        style="filled",
+                        color="#7b1f1f",
+                        fillcolor="#ffdede",
+                        margin="0.2",
+                        fontsize="12",
+                    )
                     for state in terminal_states:
                         self._add_state_node(c, state, include_descriptions)
         else:
@@ -213,9 +234,46 @@ class Command(BaseCommand):
             for state in states:
                 self._add_state_node(dot, state, include_descriptions)
 
+        # Add invisible anchors for terminal nodes to improve routing when needed
+        # Map real node name -> anchor name
+        anchor_map = {}
+        for t in transitions:
+            # if transition crosses from regular cluster to terminal cluster, pre-create anchor
+            from_is_regular = (
+                not t.from_state.is_initial and not t.from_state.is_terminal
+            )
+            to_is_terminal = t.to_state.is_terminal
+            if from_is_regular and to_is_terminal:
+                anchor_name = f"anchor_{t.to_state.name.replace(' ', '_')}"
+                if anchor_name not in anchor_map:
+                    dot.node(
+                        anchor_name, shape="point", width="0", label="", style="invis"
+                    )
+                    anchor_map[t.to_state.name] = anchor_name
+
         # Add transitions
         for transition in transitions:
-            self._add_transition_edge(dot, transition, show_roles, include_descriptions)
+            # Prepare edge attributes for certain jump edges
+            edge_attrs = {}
+            from_is_regular = (
+                not transition.from_state.is_initial
+                and not transition.from_state.is_terminal
+            )
+            to_is_terminal = transition.to_state.is_terminal
+            if from_is_regular and to_is_terminal:
+                # avoid pulling the terminal up; route via anchor for nicer orthogonal elbow
+                pass
+                # edge_attrs["constraint"] = "true"
+                # edge_attrs["minlen"] = "3"
+
+            self._add_transition_edge(
+                dot,
+                transition,
+                show_roles,
+                include_descriptions,
+                edge_attrs=edge_attrs,
+                anchor_map=anchor_map,
+            )
 
         return dot
 
@@ -227,10 +285,12 @@ class Command(BaseCommand):
             desc = state.description[:50]
             if len(state.description) > 50:
                 desc += "..."
-            label = f"{label}\\n{desc}"
+            # Insert a newline to keep node widths reasonable
+            label = f"{label}n{desc}"
 
         # Use state color if available, otherwise default colors based on state type
-        if state.color and state.color != "#6B7280":
+        color = None
+        if getattr(state, "color", None) and state.color != "#6B7280":
             color = state.color
         elif state.is_initial:
             color = "#FF8C00"  # Dark orange for initial states
@@ -247,8 +307,10 @@ class Command(BaseCommand):
         else:
             shape = "box"
 
+        fontcolor = "white" if self._is_dark(color) else "black"
+
         dot.node(
-            state.name, label=label, fillcolor=color, shape=shape, fontcolor="white"
+            state.name, label=label, fillcolor=color, shape=shape, fontcolor=fontcolor
         )
 
     def _add_transition_edge(
@@ -257,47 +319,69 @@ class Command(BaseCommand):
         transition: Transition,
         show_roles: bool = False,
         include_descriptions: bool = False,
+        edge_attrs: dict = None,
+        anchor_map: dict = None,
     ):
         """Add a transition as a DOT edge"""
-        label = transition.name
-        if include_descriptions and transition.requires_comment:
+        edge_attrs = edge_attrs or {}
+        anchor_map = anchor_map or {}
+
+        label = transition.name or ""
+        if include_descriptions and getattr(transition, "requires_comment", False):
             label += " (requires comment)"
 
         if show_roles and transition.allowed_roles.exists():
             roles = ", ".join([role.name for role in transition.allowed_roles.all()])
-            label = f"{label}\\n[{roles}]"
+            label = f"{label}n[{roles}]"
 
         # Style based on transition properties
-        edge_attrs = {}
-        if transition.requires_comment:
-            edge_attrs["style"] = "dashed"
+        if getattr(transition, "requires_comment", False):
+            # combine with existing style if present
+            prior = edge_attrs.get("style")
+            edge_attrs["style"] = f"{prior + ',' if prior else ''}dashed"
+            edge_attrs["color"] = edge_attrs.get("color", "#b44343")
 
-        dot.edge(
-            transition.from_state.name,
-            transition.to_state.name,
-            label=label,
-            **edge_attrs,
-        )
+        # If we have an anchor for the target terminal node, route via anchor to get a nicer elbow
+        if transition.to_state.name in anchor_map and (
+            not transition.from_state.is_terminal
+        ):
+            anchor_name = anchor_map[transition.to_state.name]
+            # invisible or no-arrow edge from source to anchor, then anchor->real target
+            dot.edge(
+                transition.from_state.name,
+                anchor_name,
+                arrowhead="none",
+                style="invis",
+                **edge_attrs,
+            )
+            dot.edge(anchor_name, transition.to_state.name, label=label)
+        else:
+            dot.edge(
+                transition.from_state.name,
+                transition.to_state.name,
+                label=label,
+                **edge_attrs,
+            )
 
     def generate_summary_report(self, output_dir: str):
         """Generate a summary report of all workflow types"""
         filepath = os.path.join(output_dir, "workflow_summary.txt")
 
         with open(filepath, "w", encoding="utf-8") as f:
-            f.write("Workflow Types Summary\n")
-            f.write("=====================\n\n")
+            f.write("Workflow Types Summaryn")
+            f.write("=====================nn")
 
             for workflow_type in WorkflowType.objects.all().prefetch_related(
                 "states", "transitions"
             ):
-                f.write(f"Workflow Type: {workflow_type.name}\n")
+                f.write(f"Workflow Type: {workflow_type.name}n")
                 if workflow_type.description:
-                    f.write(f"Description: {workflow_type.description}\n")
+                    f.write(f"Description: {workflow_type.description}n")
 
                 states = workflow_type.states.all()
                 transitions = workflow_type.transitions.all()
 
-                f.write(f"States: {len(states)}\n")
+                f.write(f"States: {len(states)}n")
                 for state in states:
                     state_type = []
                     if state.is_initial:
@@ -305,14 +389,34 @@ class Command(BaseCommand):
                     if state.is_terminal:
                         state_type.append("terminal")
                     state_type_str = f" ({', '.join(state_type)})" if state_type else ""
-                    f.write(f"  - {state.name}{state_type_str}\n")
+                    f.write(f"  - {state.name}{state_type_str}n")
 
-                f.write(f"Transitions: {len(transitions)}\n")
+                f.write(f"Transitions: {len(transitions)}n")
                 for transition in transitions:
                     f.write(
-                        f"  - {transition.name}: {transition.from_state.name} → {transition.to_state.name}\n"
+                        f"  - {transition.name}: {transition.from_state.name} → {transition.to_state.name}n"
                     )
 
-                f.write("\n" + "-" * 50 + "\n\n")
+                f.write("n" + "-" * 50 + "nn")
 
         self.stdout.write(self.style.SUCCESS(f"Summary report saved to: {filepath}"))
+
+    def _is_dark(self, hexcolor: str) -> bool:
+        """
+        Return True if the hex color is dark (so white text is better).
+        Expects colors like "#RRGGBB" or "RRGGBB".
+        """
+        if not hexcolor:
+            return True
+        c = hexcolor.lstrip("#")
+        if len(c) != 6:
+            return True
+        try:
+            r = int(c[0:2], 16)
+            g = int(c[2:4], 16)
+            b = int(c[4:6], 16)
+        except ValueError:
+            return True
+        # perceived luminance
+        lum = 0.299 * r + 0.587 * g + 0.114 * b
+        return lum < 150

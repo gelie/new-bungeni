@@ -102,7 +102,7 @@
                 const bg = n.is_read ? "" : "bg-base-200";
                 const href = n.workflow_id ? `/workflows/${n.workflow_id}/` : "#";
                 return `
-                <a href="${href}" onclick="markRead(${n.id}, event, '${href}')" class="flex gap-3 items-start p-2 rounded-lg hover:bg-base-300 cursor-pointer ${bg}">
+                <a href="${href}" onclick="markRead('${n.id}', event, '${href}')" class="flex gap-3 items-start p-2 rounded-lg hover:bg-base-300 cursor-pointer ${bg}">
                   <div class="mt-0.5">${icon}</div>
                   <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium leading-snug truncate">${n.title}</p>

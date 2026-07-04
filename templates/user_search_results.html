@@ -1,7 +1,7 @@
 {% if users %}
   {% for user in users %}
     <div class="px-4 py-3 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-b-0 transition-colors"
-         onclick="selectUser('{{ user.id }}', '{{ user.username }}', '{{ user.first_name }} {{ user.last_name }}', {{ user.is_mp }})">
+         onclick="selectUser('{{ user.id }}', '{{ user.username }}', '{{ user.first_name }} {{ user.last_name }}', {{ user.is_mp|yesno:'true,false' }})">
       <div class="flex items-center justify-between">
         <div>
           <div class="font-medium">

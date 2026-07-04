@@ -87,7 +87,13 @@ SECRET_KEY = "django-insecure-zx81q-5lri07m68(mxar3@q6&06*#ey3@1b%lmxauud2=ko(19
 DEBUG = True
 
 # ALLOWED_HOSTS = ["localhost", "10.0.0.0/24", "172.16.0.0/24"]
-ALLOWED_HOSTS = ["workflows-dev.parliament.gov.za", "pwmsdev", "172.16.0.114", "127.0.0.1", "localhost"]
+ALLOWED_HOSTS = [
+    "workflows-dev.parliament.gov.za",
+    "pwmsdev",
+    "172.16.0.114",
+    "127.0.0.1",
+    "localhost",
+]
 
 CSRF_TRUSTED_ORIGINS = ["https://workflows-dev.parliament.gov.za"]
 
@@ -211,6 +217,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
 
+# Workflow diagram paths
+WORKFLOW_DIAGRAM_OUTPUT_DIR = BASE_DIR / "workflow_diagrams"
+WORKFLOW_DIAGRAM_DIRS = [
+    WORKFLOW_DIAGRAM_OUTPUT_DIR,
+    BASE_DIR / "diagrams",
+    BASE_DIR / "workflows" / "diagrams",  # legacy fallback
+]
+
 # Authentication backends
 # Using custom backends for graceful LDAP fallback
 AUTHENTICATION_BACKENDS = [
@@ -250,7 +264,9 @@ SHAREPOINT_SCOPE = "https://graph.microsoft.com/.default"
 # For production, switch to django.core.mail.backends.smtp.EmailBackend
 # and configure the SMTP settings below.
 
-EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
 EMAIL_HOST = config("EMAIL_HOST", default="localhost")
 # EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
 # EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)

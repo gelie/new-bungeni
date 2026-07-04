@@ -25,7 +25,7 @@ def update_event_statuses() -> dict:
 
 @background(schedule=0)
 def send_transition_alert(
-    workflow_id: int,
+    workflow_id: str,
     workflow_title: str,
     workflow_type_name: str,
     transition_name: str,
@@ -103,7 +103,7 @@ def send_transition_alert(
 @background(schedule=0)
 def notify_overdue_workflows(
     site_url: str = "",
-    workflow_id: int | None = None,
+    workflow_id: str | None = None,
     force: bool = False,
 ) -> dict:
     """
@@ -249,7 +249,7 @@ def notify_overdue_workflows(
 @background(schedule=0)
 def notify_pending_deadlines(
     site_url: str = "",
-    workflow_id: int | None = None,
+    workflow_id: str | None = None,
     days_before: int = 3,
     force: bool = False,
 ) -> dict:
@@ -405,7 +405,7 @@ def notify_pending_deadlines(
 
 @background(schedule=0)
 def transition_overdue_to_followup(
-    workflow_id: int | None = None,
+    workflow_id: str | None = None,
     auto_transition: bool = True,
 ) -> dict:
     """
@@ -593,7 +593,7 @@ def _update_event_statuses_sync() -> dict:
 
 
 def _send_transition_alert_sync(
-    workflow_id: int,
+    workflow_id: str,
     workflow_title: str,
     workflow_type_name: str,
     transition_name: str,
@@ -662,7 +662,7 @@ def _send_transition_alert_sync(
 
 def _notify_overdue_workflows_sync(
     site_url: str = "",
-    workflow_id: int | None = None,
+    workflow_id: str | None = None,
     force: bool = False,
 ) -> dict:
     """Undecorated version for synchronous execution"""
@@ -796,7 +796,7 @@ def _notify_overdue_workflows_sync(
 
 def _notify_pending_deadlines_sync(
     site_url: str = "",
-    workflow_id: int | None = None,
+    workflow_id: str | None = None,
     days_before: int = 3,
     force: bool = False,
 ) -> dict:
@@ -940,7 +940,7 @@ def _notify_pending_deadlines_sync(
 
 
 def _transition_overdue_to_followup_sync(
-    workflow_id: int | None = None,
+    workflow_id: str | None = None,
     auto_transition: bool = True,
 ) -> dict:
     """Undecorated version for synchronous execution"""

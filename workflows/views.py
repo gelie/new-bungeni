@@ -1,10 +1,12 @@
 import asyncio
 import json
-import logging
+
+# import logging
 import os
 from datetime import timedelta
 
 import httpx
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -822,6 +824,26 @@ def workflow_bulk_create(request, parent_pk):
     return JsonResponse({"success": True, "created": created, "count": len(created)})
 
 
+def _diagram_paths_for_workflow_type(workflow_type_name: str) -> list[str]:
+    """Return candidate absolute paths for a workflow type diagram SVG."""
+    diagram_filename = f"{workflow_type_name.lower().replace(' ', '_')}_workflow.svg"
+
+    configured_dirs = getattr(settings, "WORKFLOW_DIAGRAM_DIRS", None)
+    if configured_dirs:
+        return [
+            str(os.path.join(str(path), diagram_filename)) for path in configured_dirs
+        ]
+
+    # Fallback for older environments without settings configured
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(app_dir)
+    return [
+        os.path.join(project_root, "workflow_diagrams", diagram_filename),
+        os.path.join(project_root, "diagrams", diagram_filename),
+        os.path.join(app_dir, "diagrams", diagram_filename),
+    ]
+
+
 @login_required
 @htmx_partial("workflows/workflow_detail.html")
 def workflow_detail(request, pk):
@@ -835,7 +857,25 @@ def workflow_detail(request, pk):
 
     if request.method == "POST":
         text = (request.POST.get("comment") or "").strip()
-        attachment_ids = request.POST.getlist("attachment_ids")
+
+        # Accept both repeated attachment_ids and CSV from the hidden input.
+        raw_attachment_values = request.POST.getlist("attachment_ids")
+        raw_attachment_values += request.POST.getlist("attachment_ids[]")
+
+        attachment_ids = []
+        for raw_value in raw_attachment_values:
+            if not raw_value:
+                continue
+            for candidate in str(raw_value).split(","):
+                candidate = candidate.strip()
+                if not candidate:
+                    continue
+                try:
+                    # Validate UUID format up-front to avoid queryset ValidationError.
+                    Attachment._meta.get_field("id").to_python(candidate)
+                    attachment_ids.append(candidate)
+                except (ValidationError, ValueError, TypeError):
+                    continue
 
         if text:
             comment = Comment.objects.create(
@@ -845,11 +885,11 @@ def workflow_detail(request, pk):
             # Add attachments if provided
             if attachment_ids:
                 try:
-                    attachments = Attachment.objects.filter(id__in=attachment_ids)
+                    attachments = list(Attachment.objects.filter(id__in=attachment_ids))
+                except (ValidationError, ValueError, TypeError):
+                    attachments = []
+                if attachments:
                     comment.attachments.add(*attachments)
-                except (ValueError, Attachment.DoesNotExist):
-                    # If invalid attachment IDs, just continue without attachments
-                    pass
 
             messages.success(request, "Comment added.")
         else:
@@ -904,14 +944,11 @@ def workflow_detail(request, pk):
         .order_by("order", "name")
     )
 
-    # Check if diagram file exists
-    diagram_filename = f"{wt.name.lower().replace(' ', '_')}_workflow.svg"
-    diagram_filepath = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "diagrams", diagram_filename
-    )
+    # Check if diagram file exists (support legacy and current output directories)
+    diagram_paths = _diagram_paths_for_workflow_type(wt.name)
     diagram_url = (
         f"/workflow-types/{wt.pk}/diagram/"
-        if os.path.exists(diagram_filepath)
+        if any(os.path.exists(path) for path in diagram_paths)
         else None
     )
 
@@ -954,8 +991,13 @@ def workflow_detail(request, pk):
                                         ),
                                     }
                                 )
-                            except User.DoesNotExist:
-                                # Handle case where user doesn't exist
+                            except (
+                                User.DoesNotExist,
+                                ValidationError,
+                                ValueError,
+                                TypeError,
+                            ):
+                                # Handle case where user doesn't exist or has invalid UUID
                                 delegate_details.append(
                                     {
                                         "user_id": delegate["user_id"],
@@ -978,9 +1020,9 @@ def workflow_detail(request, pk):
                         try:
                             from workflows.models import Group
 
-                            group = Group.objects.get(pk=int(field_value))
+                            group = Group.objects.get(pk=field_value)
                             group_name = group.name
-                        except (Group.DoesNotExist, ValueError):
+                        except (Group.DoesNotExist, ValueError, ValidationError):
                             group_name = f"Group ID: {field_value}"
 
                     custom_fields[field_name] = {
@@ -1344,10 +1386,9 @@ def workflow_edit(request, pk):
                         try:
                             from workflows.models import Group
 
-                            group = Group.objects.get(pk=int(group_id))
-                            print(type(group))
+                            group = Group.objects.get(pk=group_id)
                             group_names[field_name] = group.name
-                        except Group.DoesNotExist:
+                        except (Group.DoesNotExist, ValueError, ValidationError):
                             # Fallback to showing the ID if group doesn't exist
                             group_names[field_name] = f"Group ID: {group_id}"
 
@@ -1789,7 +1830,7 @@ def workflow_transition(request, pk, transition_id):
             triggered_by = request.user.get_full_name() or request.user.username
 
             send_transition_alert(
-                workflow_id=workflow.pk,
+                workflow_id=str(workflow.pk),
                 workflow_title=workflow.title,
                 workflow_type_name=workflow.workflow_type.name,
                 transition_name=transition.name,
@@ -2014,14 +2055,12 @@ def group_detail(request, pk):
 def workflow_type_diagram(request, pk):
     """Serve the diagram SVG for a workflow type."""
     workflow_type = get_object_or_404(WorkflowType, pk=pk)
-    filename = f"{workflow_type.name.lower().replace(' ', '_')}_workflow.svg"
-    diagrams_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "diagrams")
-    filepath = os.path.join(diagrams_dir, filename)
 
-    if not os.path.exists(filepath):
-        raise Http404("Diagram not yet generated for this workflow type.")
+    for filepath in _diagram_paths_for_workflow_type(workflow_type.name):
+        if os.path.exists(filepath):
+            return FileResponse(open(filepath, "rb"), content_type="image/svg+xml")
 
-    return FileResponse(open(filepath, "rb"), content_type="image/svg+xml")
+    raise Http404("Diagram not yet generated for this workflow type.")
 
 
 # ============================================================================
@@ -3778,7 +3817,6 @@ def workflow_type_create(request):
 
     groups_json = [{"id": str(g.id), "name": g.name} for g in groups]
 
-    
     roles_json = [{"id": str(r.id), "name": r.name} for r in roles]
     context = {
         "groups": groups_json,
@@ -3900,7 +3938,8 @@ def workflow_type_edit(request, pk):
         # Get unique roles available in this group through memberships
         available_roles = group.members.values_list("role__id", "role__name").distinct()
         group_roles[str(group.id)] = [
-            {"id": str(role_id), "name": role_name} for role_id, role_name in available_roles
+            {"id": str(role_id), "name": role_name}
+            for role_id, role_name in available_roles
         ]
 
     # Prepare existing fields data for the form
@@ -4962,7 +5001,7 @@ def group_search(request):
     groups = groups.order_by("name")[:20]  # Limit to 20 results
     return render(
         request=request,
-        template_name=f"group_list.html#group_container",
+        template_name="group_list.html#group_container",
         context={"groups": groups},
     )
     # return render(request, "group_search_results.html", {"groups": groups})
@@ -4984,6 +5023,8 @@ def delegate_user_search(request):
         )
 
     users = users.order_by("first_name", "last_name")[:20]
+    # Format users UUID as string
+    # users = [{"pk": str(u.pk), "username": u.username} for u in users]
 
     return render(
         request,
@@ -5014,9 +5055,10 @@ def delegate_add(request):
 
     # Get or initialize delegates list from session
     delegates = request.session.get("workflow_delegates", [])
+    user_id_str = str(user_id)
 
     # Check if user already added
-    if any(d["user_id"] == int(user_id) for d in delegates):
+    if any(str(d.get("user_id")) == user_id_str for d in delegates):
         return HttpResponse(
             '<div class="alert alert-warning">This user has already been added</div>',
             status=400,
@@ -5025,7 +5067,7 @@ def delegate_add(request):
     # Add new delegate
     delegates.append(
         {
-            "user_id": int(user_id),
+            "user_id": user_id_str,
             "user_name": user.get_full_name() or user.username,
             "delegation_role": role,
             "is_mp": user.is_mp,
@@ -5045,7 +5087,8 @@ def delegate_add(request):
 def delegate_remove(request, user_id):
     """Remove a delegate from the session and return updated delegate list."""
     delegates = request.session.get("workflow_delegates", [])
-    delegates = [d for d in delegates if d["user_id"] != user_id]
+    user_id_str = str(user_id)
+    delegates = [d for d in delegates if str(d.get("user_id")) != user_id_str]
 
     request.session["workflow_delegates"] = delegates
     request.session.modified = True

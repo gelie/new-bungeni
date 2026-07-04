@@ -19,8 +19,8 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--delegation-id",
-            type=int,
-            help="Check specific delegation ID only",
+            type=str,
+            help="Check specific delegation UUID only",
         )
 
     def handle(self, *args, **options):

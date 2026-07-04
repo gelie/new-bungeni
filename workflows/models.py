@@ -385,7 +385,7 @@ class GroupMembership(models.Model):
     A user can have multiple roles in multiple groups.
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False) 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="members")
     role = models.ForeignKey(Role, on_delete=models.PROTECT)
@@ -417,6 +417,7 @@ class WorkflowType(models.Model):
     """
     Types of workflows: Bill, Motion, Question, Report, Event, etc.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=100, unique=True)
     slug = AutoSlugField(populate_from="name", unique=True, db_index=True)
@@ -547,6 +548,7 @@ class WorkflowTypeChildConfig(models.Model):
     Declares which child WorkflowTypes are allowed under a parent WorkflowType,
     and what the relationship is called. Replaces the hardcoded can_be_parent_of dict.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     parent_type = models.ForeignKey(
         WorkflowType,
@@ -583,6 +585,7 @@ class StatePermission(models.Model):
     One row per state with multiple roles controls what those roles can do in that state.
     Transition permission is handled by both this model and Transition.allowed_roles.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     state = models.ForeignKey(
         State, on_delete=models.CASCADE, related_name="permissions"
@@ -1504,7 +1507,7 @@ class AuditLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     # Generic foreign key to any model
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
+    object_id = models.UUIDField()
     content_object = GenericForeignKey("content_type", "object_id")
 
     action = models.CharField(max_length=12, choices=ACTION_CHOICES)
@@ -1759,6 +1762,7 @@ class EventComment(models.Model):
     """
     Comments on events.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="comments")
     author = models.ForeignKey(
@@ -1786,8 +1790,9 @@ class Notification(models.Model):
     """
     Notifications for users about workflow changes, deadlines, etc.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
-    
+
     VERB_TRANSITION = "transition"
     VERB_ASSIGNED = "assigned"
     VERB_REFERRED = "referred"
@@ -1839,7 +1844,7 @@ class Notification(models.Model):
     content_type = models.ForeignKey(
         ContentType, on_delete=models.CASCADE, null=True, blank=True
     )
-    object_id = models.PositiveIntegerField(null=True, blank=True)
+    object_id = models.CharField(max_length=64, null=True, blank=True)
     content_object = GenericForeignKey("content_type", "object_id")
 
     is_read = models.BooleanField(default=False)  # type: ignore
@@ -1859,6 +1864,7 @@ class Comment(models.Model):
     """
     Comments on workflows.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     workflow = models.ForeignKey(
         Workflow, on_delete=models.CASCADE, related_name="comments"
@@ -1941,6 +1947,7 @@ class SharePointToken(models.Model):
     """
     Stores SharePoint Graph API access tokens for application-level authentication.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     access_token = models.TextField(help_text="SharePoint access token")
     refresh_token = models.TextField(blank=True, help_text="SharePoint refresh token")
@@ -1968,6 +1975,7 @@ class SharePointFolder(models.Model):
     """
     Represents a folder hierarchy in SharePoint for navigation.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     site = models.ForeignKey(Site, on_delete=models.CASCADE)
     drive = models.ForeignKey(Drive, on_delete=models.CASCADE)
@@ -2528,7 +2536,7 @@ class Attachment(models.Model):
     content_type = models.ForeignKey(
         ContentType, on_delete=models.CASCADE, null=True, blank=True
     )
-    object_id = models.PositiveIntegerField(null=True, blank=True)
+    object_id = models.CharField(max_length=64, null=True, blank=True)
     content_object = GenericForeignKey("content_type", "object_id")
 
     # Legacy field for backward compatibility
@@ -2536,15 +2544,18 @@ class Attachment(models.Model):
         Workflow, on_delete=models.CASCADE, null=True, blank=True
     )
 
-    name = models.CharField(max_length=200)
-    drive_id = models.CharField(max_length=200, help_text="SharePoint drive ID")
-    item_id = models.CharField(max_length=200, help_text="SharePoint item ID")
+    name = models.CharField(max_length=500)
+    drive_id = models.CharField(max_length=512, help_text="SharePoint drive ID")
+    item_id = models.CharField(max_length=512, help_text="SharePoint item ID")
     mimetype = models.CharField(
-        max_length=200, blank=True, null=True, help_text="MIME type of the file"
+        max_length=512, blank=True, null=True, help_text="MIME type of the file"
     )
     size = models.BigIntegerField(blank=True, null=True, help_text="File size in bytes")
     download_url = models.URLField(
-        blank=True, null=True, help_text="SharePoint download URL"
+        max_length=2048,
+        blank=True,
+        null=True,
+        help_text="SharePoint download URL",
     )
     # Enhanced SharePoint references
     sharepoint_site = models.ForeignKey(
@@ -2557,7 +2568,10 @@ class Attachment(models.Model):
         SharePointFolder, on_delete=models.CASCADE, null=True, blank=True
     )
     sharepoint_web_url = models.URLField(
-        blank=True, null=True, help_text="Direct SharePoint web URL"
+        max_length=2048,
+        blank=True,
+        null=True,
+        help_text="Direct SharePoint web URL",
     )
     sharepoint_folder_path = models.CharField(
         max_length=500, blank=True, help_text="Folder path in SharePoint"

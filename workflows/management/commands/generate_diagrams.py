@@ -1,3 +1,4 @@
+import base64
 import os
 
 import graphviz
@@ -148,70 +149,166 @@ class Command(BaseCommand):
         cluster_states: bool = False,
         include_descriptions: bool = False,
     ) -> "graphviz.Digraph":
-        """Create a graphviz Digraph object for a workflow type"""
-
+        """Create a professional-grade graphviz Digraph for a workflow type"""
         states = list(workflow_type.states.all())
         transitions = list(workflow_type.transitions.all())
 
-        # Create the main graph
+        # Create the main graph with professional settings
         dot = graphviz.Digraph(
             workflow_type.name.replace(" ", "_"),
             comment=f"Workflow: {workflow_type.name}",
-            format="png",
+            format="png",  # Will be overridden by command line
         )
-        dot.attr(rankdir="TB")
-        dot.attr("node", shape="box", style="filled")
-        dot.attr("edge", fontsize="12", arrowhead="vee", arrowsize="1.5")
+
+        # === ENTERPRISE-GRADE GLOBAL STYLING ===
         dot.attr(
-            "node", fontname="Helvetica", fontsize="10", style="filled", margin="0.08"
+            rankdir="TB",
+            # splines="ortho",          # Clean orthogonal lines
+            ranksep="1",
+            nodesep="0.7",
+            bgcolor="white",
+            pad="0.6",
+            compound="true",  # Better cluster support
         )
+
+        # Global node styling
+        dot.attr(
+            "node",
+            shape="box",
+            style="filled,rounded",
+            fontname="Helvetica",
+            fontsize="12",
+            fontweight="bold",
+            margin="0.18,0.11",
+            penwidth="2",
+        )
+
+        # Global edge styling
         dot.attr(
             "edge",
             fontname="Helvetica",
-            fontsize="9",
-            arrowhead="vee",
-            arrowsize="1.0",
-            color="#333",
+            fontsize="12",
+            fontweight="bold",
+            arrowsize="1.2",
+            penwidth="1.5",
+            color="#2C3E50",
+            labeldistance="3",
+            labelangle="0",
+            splines="true",
         )
-        # dot.node("anchor_approved", shape="point", width="0", label="", style="invis")
-        # dot.edge("Tabled", "anchor_approved", arrowhead="none", style="invis")
-        # dot.edge("anchor_approved", "Report Approved", label="adopt")
 
-        # Add title to the graph
-        title = f"{workflow_type.name} Workflow"
-        if include_descriptions and workflow_type.description:
-            title += f"\\n{workflow_type.description}"
-        dot.attr(label=title, labelloc="t", fontsize="16", fontname="bold")
+        # === HEADER WITH PARLIAMENT LOGO ===
+        logo_path = (
+            "/home/admgelie/Projects/pwms/parliament-logo.png"  # Adjust if needed
+        )
+
+        # with open(logo_path, "rb") as f:
+        #     b64 = base64.b64encode(f.read()).decode("ascii")
+        # img_uri = f"data:image/png;base64,{b64}"
+
+        # single HTML node for header (image left, text right)
+        label = f'''<
+            <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="3">
+                <TR>
+                <TD><IMG SRC="{logo_path}" SCALE="TRUE" /></TD>
+                <TD></TD><TD></TD><TD></TD>
+                <TD><FONT POINT-SIZE="18"><B>{workflow_type.name}</B></FONT></TD>
+                </TR>
+            </TABLE>
+        >'''
+
+        dot.node("header", label=label, shape="none")
+        # dot.edge('header', initial_states[0].name)
+
+        # dot.attr(label=f'<<B>{workflow_type.name}</B><BR/><IMG SRC="{img_uri}"/>', labelloc='t', fontsize='18', fontname='Helvetica', margin='0.5')
+
+        # Create a header subgraph
+        # with dot.subgraph(name="cluster_header") as header:
+        #     header.attr(rank="min", style="invis", label="", rankdir="LR")
+        #     # header.attr("graph", nodesep="0.1")
+
+        #     # Logo node
+        #     header.node(
+        #         "logo",
+        #         label="",
+        #         image=logo_path,
+        #         shape="none",
+        #         style="filled",
+        #         fillcolor="#ffffff",
+        #         width="2.2",
+        #         height="1.1",
+        #         fixedsize="true",
+        #         # style="invis",          # Hide border
+        #         # penwidth="0",
+        #         margin="0",
+        #         imagescale="false"
+        #     )
+
+        #     # Title next to logo
+        #     title = f"{workflow_type.name}"
+        #     if include_descriptions and workflow_type.description:
+        #         title += f"\\n{workflow_type.description}"
+
+        #     header.node(
+        #         "workflow_title",
+        #         label=f'<<B><FONT POINT-SIZE="18" FACE="Arial">{title}</FONT></B>>',
+        #         shape="plain",
+        #         style="filled",
+        #         fillcolor="transparent",
+        #         fontcolor="#1C2526"
+        #     )
 
         # Categorize states
         initial_states = [s for s in states if s.is_initial]
         terminal_states = [s for s in states if s.is_terminal]
         regular_states = [s for s in states if not s.is_initial and not s.is_terminal]
 
-        # Add states
+        # Add states with clusters
         if cluster_states:
-            # Group states by type using subgraphs
             if initial_states:
                 with dot.subgraph(name="cluster_initial") as c:
-                    c.attr(label="Initial States", style="filled", color="lightgreen")
+                    c.attr(
+                        label="",
+                        style="filled",
+                        color="#E8F5E9",
+                        fontname="Arial",
+                        fontsize="12",
+                        fontcolor="#2E7D32",
+                    )
                     for state in initial_states:
                         self._add_state_node(c, state, include_descriptions)
 
             if regular_states:
                 with dot.subgraph(name="cluster_regular") as c:
-                    c.attr(label="Regular States", style="filled", color="lightblue")
+                    c.attr(
+                        label="",
+                        style="filled",
+                        color="#E3F2FD",
+                        fontname="Arial",
+                        fontsize="12",
+                        fontcolor="#1565C0",
+                    )
                     for state in regular_states:
                         self._add_state_node(c, state, include_descriptions)
 
             if terminal_states:
                 with dot.subgraph(name="cluster_terminal") as c:
-                    c.attr(label="Terminal States", style="filled", color="lightcoral")
+                    c.attr(
+                        label="",
+                        style="filled",
+                        color="#FFEBEE",
+                        fontname="Arial",
+                        fontsize="12",
+                        fontcolor="#C62828",
+                    )
                     for state in terminal_states:
                         self._add_state_node(c, state, include_descriptions)
         else:
-            # Add states without clustering
             for state in states:
                 self._add_state_node(dot, state, include_descriptions)
+
+        # Add invisible edge from header to first initial state for layout
+        dot.edge("header", initial_states[0].name, style="invis")
 
         # Add transitions
         for transition in transitions:
@@ -220,35 +317,53 @@ class Command(BaseCommand):
         return dot
 
     def _add_state_node(self, dot, state: State, include_descriptions: bool = False):
-        """Add a state as a DOT node"""
+        """Add a professionally styled state node"""
         label = state.name
+
         if include_descriptions and state.description:
-            # Limit description length
-            desc = state.description[:50]
-            if len(state.description) > 50:
+            desc = state.description[:70]
+            if len(state.description) > 70:
                 desc += "..."
-            label = f"{label}\\n{desc}"
+            label = f"{label}\\n\\n{desc}"
 
-        # Use state color if available, otherwise default colors based on state type
+        # Professional color scheme
         if state.color and state.color != "#6B7280":
-            color = state.color
+            fillcolor = state.color
+            fontcolor = "white"
         elif state.is_initial:
-            color = "#FF8C00"  # Dark orange for initial states
+            fillcolor = "#5B8F22"  # Professional green
+            fontcolor = "white"
         elif state.is_terminal:
-            color = "#228B22"  # Green for terminal states
+            fillcolor = "#CC4B37"  # Professional red
+            fontcolor = "white"
         else:
-            color = "#6B7280"  # Default gray for regular states
+            fillcolor = "#1565C0"  # Professional blue
+            fontcolor = "white"
 
-        # Different shapes for different state types
+        # Shape hierarchy
         if state.is_initial:
             shape = "ellipse"
+            style = "filled"
+            fillcolor = "#5B8F22"
         elif state.is_terminal:
             shape = "doubleoctagon"
+            style = "filled"
+            fillcolor = "#CC4B37"
         else:
             shape = "box"
+            style = "filled,rounded"
+            fillcolor = "#1565C0"
 
         dot.node(
-            state.name, label=label, fillcolor=color, shape=shape, fontcolor="white"
+            state.name,
+            label=label,
+            fillcolor=fillcolor,
+            fontcolor=fontcolor,
+            shape=shape,
+            style=style,
+            penwidth="2.8",
+            width="2.0",
+            height="0.9",
         )
 
     def _add_transition_edge(
@@ -258,26 +373,28 @@ class Command(BaseCommand):
         show_roles: bool = False,
         include_descriptions: bool = False,
     ):
-        """Add a transition as a DOT edge"""
+        """Add a professionally styled transition"""
         label = transition.name
+
         if include_descriptions and transition.requires_comment:
-            label += " (requires comment)"
+            label += "\\n(requires comment)"
 
         if show_roles and transition.allowed_roles.exists():
             roles = ", ".join([role.name for role in transition.allowed_roles.all()])
-            label = f"{label}\\n[{roles}]"
+            label += f"\\n[{roles}]"
 
-        # Style based on transition properties
-        edge_attrs = {}
+        edge_attrs = {
+            "label": label,
+            "color": "#455A64",
+            "fontcolor": "#455A64",
+        }
+
         if transition.requires_comment:
-            edge_attrs["style"] = "dashed"
+            edge_attrs.update(
+                {"style": "dashed", "color": "#F57C00", "fontcolor": "#F57C00"}
+            )
 
-        dot.edge(
-            transition.from_state.name,
-            transition.to_state.name,
-            label=label,
-            **edge_attrs,
-        )
+        dot.edge(transition.from_state.name, transition.to_state.name, **edge_attrs)
 
     def generate_summary_report(self, output_dir: str):
         """Generate a summary report of all workflow types"""

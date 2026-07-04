@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from django.db.models import Q
 from django.http import Http404
 from ninja import NinjaAPI
@@ -20,7 +22,7 @@ def workflows(request):
 
 
 @api.get("/workflows/{workflow_id}")
-def workflow(request, workflow_id: int):
+def workflow(request, workflow_id: UUID):
     return {"workflow": "workflow"}
 
 
@@ -37,7 +39,7 @@ def users(request, search: str = None):
 
 
 @api.get("/users/{user_id}", response=schemas.UserSchema)
-def user(request, user_id: int):
+def user(request, user_id: UUID):
     user = models.User.objects.get(id=user_id)
     return user
 
@@ -59,7 +61,7 @@ def group_types(request):
 
 
 @api.get("/groups/{group_id}", response=schemas.GroupSchema)
-def get_group(request, group_id: int):
+def get_group(request, group_id: UUID):
     group = models.Group.objects.get(id=group_id)
     return group
 

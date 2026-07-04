@@ -13,9 +13,9 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--workflow-id",
-            type=int,
+            type=str,
             default=None,
-            help="Only process the workflow with this ID.",
+            help="Only process the workflow with this UUID.",
         )
         parser.add_argument(
             "--force",

@@ -227,14 +227,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
       if (fieldName === 'delegate_group') {
         console.log('✓ Rendering delegate_group field with HTMX UI');
-        
+
         // Get delegation roles from the page data
         const delegationRolesEl = document.getElementById('delegation-roles');
         const delegationRoles = delegationRolesEl ? JSON.parse(delegationRolesEl.textContent || '[]') : [];
-        const roleOptions = delegationRoles.map(role => 
+        console.log('delegationRoles:', delegationRoles);
+        const roleOptions = delegationRoles.map(role =>
           `<option value="${role.name}">${role.name}</option>`
         ).join('');
-        
+
         fieldHtml = `
           <label class="label">
             <span class="label-text font-medium">${fieldConfig.title || fieldName}${requiredText}</span>
@@ -396,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Only set innerHTML if not using DOM creation (group_lookup uses DOM creation)
       if (fieldConfig.field_type !== 'group_lookup') {
         fieldDiv.innerHTML = fieldHtml;
-        
+
         // Initialize HTMX on delegate_group field
         if (fieldName === 'delegate_group' && typeof htmx !== 'undefined') {
           htmx.process(fieldDiv);
@@ -418,11 +419,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (delegateContainer && !existingDelegatesLoaded) {
       console.log('Direct check: delegate container found, loading delegates');
       existingDelegatesLoaded = true;
-      
+
       console.log('Delegate container detected (direct check)');
       console.log('Existing data:', existingData);
       console.log('Delegate group:', existingData.delegate_group);
-      
+
       // First, clear the session
       fetch('{% url "delegate_clear_session" %}', {
         method: 'GET'
@@ -522,11 +523,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (delegateContainer && !existingDelegatesLoaded) {
       existingDelegatesLoaded = true;
       delegateObserver.disconnect();
-      
+
       console.log('Delegate container detected');
       console.log('Existing data:', existingData);
       console.log('Delegate group:', existingData.delegate_group);
-      
+
       // First, clear the session
       fetch('{% url "delegate_clear_session" %}', {
         method: 'GET'
@@ -599,9 +600,9 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('click', function(event) {
     const dropdown = document.getElementById('delegate-user-dropdown');
     const searchInput = document.getElementById('delegate-user-search');
-    
-    if (dropdown && searchInput && 
-        !dropdown.contains(event.target) && 
+
+    if (dropdown && searchInput &&
+        !dropdown.contains(event.target) &&
         !searchInput.contains(event.target)) {
       dropdown.classList.add('hidden');
     }
@@ -613,17 +614,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const userSearchInput = document.getElementById('delegate-user-search');
     const dropdown = document.getElementById('delegate-user-dropdown');
     const errorDiv = document.getElementById('delegate-error');
-    
+
     if (userIdInput && userSearchInput) {
       userIdInput.value = userId;
       userSearchInput.value = userName;
-      
+
       // Hide dropdown after selection
       if (dropdown) {
         dropdown.classList.add('hidden');
         dropdown.innerHTML = '';
       }
-      
+
       // Clear any previous errors
       if (errorDiv) {
         errorDiv.classList.add('hidden');
@@ -642,17 +643,17 @@ document.addEventListener('DOMContentLoaded', function () {
       const roleSelect = document.getElementById('delegate-role-select');
       const errorDiv = document.getElementById('delegate-error');
       const delegateList = document.getElementById('delegate-list');
-      
+
       let errors = [];
-      
+
       if (!userIdInput || !userIdInput.value) {
         errors.push('Please select a user');
       }
-      
+
       if (!roleSelect || !roleSelect.value) {
         errors.push('Please select a role');
       }
-      
+
       // Check for duplicates by looking at existing delegate items
       if (userIdInput && userIdInput.value && delegateList) {
         const userId = userIdInput.value;
@@ -665,7 +666,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         }
       }
-      
+
       if (errors.length > 0) {
         console.log('Validation errors:', errors);
         if (errorDiv) {
@@ -676,7 +677,7 @@ document.addEventListener('DOMContentLoaded', function () {
         event.preventDefault();
         return false;
       }
-      
+
       console.log('Validation passed');
       // Clear errors if validation passes
       if (errorDiv) {
@@ -693,13 +694,13 @@ document.addEventListener('DOMContentLoaded', function () {
       const userSearchInput = document.getElementById('delegate-user-search');
       const roleSelect = document.getElementById('delegate-role-select');
       const errorDiv = document.getElementById('delegate-error');
-      
+
       if (userIdInput && userSearchInput && roleSelect) {
         userIdInput.value = '';
         userSearchInput.value = '';
         roleSelect.value = '';
       }
-      
+
       // Clear any error messages
       if (errorDiv) {
         errorDiv.classList.add('hidden');

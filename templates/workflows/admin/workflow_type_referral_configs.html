@@ -76,10 +76,10 @@
                 </div>
               </td>
               <td class="text-right">
-                <button class="btn btn-ghost btn-xs" onclick="openEditModal({{ cfg.pk }})">
+                <button class="btn btn-ghost btn-xs" onclick="openEditModal('{{ cfg.pk }}')">
                   {% lucide "pencil" class="w-3 h-3" %}
                 </button>
-                <button class="btn btn-ghost btn-xs text-error" onclick="deleteConfig({{ cfg.pk }}, '{{ cfg.target_group.name|escapejs }}')">
+                <button class="btn btn-ghost btn-xs text-error" onclick="deleteConfig('{{ cfg.pk }}', '{{ cfg.target_group.name|escapejs }}')">
                   {% lucide "trash-2" class="w-3 h-3" %}
                 </button>
               </td>

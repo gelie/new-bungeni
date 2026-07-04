@@ -38,7 +38,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "django-stubs>=5.2.9",
-
+    "docify>=1.2.1",
 ]
 
 # [tool.uv.extra-build-dependencies]

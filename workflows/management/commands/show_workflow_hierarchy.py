@@ -9,8 +9,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--workflow-id",
-            type=int,
-            help="Show hierarchy for a specific workflow ID",
+            type=str,
+            help="Show hierarchy for a specific workflow UUID",
         )
         parser.add_argument(
             "--show-all",
