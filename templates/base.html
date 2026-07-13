@@ -80,10 +80,99 @@
         });
       }
 
+      function initializeFlatpickrFields(root) {
+        if (typeof flatpickr === 'undefined') {
+          return;
+        }
+
+        // Flatpickr is still available for other forms that may use it, but
+        // event datetime fields now use native datetime-local inputs.
+        const scope = root || document;
+        const inputs = scope.querySelectorAll('input[data-flatpickr="datetime"]');
+
+        inputs.forEach((input) => {
+          if (input._flatpickr) {
+            return;
+          }
+
+          flatpickr(input, {
+            enableTime: true,
+            time_24hr: true,
+            allowInput: true,
+            altInput: false,
+            dateFormat: 'Y-m-d H:i',
+          });
+        });
+      }
+
+      function initializeEventDateValidation(root) {
+        const scope = root || document;
+        const forms = scope.querySelectorAll('form[data-event-datetime-form="1"]');
+
+        forms.forEach((form) => {
+          if (form.dataset.eventDateValidationBound === '1') {
+            return;
+          }
+
+          const startInput = form.querySelector('#id_start_datetime');
+          const endInput = form.querySelector('#id_end_datetime');
+          if (!startInput || !endInput) {
+            return;
+          }
+
+          function syncMinDate() {
+            if (startInput.value) {
+              endInput.min = startInput.value;
+            } else {
+              endInput.removeAttribute('min');
+            }
+          }
+
+          function validateEventDateRange() {
+            syncMinDate();
+            endInput.setCustomValidity('');
+
+            const startValue = startInput.value;
+            const endValue = endInput.value;
+
+            if (!startValue || !endValue) {
+              return true;
+            }
+
+            // datetime-local values use the same sortable format, so simple string
+            // comparison is sufficient and avoids timezone parsing quirks.
+            if (endValue <= startValue) {
+              endInput.setCustomValidity('End time must be after start time.');
+              return false;
+            }
+
+            return true;
+          }
+
+          form.addEventListener('submit', function (event) {
+            if (!validateEventDateRange()) {
+              event.preventDefault();
+              event.stopPropagation();
+              endInput.reportValidity();
+            }
+          });
+
+          startInput.addEventListener('input', validateEventDateRange);
+          startInput.addEventListener('change', validateEventDateRange);
+          endInput.addEventListener('input', validateEventDateRange);
+          endInput.addEventListener('change', validateEventDateRange);
+
+          form.dataset.eventDateValidationBound = '1';
+          validateEventDateRange();
+        });
+      }
+
       // HTMX event listeners
       document.body.addEventListener('htmx:afterSwap', function (event) {
         // lucide.createIcons();
         applyWorkflowStateColors();
+        initializeFlatpickrFields(event.target);
+        initializeEventDateValidation(event.target);
 
         // Re-add click handlers for workflow rows
         document.querySelectorAll('[data-workflow-url]').forEach(row => {
@@ -112,6 +201,8 @@
       // Apply colors on page load
       document.addEventListener('DOMContentLoaded', function () {
         applyWorkflowStateColors();
+        initializeFlatpickrFields(document);
+        initializeEventDateValidation(document);
 
         // Add click handlers for workflow rows
         document.querySelectorAll('[data-workflow-url]').forEach(row => {

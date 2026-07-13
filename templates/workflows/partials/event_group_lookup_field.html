@@ -1,0 +1,77 @@
+<div class="form-control">
+    <label class="label">
+        <span class="label-text font-medium">Group *</span>
+    </label>
+
+    <div class="relative z-50">
+        <input type="text"
+               id="event-group-search"
+               name="search"
+               class="input input-bordered w-full"
+               placeholder="Type to search groups..."
+               autocomplete="off"
+               value="{{ group_search }}"
+               oninput="document.getElementById('selected-event-group-id').value='';"
+               onblur="setTimeout(function(){document.getElementById('event-group-results').classList.add('hidden');}, 300);"
+               hx-get="{% url 'event_group_lookup' %}"
+               hx-trigger="keyup changed delay:300ms, focus"
+               hx-target="#event-group-results"
+               hx-swap="innerHTML" />
+
+        <input type="hidden"
+               id="selected-event-group-id"
+               name="group"
+               value="{% if selected_group %}{{ selected_group.pk }}{% else %}{{ form.group.value|default:'' }}{% endif %}" />
+
+        <div id="event-group-results"
+             class="absolute top-full left-0 right-0 mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto hidden"></div>
+    </div>
+
+    {% if selected_group %}
+    <label class="label">
+        <span class="label-text-alt text-base-content/70">Selected: {{ selected_group.name }}</span>
+    </label>
+    {% endif %}
+
+    {% if form.group.errors %}
+    <label class="label">
+        <span class="label-text-alt text-error">{{ form.group.errors.0 }}</span>
+    </label>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    const groupInput = document.getElementById('event-group-search');
+    const groupIdInput = document.getElementById('selected-event-group-id');
+    const resultsBox = document.getElementById('event-group-results');
+
+    if (!groupInput || !groupIdInput || !resultsBox) {
+        return;
+    }
+
+    window.selectEventGroup = function (groupId, groupName) {
+        groupIdInput.value = groupId;
+        groupInput.value = groupName;
+        resultsBox.classList.add('hidden');
+    };
+
+    groupInput.addEventListener('input', function () {
+        if (groupIdInput.value) {
+            groupIdInput.value = '';
+        }
+    });
+
+    document.body.addEventListener('htmx:afterSwap', function (event) {
+        if (event.target && event.target.id === 'event-group-results') {
+            resultsBox.classList.remove('hidden');
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        if (!resultsBox.contains(event.target) && event.target !== groupInput) {
+            resultsBox.classList.add('hidden');
+        }
+    });
+})();
+</script>

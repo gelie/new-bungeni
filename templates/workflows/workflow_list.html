@@ -17,7 +17,7 @@
                     {% lucide "chevron-down" class="w-4 h-4" %}
                 </div>
                 <ul tabindex="0"
-                    class="dropdown-content menu bg-base-100 rounded-box z-10 w-56 p-2 shadow-lg border border-base-200 mt-1">
+                    class="dropdown-content menu bg-base-100 rounded-box z-10 w-64 p-2 shadow-lg border border-base-200 mt-1">
                     {% for wt in creatable_workflow_types %}
                     <li>
                         <a hx-get="{% url 'workflow_create' %}?type={{ wt.pk }}" hx-target="#content-area"
@@ -94,7 +94,7 @@
                         {% lucide "search" class="w-4 h-4" %} <span>Search</span>
                     </button>
                     <a hx-get="{% url 'workflow_list' %}" hx-target="#content-area" class="btn btn-ghost" title="Clear filters">
-                        {% lucide "x" color="red" class="w-8 h-8" %} 
+                        {% lucide "x" color="red" class="w-8 h-8" %}
                     </a>
                 </div>
             </form>
@@ -129,8 +129,7 @@
                                     </div>
                                     {% elif workflow.has_sub_workflows %}
                                     <div class="flex items-center text-base-content/40 mt-1">
-                                        <span class="text-sm">{% lucide 'folder' class='w-4 h-4 text-accent
-                                            fill-current' %}</span>
+                                        <span class="text-sm">{% lucide 'folder' class='w-4 h-4 text-accent fill-current' %}</span>
                                     </div>
                                     {% endif %}
                                     <div class="flex-1">

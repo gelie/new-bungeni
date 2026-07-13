@@ -1128,7 +1128,7 @@
                                         {% lucide "send" class="w-5 h-5" %}
                                         Active Referrals ({{ active_referrals|length }})
                                     </h3>
-                                    {% if user == workflow.owner or can_edit %}
+                                    {% if user == workflow.owner %}
                                         <button id="recall-all-header-btn" class="btn btn-error btn-sm">
                                             {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall All
                                         </button>
@@ -1159,7 +1159,8 @@
                                             <button class="btn btn-error btn-sm shrink-0 recall-single-btn"
                                                     data-group-id="{{ referral.referred_to.pk }}"
                                                     data-group-name="{{ referral.referred_to.name }}">
-                                                {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall
+                                                {% lucide "circle-x" class="w-4 h-4 mr-1" %}
+                                                {% if user == workflow.owner %}Recall{% else %}Send Back{% endif %}
                                             </button>
                                         {% endif %}
                                     </div>
@@ -1195,6 +1196,7 @@
                                             <th>Referred At</th>
                                             <th>Status</th>
                                             <th>Recalled At</th>
+                                            <th>Recalled By</th>
                                             <th>Recall Reason</th>
                                         </tr>
                                     </thead>
@@ -1214,6 +1216,13 @@
                                                     {% endif %}
                                                 </td>
                                                 <td class="text-sm">{{ ref.recalled_at|date:"Y-m-d H:i"|default:"—" }}</td>
+                                                <td class="text-sm">
+                                                    {% if ref.recalled_by %}
+                                                        {{ ref.recalled_by.get_full_name|default:ref.recalled_by.username }}
+                                                    {% else %}
+                                                        System
+                                                    {% endif %}
+                                                </td>
                                                 <td class="text-sm max-w-xs truncate" title="{{ ref.recall_reason }}">{{ ref.recall_reason|default:"—" }}</td>
                                             </tr>
                                         {% endfor %}
@@ -2726,34 +2735,46 @@
         <label class="modal-backdrop" for="refer-modal"></label>
     </div>
 {% endif %}
-{% if active_referrals and user == workflow.owner or can_edit %}
-    <!-- Recall Confirmation Modal -->
-    <input type="checkbox" id="recall-modal" class="modal-toggle" />
-    <div class="modal" role="dialog">
-        <div class="modal-box w-full max-w-md">
-            <h3 class="font-bold text-lg mb-1">Recall Referral</h3>
-            <p class="text-sm text-base-content/60 mb-4" id="recall-message">
-                This will recall the referral to the selected group.
-            </p>
-            <div class="form-control mb-4">
-                <label class="label">
-                    <span class="label-text font-medium">Recall Reason <span class="text-base-content/40 font-normal">(optional)</span></span>
-                </label>
-                <textarea id="recall-reason"
-                          class="textarea textarea-bordered w-full"
-                          rows="2"
-                          placeholder="Reason for recall…"></textarea>
+{% if active_referrals %}
+    {% if user == workflow.owner or can_edit %}
+        <!-- Recall/Send Back Confirmation Modal -->
+        <input type="checkbox" id="recall-modal" class="modal-toggle" />
+        <div class="modal" role="dialog">
+            <div class="modal-box w-full max-w-md">
+                <h3 class="font-bold text-lg mb-1">
+                    {% if user == workflow.owner %}Recall Referral{% else %}Send Back{% endif %}
+                </h3>
+                <p class="text-sm text-base-content/60 mb-4" id="recall-message">
+                    {% if user == workflow.owner %}
+                        This will recall the referral to the selected group.
+                    {% else %}
+                        This will send the workflow back to the selected group.
+                    {% endif %}
+                </p>
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text font-medium">
+                            {% if user == workflow.owner %}Recall Reason{% else %}Send Back Reason{% endif %}
+                            <span class="text-base-content/40 font-normal">(optional)</span>
+                        </span>
+                    </label>
+                    <textarea id="recall-reason"
+                              class="textarea textarea-bordered w-full"
+                              rows="2"
+                              placeholder="{% if user == workflow.owner %}Reason for recall…{% else %}Reason for sending back…{% endif %}"></textarea>
+                </div>
+                <div id="recall-error" class="alert alert-error mb-3 hidden"></div>
+                <div class="modal-action">
+                    <label for="recall-modal" class="btn btn-ghost">Cancel</label>
+                    <button type="button" id="recall-submit-btn" class="btn btn-error">
+                        {% lucide "circle-x" class="w-4 h-4 mr-1" %}
+                        {% if user == workflow.owner %}Recall Referral{% else %}Send Back{% endif %}
+                    </button>
+                </div>
             </div>
-            <div id="recall-error" class="alert alert-error mb-3 hidden"></div>
-            <div class="modal-action">
-                <label for="recall-modal" class="btn btn-ghost">Cancel</label>
-                <button type="button" id="recall-submit-btn" class="btn btn-error">
-                    {% lucide "circle-x" class="w-4 h-4 mr-1" %} Recall Referral
-                </button>
-            </div>
+            <label class="modal-backdrop" for="recall-modal"></label>
         </div>
-        <label class="modal-backdrop" for="recall-modal"></label>
-    </div>
+    {% endif %}
 {% endif %}
 <script>
     (function () {
@@ -2955,8 +2976,8 @@
                 message.textContent = 'This will recall ALL active referrals to this workflow. The workflow will no longer be accessible to any referred groups.';
                 submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-1"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg> Recall All Referrals';
             } else {
-                message.textContent = `This will recall the referral to ${groupName}. The workflow will no longer be accessible to that group.`;
-                submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-1"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg> Recall Referral';
+                message.textContent = `This will send the workflow back to ${groupName}. The workflow will no longer be accessible to that group.`;
+                submitBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 mr-1"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg> Send Back';
             }
 
             modal.checked = true;

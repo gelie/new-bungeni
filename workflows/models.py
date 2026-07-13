@@ -11,7 +11,7 @@ from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -644,6 +644,16 @@ class Workflow(models.Model):
         related_name="assigned_workflows",
     )
 
+    # Instance-level primary ownership group (replaces WorkflowType.group ownership semantics)
+    primary_group = models.ForeignKey(
+        Group,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="primary_workflows",
+        help_text="Primary owning group for this workflow instance",
+    )
+
     # Referral system - now supports multiple referrals
     referred_to_groups = models.ManyToManyField(
         Group,
@@ -865,8 +875,66 @@ class Workflow(models.Model):
 
     @property
     def effective_group(self):
-        """Get the effective group: workflow's group or type's group"""
-        return self.workflow_type.group
+        """Get the effective group, preferring instance primary_group with legacy fallback."""
+        return self.primary_group or self.workflow_type.group
+
+    def get_primary_access(self):
+        """Return the primary WorkflowGroupAccess record for this workflow, if any."""
+        return (
+            self.group_access.filter(is_primary=True)
+            .order_by("granted_at", "id")
+            .first()
+        )
+
+    def set_primary_group(self, group, granted_by=None, notes=""):
+        """
+        Set and normalize this workflow's primary ownership group.
+
+        Ensures:
+        - Workflow.primary_group points at `group`
+        - a matching WorkflowGroupAccess exists
+        - exactly one WorkflowGroupAccess row is marked is_primary=True
+        """
+        if not group:
+            raise ValidationError("Primary group is required.")
+
+        with transaction.atomic():
+            access, _ = WorkflowGroupAccess.objects.get_or_create(
+                workflow=self,
+                group=group,
+                defaults={
+                    "is_primary": True,
+                    "granted_by": granted_by,
+                    "notes": notes,
+                },
+            )
+
+            # Normalize primary flags so only this access is primary
+            self.group_access.exclude(pk=access.pk).filter(is_primary=True).update(
+                is_primary=False
+            )
+
+            access_changed = False
+            if not access.is_primary:
+                access.is_primary = True
+                access_changed = True
+
+            if granted_by and access.granted_by_id != granted_by.id:
+                access.granted_by = granted_by
+                access_changed = True
+
+            if notes and access.notes != notes:
+                access.notes = notes
+                access_changed = True
+
+            if access_changed:
+                access.save()
+
+            if self.primary_group_id != group.id:
+                self.primary_group = group
+                self.save(update_fields=["primary_group"])
+
+            return access
 
     @property
     def active_referrals(self):
@@ -1147,8 +1215,6 @@ class Workflow(models.Model):
 
         Returns the created WorkflowGroupAccess instance.
         """
-        from workflows.models import WorkflowGroupAccess
-
         access, created = WorkflowGroupAccess.objects.get_or_create(
             workflow=self,
             group=group,
@@ -1167,6 +1233,19 @@ class Workflow(models.Model):
             if notes:
                 access.notes = notes
             access.save()
+
+        if is_primary:
+            # Keep primary ownership in sync with access records.
+            self.group_access.exclude(pk=access.pk).filter(is_primary=True).update(
+                is_primary=False
+            )
+            if not access.is_primary:
+                access.is_primary = True
+                access.save(update_fields=["is_primary"])
+
+            if self.primary_group_id != group.id:
+                self.primary_group = group
+                self.save(update_fields=["primary_group"])
 
         return access
 
@@ -1700,20 +1779,21 @@ class Event(models.Model):
                 )
 
     def save(self, *args, **kwargs):
-        """Override save to create attendance records when status changes to completed."""
-        # Check if this is an existing event and status is being changed
-        if self.pk:
-            old_event = Event.objects.get(pk=self.pk)
-            status_changed = old_event.status != self.status
-            is_now_completed = self.status == "completed"
+        """Override save to create attendance records when status becomes completed."""
+        is_new = self._state.adding
+        old_status = None
 
-            if status_changed and is_now_completed:
-                # Create attendance records after saving
-                super().save(*args, **kwargs)
-                self.create_attendance_records()
-                return
+        if not is_new and self.pk:
+            old_status = Event.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+
+        is_now_completed = self.status == "completed"
+        status_changed = old_status is not None and old_status != self.status
 
         super().save(*args, **kwargs)
+
+        # Create attendance records when transitioning to completed, including first save.
+        if is_now_completed and (is_new or status_changed):
+            self.create_attendance_records()
 
 
 class EventAttendance(models.Model):

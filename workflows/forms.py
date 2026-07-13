@@ -7,6 +7,32 @@ from .models import Event, EventAttendance, Group, User, UserDelegation, Workflo
 class EventForm(forms.ModelForm):
     """Form for creating and editing events."""
 
+    start_datetime = forms.DateTimeField(
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"],
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={
+                "type": "datetime-local",
+                "class": "input input-bordered w-full",
+                "placeholder": "Select start date and time...",
+                "step": "60",
+            },
+        ),
+    )
+    end_datetime = forms.DateTimeField(
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"],
+        widget=forms.DateTimeInput(
+            format="%Y-%m-%dT%H:%M",
+            attrs={
+                "type": "datetime-local",
+                "class": "input input-bordered w-full",
+                "placeholder": "Select end date and time...",
+                "step": "60",
+                "min": "",
+            },
+        ),
+    )
+
     class Meta:
         model = Event
         fields = [
@@ -31,20 +57,6 @@ class EventForm(forms.ModelForm):
             "group": forms.Select(attrs={"class": "select select-bordered w-full"}),
             "location": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
             "venue": forms.Select(attrs={"class": "select select-bordered w-full"}),
-            "start_datetime": forms.DateTimeInput(
-                attrs={
-                    "class": "form-control input input-bordered w-full",
-                    "placeholder": "Select start date and time...",
-                },
-                format="%Y-%m-%d %H:%M",
-            ),
-            "end_datetime": forms.DateTimeInput(
-                attrs={
-                    "class": "form-control input input-bordered w-full",
-                    "placeholder": "Select end date and time...",
-                },
-                format="%Y-%m-%d %H:%M",
-            ),
             "status": forms.Select(attrs={"class": "select select-bordered w-full"}),
         }
 
@@ -52,11 +64,14 @@ class EventForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.user = user
 
-        # Filter groups to those the user belongs to
+        # Filter groups to those the user belongs to, except superusers see all groups
         user_groups = user.memberships.filter(is_active=True).values_list(
             "group", flat=True
         )
-        self.fields["group"].queryset = Group.objects.filter(id__in=user_groups)
+        if getattr(user, "is_superuser", False):
+            self.fields["group"].queryset = Group.objects.order_by("name")
+        else:
+            self.fields["group"].queryset = Group.objects.filter(id__in=user_groups)
 
         # Set organizer to current user on save
         self.instance.organizer = user
@@ -65,8 +80,14 @@ class EventForm(forms.ModelForm):
         cleaned_data = super().clean()
         start = cleaned_data.get("start_datetime")
         end = cleaned_data.get("end_datetime")
+
         if start and end and start >= end:
-            raise forms.ValidationError("End time must be after start time.")
+            self.add_error("end_datetime", "End time must be after start time.")
+
+        # Normalize the posted values so the edit form re-renders with the native
+        # datetime-local format even if the browser submitted a space-separated value.
+
+
         return cleaned_data
 
 

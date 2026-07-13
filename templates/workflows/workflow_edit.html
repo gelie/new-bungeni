@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function () {
           <div id="delegate-group-container" class="space-y-3">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div class="form-control relative">
-                <input type="text" id="delegate-user-search" class="input input-bordered w-full" placeholder="Search for a user..." autocomplete="off" hx-get="{% url 'delegate_user_search' %}" hx-trigger="keyup changed delay:300ms" hx-target="#delegate-user-dropdown" hx-swap="innerHTML show:top" name="search" />
+                <input type="text" id="delegate-user-search" class="input input-bordered w-full" placeholder="Search for a user..." autocomplete="off" hx-get="{% url 'delegate_user_search' %}" hx-trigger="keyup changed delay:500ms" hx-target="#delegate-user-dropdown" hx-swap="innerHTML show:top" name="search" />
                 <div id="delegate-user-dropdown" class="hidden absolute z-10 mt-1 w-full bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                 </div>
               </div>

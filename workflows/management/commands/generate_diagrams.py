@@ -391,7 +391,7 @@ class Command(BaseCommand):
 
         if transition.requires_comment:
             edge_attrs.update(
-                {"style": "dashed", "color": "#F57C00", "fontcolor": "#F57C00"}
+                {"style": "dashed", "color": "#275937", "fontcolor": "#275937"} # #F57C00 - original
             )
 
         dot.edge(transition.from_state.name, transition.to_state.name, **edge_attrs)

@@ -13,7 +13,7 @@
     <!-- Form -->
     <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-            <form method="post" class="space-y-4">
+            <form method="post" class="space-y-4" data-event-datetime-form="1">
                 {% csrf_token %}
 
                 <!-- Title -->
@@ -57,17 +57,7 @@
 
                 <!-- Group and Venue Row -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-medium">Group *</span>
-                        </label>
-                        {{ form.group }}
-                        {% if form.group.errors %}
-                        <label class="label">
-                            <span class="label-text-alt text-error">{{ form.group.errors.0 }}</span>
-                        </label>
-                        {% endif %}
-                    </div>
+                    {% include 'workflows/partials/event_group_lookup_field.html' %}
 
                     <div class="form-control">
                         <label class="label">
@@ -82,32 +72,7 @@
                     </div>
                 </div>
 
-                <!-- Date and Time Row -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-medium">Start Date & Time *</span>
-                        </label>
-                        {{ form.start_datetime }}
-                        {% if form.start_datetime.errors %}
-                        <label class="label">
-                            <span class="label-text-alt text-error">{{ form.start_datetime.errors.0 }}</span>
-                        </label>
-                        {% endif %}
-                    </div>
-
-                    <div class="form-control">
-                        <label class="label">
-                            <span class="label-text font-medium">End Date & Time *</span>
-                        </label>
-                        {{ form.end_datetime }}
-                        {% if form.end_datetime.errors %}
-                        <label class="label">
-                            <span class="label-text-alt text-error">{{ form.end_datetime.errors.0 }}</span>
-                        </label>
-                        {% endif %}
-                    </div>
-                </div>
+                {% include 'workflows/partials/event_datetime_fields.html' %}
 
                 <!-- Status -->
                 <div class="form-control">

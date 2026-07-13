@@ -1,0 +1,25 @@
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text font-medium">Start Date & Time *</span>
+        </label>
+        {{ form.start_datetime }}
+        {% if form.start_datetime.errors %}
+        <label class="label">
+            <span class="label-text-alt text-error">{{ form.start_datetime.errors.0 }}</span>
+        </label>
+        {% endif %}
+    </div>
+
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text font-medium">End Date & Time *</span>
+        </label>
+        {{ form.end_datetime }}
+        {% if form.end_datetime.errors %}
+        <label class="label">
+            <span class="label-text-alt text-error">{{ form.end_datetime.errors.0 }}</span>
+        </label>
+        {% endif %}
+    </div>
+</div>

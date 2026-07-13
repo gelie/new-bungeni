@@ -245,6 +245,9 @@ AUTH_LDAP_CONNECTION_OPTIONS = {
 # Custom user model
 AUTH_USER_MODEL = "workflows.User"
 
+# Django Ninja pagination defaults
+NINJA_PAGINATION_PER_PAGE = 20
+
 # Login URLs
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"

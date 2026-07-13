@@ -957,9 +957,8 @@ def workflow_detail(request, pk):
     referral_history = workflow.referrals.select_related(
         "referred_to", "referred_by", "recalled_by"
     ).order_by("-referred_at")
-    can_refer = (
-        workflow.can_user_edit(request.user) and workflow.current_state.allows_referrals
-    )  # Check state permission
+    can_edit = workflow.can_user_edit(request.user)
+    can_refer = can_edit and workflow.current_state.allows_referrals
 
     # Add referral status information
     is_referred = workflow.is_referred
@@ -1053,6 +1052,7 @@ def workflow_detail(request, pk):
         "related_count": related_count,
         "active_referrals": active_referrals,
         "referral_history": referral_history,
+        "can_edit": can_edit,
         "can_refer": can_refer,
         "is_referred": is_referred,
         "referral_deadline": referral_deadline,
@@ -1081,9 +1081,79 @@ def event_create(request):
             return redirect("event_detail", pk=event.pk)
     else:
         form = EventForm(request.user)
-    context = {"form": form}
+
+    selected_group = None
+    group_search = ""
+    selected_group_id = form["group"].value()
+    if selected_group_id:
+        try:
+            selected_group = (
+                form.fields["group"].queryset.filter(pk=selected_group_id).first()
+            )
+        except (ValueError, ValidationError):
+            selected_group = None
+        if selected_group:
+            group_search = selected_group.name
+
+    if request.method == "POST" and not group_search:
+        group_search = (request.POST.get("group_search") or request.POST.get("search") or "").strip()
+
+    context = {
+        "form": form,
+        "selected_group": selected_group,
+        "group_search": group_search,
+    }
     return context
     # return render(request, "workflows/event_create.html", context )
+
+
+@login_required
+def event_group_lookup(request):
+    """HTMX endpoint for searching groups in the event create/edit forms."""
+    search_query = (request.GET.get("search") or request.GET.get("group_search") or "").strip()
+
+    # If the user is superuser, allow searching all groups. Otherwise restrict to their groups.
+    if request.user.is_superuser:
+        groups = Group.objects.all()
+    else:
+        user_group_ids = request.user.memberships.filter(is_active=True).values_list(
+            "group", flat=True
+        )
+        groups = Group.objects.filter(id__in=user_group_ids)
+
+    # Broaden search to multiple fields so terms like 'ICT' may match short_name/slug/description
+    if search_query:
+        groups = groups.filter(
+            Q(name__icontains=search_query)
+            | Q(short_name__icontains=search_query)
+            | Q(slug__icontains=search_query)
+            | Q(description__icontains=search_query)
+            | Q(parent__name__icontains=search_query)
+        ).distinct()
+
+    groups = groups.order_by("name")[:20]
+    groups_count = groups.count()
+    debug_mode = bool(request.GET.get("debug"))
+
+    suggestions = False
+    # If no matches and a search was provided, offer suggestions for superusers
+    if groups_count == 0 and search_query and request.user.is_superuser:
+        suggestions = True
+        groups = Group.objects.order_by("name")[:20]
+        groups_count = groups.count()
+
+    return render(
+        request,
+        "workflows/partials/event_group_lookup_results.html",
+        {
+            "groups": groups,
+            "search_query": search_query,
+            "groups_count": groups_count,
+            "debug": debug_mode,
+            "request_user": request.user.get_username(),
+            "suggestions": suggestions,
+        },
+    )
 
 
 @login_required
@@ -1152,9 +1222,28 @@ def event_edit(request, pk):
             return redirect("event_detail", pk=pk)
     else:
         form = EventForm(request.user, instance=event)
+
+    selected_group = None
+    group_search = ""
+    selected_group_id = form["group"].value()
+    if selected_group_id:
+        try:
+            selected_group = (
+                form.fields["group"].queryset.filter(pk=selected_group_id).first()
+            )
+        except (ValueError, ValidationError):
+            selected_group = None
+        if selected_group:
+            group_search = selected_group.name
+
+    if request.method == "POST" and not group_search:
+        group_search = (request.POST.get("group_search") or request.POST.get("search") or "").strip()
+
     context = {
         "form": form,
         "event": event,
+        "selected_group": selected_group,
+        "group_search": group_search,
         "attendances": event.attendances.select_related("user").order_by(
             "user__first_name", "user__last_name"
         ),

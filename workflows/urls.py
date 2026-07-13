@@ -42,6 +42,11 @@ urlpatterns = [
     # Events
     path("events/", views.event_list, name="event_list"),
     path("events/create/", views.event_create, name="event_create"),
+    path(
+        "events/group-lookup/",
+        views.event_group_lookup,
+        name="event_group_lookup",
+    ),
     path("events/<uuid:pk>/", views.event_detail, name="event_detail"),
     path("events/<uuid:pk>/edit/", views.event_edit, name="event_edit"),
     path(
