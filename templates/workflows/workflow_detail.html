@@ -38,6 +38,10 @@
     <!-- Workflow Header (Compact) -->
     <div class="card bg-base-100 shadow-xl overflow-visible">
         <div class="card-body pb-4 overflow-visible">
+          <div class="flex justify-between items-end gap-4">
+              <h1 class="text-2xl font-bold">{{ workflow.title }}</h1>
+              <span class="badge badge-lg badge-outline">NA Petition</span>
+          </div>
             <div class="flex justify-between items-end gap-4">
                 <div class="flex-1">
                     {% if workflow.parent_workflow %}
@@ -48,8 +52,8 @@
                                class="link link-primary">{{ workflow.parent_workflow.title|truncatewords:5 }}</a>
                         </div>
                     {% endif %}
-                    <h1 class="text-2xl font-bold">{{ workflow.title }}</h1>
-                    <!-- Key Status Indicators (Always Visible) -->
+
+                        <!-- Key Status Indicators (Always Visible) -->
                     <div class="flex flex-wrap gap-2 mt-3">
                         <span class="text-md font-bold flex items-center">Status:</span>
                         {% if available_transitions %}
@@ -80,7 +84,7 @@
                                   style="background-color: {{ workflow.current_state.color }};
                                          color: white">{{ workflow.current_state.name }}</span>
                         {% endif %}
-                        <span class="badge badge-lg badge-outline">{{ workflow.workflow_type.name }}</span>
+                        <!--<span class="badge badge-lg badge-outline">{{ workflow.workflow_type.name }}</span>-->
                         {% if workflow.priority == 'urgent' %}
                             <span class="badge badge-lg badge-error">Urgent</span>
                         {% elif workflow.priority == 'high' %}
@@ -752,15 +756,9 @@
                             <div class="collapse-content">
                                 {% if diagram_url %}
                                     <div class="bg-base-200 rounded-xl p-4 flex justify-center overflow-auto">
-                                        <img src="{{ diagram_url }}"
-                                             alt="{{ workflow.workflow_type.name }} workflow diagram"
-                                             class="max-w-full rounded-lg shadow"
-                                             {% comment %}
-                                             width="400"
-                                             {% endcomment %}
-                                             {% comment %}
-                                             height="400"
-                                             {% endcomment %} />
+                                      <a href="{{ diagram_url }}" target="_blank" class="flex justify-center">
+                                        <img src="{{ diagram_url }}" alt="Workflow Diagram" class="workflow-diagram">
+                                      </a>
                                     </div>
                                 {% else %}
                                     <div class="alert alert-warning">
@@ -1203,7 +1201,7 @@
                                     <tbody>
                                         {% for ref in referral_history %}
                                             <tr class="{% if ref.is_active %}bg-warning/10{% endif %}">
-                                                <td class="font-medium">{{ ref.referred_to.name }}</td>
+                                                <td class="text-sm">{{ ref.referred_to.name }}</td>
                                                 <td class="text-sm text-base-content/60">{{ ref.config.label|default:"—" }}</td>
                                                 <td class="text-sm max-w-xs truncate" title="{{ ref.reason }}">{{ ref.reason|default:"—" }}</td>
                                                 <td class="text-sm">{{ ref.referred_by.get_full_name|default:ref.referred_by.username }}</td>

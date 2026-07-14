@@ -315,6 +315,10 @@ div.alert.alert-warning {
     margin-bottom: 0.5px !important;
 }
 
+.tab {
+    color: var(--text-secondary-content);
+}
+
 .card-body,
 .input,
 .select,
@@ -323,4 +327,9 @@ div.alert.alert-warning {
 .stat-title,
 .stat-desc {
     font-size: 1rem !important;
+}
+
+.workflow-diagram {
+    height: 80%;
+    width: 80%;
 }
